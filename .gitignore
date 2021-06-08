@@ -1,0 +1,6 @@
+_output
+kubevirt-velero-plugin
+
+.go
+
+_tiltbuild
