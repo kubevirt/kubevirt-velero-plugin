@@ -43,4 +43,4 @@ fi
 # Execute the build
 [ -t 1 ] && USE_TTY="-it"
 
-docker exec -it -e VERSION=${VERSION} -e IMAGE=${IMAGE} ${BUILDER_CONTAINER_NAME} bash -c "$@"
+docker exec -e VERSION=${VERSION} -e IMAGE=${IMAGE} ${BUILDER_CONTAINER_NAME} bash -c "$@"
