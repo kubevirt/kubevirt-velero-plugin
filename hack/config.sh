@@ -21,10 +21,10 @@ CACHE_DIR=${OUT_DIR}/gocache
 
 # update this whenever builder Dockerfile is updated
 BUILDER_TAG=${BUILDER_TAG:-0.1}
-UNTAGGED_BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/kubevirt-velero-plugin-builder}
+BUILDER_CONTAINER_NAME=kubevirt-velero-plugin-builder
+UNTAGGED_BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/${BUILDER_CONTAINER_NAME}}
 BUILDER_IMAGE=${UNTAGGED_BUILDER_IMAGE}:${BUILDER_TAG}
 BUILDER_SPEC="${BUILD_DIR}/docker/builder"
-BUILDER_CONTAINER_NAME=kubevirt-velero-plugin-builder
 
 DOCKER_PREFIX=${DOCKER_PREFIX:-"quay.io/kubevirt"}
 DOCKER_TAG=${DOCKER_TAG:-latest}

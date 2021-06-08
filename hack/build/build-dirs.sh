@@ -20,5 +20,5 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
 mkdir -p _output/bin/${GOOS}/${GOARCH}
-mkdir -p _output/gocache/
+mkdir -p -m 777 _output/gocache/
 mkdir -p bin

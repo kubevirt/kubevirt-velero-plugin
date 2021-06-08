@@ -92,9 +92,11 @@ push-builder:
 	@hack/build/push-builder.sh
 
 clean: stop-builder
-	@${DO} "rm -rf _output bin"
+	@echo -e "${GREEN}Removing output directories${WHITE}"
+	@rm -rf _output bin
 
-test:
+test: build-dirs
+	@echo -e "${GREEN}Testing${WHITE}"
 	@${DO} "CGO_ENABLED=0 go test -v -timeout 60s ./..."
 
 modules:
@@ -111,3 +113,6 @@ stop-builder:
 	@echo -n -e "${GREEN}Stopping builder...${WHITE}"
 	@hack/build/stop-builder.sh > /dev/null
 	@echo -e "${GREEN} done${WHITE}"
+
+goveralls: test
+	${DO} "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"
