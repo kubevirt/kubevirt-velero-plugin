@@ -3,4 +3,4 @@ kubevirt-velero-plugin
 
 .go
 
-_tiltbuild
+_ci-configs
