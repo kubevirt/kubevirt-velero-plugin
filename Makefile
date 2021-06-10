@@ -31,7 +31,10 @@
 	push-builder \
 	cluster-up \
 	cluster-down \
-	cluster-sync
+	cluster-sync \
+	test-functional \
+	rebuild-functest \
+	clean-test
 
 DOCKER?=1
 ifeq (${DOCKER}, 1)
