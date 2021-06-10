@@ -20,6 +20,6 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
 
-echo ${IMAGE}:${VERSION}
-
-${velero_dir}/velero plugin remove ${IMAGE}:${VERSION}
+if [[ `kubectl get deployment velero -n velero -o json | jq .spec.template.spec.initContainers[].image | grep ${IMAGE}:${VERSION}` ]]; then
+    ${velero_dir}/velero plugin remove ${IMAGE}:${VERSION}
+fi

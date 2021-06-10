@@ -20,19 +20,21 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
 
-kubectl apply -f ${velero_dir}/minio-deployment.yaml
-kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLYOMENT_TIMEOUT}s
+if [[ ! `kubectl get deployments -n velero | grep minio` ]]; then
+  kubectl apply -f ${velero_dir}/minio-deployment.yaml
+  kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLYOMENT_TIMEOUT}s
+fi
 
-echo ${IMAGE}:${VERSION}
+if [[ ! `kubectl get deployments -n velero | grep velero` ]]; then
+  ${velero_dir}/velero install \
+    --provider aws \
+    --plugins velero/velero-plugin-for-aws:v1.0.0,velero/velero-plugin-for-csi:v0.1.0 \
+    --bucket velero \
+    --secret-file ${velero_dir}/credentials-velero \
+    --use-volume-snapshots=true \
+    --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
+    --snapshot-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
+    --features=EnableCSI
 
-${velero_dir}/velero install \
-  --provider aws \
-  --plugins velero/velero-plugin-for-aws:v1.0.0,velero/velero-plugin-for-csi:v0.1.0 \
-  --bucket velero \
-  --secret-file ${velero_dir}/credentials-velero \
-  --use-volume-snapshots=true \
-  --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
-  --snapshot-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
-  --features=EnableCSI
-
-kubectl wait -n velero deployment/velero --for=condition=Available --timeout=${DEPLYOMENT_TIMEOUT}s
+  kubectl wait -n velero deployment/velero --for=condition=Available --timeout=${DEPLYOMENT_TIMEOUT}s
+fi

@@ -28,7 +28,10 @@
 	add-plugin \
 	remove-plugin \
 	local-undeploy-velero \
-	push-builder
+	push-builder \
+	cluster-up \
+	cluster-down \
+	cluster-sync
 
 DOCKER?=1
 ifeq (${DOCKER}, 1)
@@ -116,3 +119,13 @@ stop-builder:
 
 goveralls: test
 	${DO} "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"
+
+cluster-up:
+	@cluster-up/up.sh
+	@make local-deploy-velero
+
+cluster-down:
+	@cluster-up/down.sh
+
+cluster-sync: remove-plugin cluster-push-image add-plugin
+	@echo -n -e "${GREEN}Plugin redeployed${WHITE}"

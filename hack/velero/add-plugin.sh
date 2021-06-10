@@ -20,6 +20,4 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
 
-echo ${IMAGE}:${VERSION}
-
 ${velero_dir}/velero plugin add ${IMAGE}:${VERSION}
