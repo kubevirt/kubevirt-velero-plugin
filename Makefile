@@ -31,7 +31,10 @@
 	push-builder \
 	cluster-up \
 	cluster-down \
-	cluster-sync
+	cluster-sync \
+	test-functional \
+	rebuild-functest \
+	clean-test
 
 DOCKER?=1
 ifeq (${DOCKER}, 1)
@@ -48,6 +51,11 @@ WHITE=\e[0;37m
 BIN=bin/kubevirt-velero-plugin
 SRC_FILES=main.go \
 	$(shell find pkg -name "*.go")
+
+TESTS_OUT_DIR=_output/tests
+TESTS_BINARY=_output/tests/tests.test
+TESTS_SRC_FILES=\
+	$(shell find tests -name "*.go")
 
 all: clean build-image cluster-push-image
 
@@ -100,7 +108,23 @@ clean: stop-builder
 
 test: build-dirs
 	@echo -e "${GREEN}Testing${WHITE}"
-	@${DO} "CGO_ENABLED=0 go test -v -timeout 60s ./..."
+	@${DO} "CGO_ENABLED=0 go test -v -timeout 60s ./pkg/..."
+
+test-functional: ${TESTS_BINARY}
+	@echo -e "${GREEN}Running functional tests${WHITE}"
+	@hack/build/run-functional-tests.sh ${WHAT} "${TEST_ARGS}"
+
+rebuild-functest: clean-test ${TESTS_BINARY}
+
+clean-test:
+	@rm -f ${TESTS_BINARY}
+
+${TESTS_BINARY}: ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
+	@echo -e "${GREEN}Building functional tests${WHITE}"
+	@${DO} hack/build/build-functest.sh
+
+${TESTS_OUT_DIR}:
+	@mkdir -p ${TESTS_OUT_DIR}
 
 modules:
 	@${DO} "GO111MODULE=on go mod tidy -v"

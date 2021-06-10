@@ -26,19 +26,25 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `all`: cleans up previous build artifacts, restarts the builder container, compiles the plugin, builds image and pushes it to the local cluster
 - `build-all`: compiles the plugin if source files changed
 - `build-image`: compiles the plugin if necessary and builds the image
+- `build-dirs`: creates output directories
 - `push-image`: pushes image to local registry
 - `cluster-push-image`: pushes image to registry of the local cluster
 - `local-deploy-velero`: deploys Minio and Velero to the local cluster
+- `local-undeploy-velero`: removes Minio and Velero fro the local cluster
 - `add-plugin`: adds the plugin to Velero deployment on the local cluster
 - `remove-plugin`: removes the plugin from Velero deployment on the local cluster
-- `local-undeploy-velero`: removes Minio and Velero fro the local cluster
 - `gomod-update`: updates module dependecies
 - `build-builder`: builds builder image
 - `push-builder`: pushes builder image to local registry
 - `clean`: stops the builder container and removes output directories
 - `test`: execute tests
-- `build-dirs`: creates output directories
+- `test-functional`: build and run functional tests
+- `rebuild-functest`: clean and build functional tests
+- `clean-test`: clean functional tests
 - `stop-builder`: stops builder container
+- `cluster-up`: start local k8s cluster and deploy KubeVirt and CDI on it
+- `cluster-down`: stop local k8s cluster
+- `cluster-sync`: undeploy the plugin, rebuild it and redeploy it
 
 #### Make Variables
 
@@ -59,14 +65,14 @@ virtualization is supported then the standard *kubevirtci framework* can be used
 
 Environment Variables and Supported Values
 
-| Env Variable       | Default       | Additional Values           |
-|--------------------|---------------|-----------------------------|
-|KUBEVIRT_PROVIDER   | k8s-1.18      | k8s-1.17, os-3.11.0-crio,   |
-|KUBEVIRT_STORAGE*   | none          | ceph, hpp, nfs, ember_lvm   |
+| Env Variable       | Default       | Additional Values            |
+|--------------------|---------------|------------------------------|
+|KUBEVIRT_PROVIDER   | k8s-1.19      | k8s-1.18, k8s-1.20, external |
+|KUBEVIRT_STORAGE*   | none          | rook-ceph-default, hpp, nfs, ember_lvm   |
 |KUBEVIRT_PROVIDER_EXTRA_ARGS |      |                             |
 |NUM_NODES           | 1             | 2-5                         |
 
-To Run Standard *cluster-up/kubevirtci* Tests
+To Run Standard Functional Tests
 ```
  # make cluster-up
  # make cluster-sync
@@ -85,12 +91,6 @@ E.g. to run the tests in transport_test.go:
 Clean Up
 ```
  # make cluster-down
-```
-
-Clean Up with docker container cache cleanup
-To cleanup all container images from local registry and to free a considerable amount of disk space. Note: caveat - cluser-sync will take longer since will have to fetch all the data again
-```
- # make cluster-down-purge
 ```
 
 ### Submit PRs

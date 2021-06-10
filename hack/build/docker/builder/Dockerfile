@@ -48,6 +48,8 @@ RUN \
     go get github.com/rmohr/go-swagger-utils/swagger-doc && \
     go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 && \
     go get github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
+	go get github.com/onsi/ginkgo/ginkgo && \
+	go get github.com/onsi/gomega/... && \
     rm -rf "${GOPATH}/pkg"
 
 ADD entrypoint.sh /entrypoint.sh
@@ -55,6 +57,7 @@ COPY rsyncd.conf /etc/rsyncd.conf
 RUN \
     sed 's/#mount_program = "\/usr\/bin\/fuse-overlayfs"/mount_program = "\/usr\/bin\/fuse-overlayfs"/' /etc/containers/storage.conf > /etc/containers/storage.conf.new && \
     cp /etc/containers/storage.conf.new /etc/containers/storage.conf
-ENV BUILDAH_ISOLATION=chroot
+ENV BUILDAH_ISOLATION=chroot \
+    PATH="/go/bin:${PATH}"
 
 ENTRYPOINT ["/entrypoint.sh"]

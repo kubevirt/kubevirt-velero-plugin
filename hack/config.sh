@@ -16,6 +16,7 @@ PLUGIN_DIR="$(cd $(dirname $0)/../../ && pwd -P)"
 BIN_DIR=${PLUGIN_DIR}/bin
 OUT_DIR=${PLUGIN_DIR}/_output
 TESTS_DIR=${OUT_DIR}/tests
+TESTS_OUT_DIR=${OUT_DIR}/tests
 BUILD_DIR=${PLUGIN_DIR}/hack/build
 CACHE_DIR=${OUT_DIR}/gocache
 
