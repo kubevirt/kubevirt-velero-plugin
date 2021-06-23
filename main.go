@@ -30,29 +30,29 @@ import (
 func main() {
 	framework.NewServer().
 		BindFlags(pflag.CommandLine).
-		RegisterObjectStore("kubevirt-velero-plugin/object-store-plugin", newObjectStorePlugin).
-		RegisterVolumeSnapshotter("kubevirt-velero-plugin/volume-snapshotter-plugin", newNoOpVolumeSnapshotterPlugin).
-		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-plugin", newRestorePlugin).
-		RegisterBackupItemAction("kubevirt-velero-plugin/backup-plugin", newBackupPlugin).
+		//RegisterObjectStore("kubevirt-velero-plugin/object-store-plugin", newObjectStorePlugin).
+		//RegisterVolumeSnapshotter("kubevirt-velero-plugin/volume-snapshotter-plugin", newNoOpVolumeSnapshotterPlugin).
+		//RegisterRestoreItemAction("kubevirt-velero-plugin/restore-plugin", newRestorePlugin).
+		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datavolume-action", newNewDVBackupItemAction).
 		Serve()
 }
 
-func newBackupPlugin(logger logrus.FieldLogger) (interface{}, error) {
-	logger.Debug("Creating backup plugin")
-	return plugin.NewBackupPlugin(logger), nil
+func newNewDVBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating DVBackupItemAction")
+	return plugin.NewDVBackupItemAction(logger), nil
 }
 
-func newObjectStorePlugin(logger logrus.FieldLogger) (interface{}, error) {
-	logger.Debug("Creating object store plugin")
-	return plugin.NewFileObjectStore(logger), nil
-}
+// func newObjectStorePlugin(logger logrus.FieldLogger) (interface{}, error) {
+// 	logger.Debug("Creating object store plugin")
+// 	return plugin.NewFileObjectStore(logger), nil
+// }
 
-func newRestorePlugin(logger logrus.FieldLogger) (interface{}, error) {
-	logger.Debug("Creating restore plugin")
-	return plugin.NewRestorePlugin(logger), nil
-}
+// func newRestorePlugin(logger logrus.FieldLogger) (interface{}, error) {
+// 	logger.Debug("Creating restore plugin")
+// 	return plugin.NewRestorePlugin(logger), nil
+// }
 
-func newNoOpVolumeSnapshotterPlugin(logger logrus.FieldLogger) (interface{}, error) {
-	logger.Debug("Creating volume snapshotter plugin")
-	return plugin.NewNoOpVolumeSnapshotter(logger), nil
-}
+// func newNoOpVolumeSnapshotterPlugin(logger logrus.FieldLogger) (interface{}, error) {
+// 	logger.Debug("Creating volume snapshotter plugin")
+// 	return plugin.NewNoOpVolumeSnapshotter(logger), nil
+// }
