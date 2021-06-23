@@ -24,7 +24,7 @@ KUBEVIRT_NUM_SECONDARY_NICS=${KUBEVIRT_NUM_SECONDARY_NICS:-0}
 KUBEVIRT_DEPLOY_ISTIO=${KUBEVIRT_DEPLOY_ISTIO:-false}
 KUBEVIRT_VERSION=${KUBEVIRT_VERSION:-v0.41.0}
 CDI_VERSION=${CDI_VERSION:-v1.34.1}
-KUBEVIRT_DEPLYOMENT_TIMEOUT=${KUBEVIRT_DEPLYOMENT_TIMEOUT:-480}
+KUBEVIRT_DEPLOYMENT_TIMEOUT=${KUBEVIRT_DEPLOYMENT_TIMEOUT:-480}
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 # http and https ports are accessed by testing framework and should not be randomized

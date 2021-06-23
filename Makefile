@@ -130,6 +130,7 @@ modules:
 	@${DO} "GO111MODULE=on go mod tidy -v"
 
 vendor:
+	@${DO} "GO111MODULE=on go mod tidy -v"
 	@${DO} "GO111MODULE=on go mod vendor -v"
 
 build-dirs:
@@ -146,10 +147,9 @@ goveralls: test
 
 cluster-up:
 	@cluster-up/up.sh
-	@make local-deploy-velero
 
 cluster-down:
 	@cluster-up/down.sh
 
-cluster-sync: remove-plugin cluster-push-image add-plugin
-	@echo -n -e "${GREEN}Plugin redeployed${WHITE}"
+cluster-sync: local-deploy-velero remove-plugin cluster-push-image add-plugin
+	@echo -e "${GREEN}Plugin redeployed${WHITE}"

@@ -22,19 +22,38 @@ source "${script_dir}"/../config.sh
 
 if [[ ! `kubectl get deployments -n velero | grep minio` ]]; then
   kubectl apply -f ${velero_dir}/minio-deployment.yaml
-  kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLYOMENT_TIMEOUT}s
+  kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
+fi
+
+PLUGINS=velero/velero-plugin-for-aws:v1.0.0
+FEATURES=""
+
+if [[ "${USE_CSI}" == "1" ]]; then
+  PLUGINS="${PLUGINS},${CSI_PLUGIN}"
+  FEATURES="--features=EnableCSI"
+fi
+
+if [[ "${USE_RESTIC}" == "1" ]]; then
+  FEATURES="${FEATURES} --use-restic"
 fi
 
 if [[ ! `kubectl get deployments -n velero | grep velero` ]]; then
+echo "Plugins: ${PLUGINS}"
+echo "Featureds: ${FEATURES}"
+
   ${velero_dir}/velero install \
     --provider aws \
-    --plugins velero/velero-plugin-for-aws:v1.0.0,velero/velero-plugin-for-csi:v0.1.0 \
+    --plugins ${PLUGINS} \
     --bucket velero \
     --secret-file ${velero_dir}/credentials-velero \
     --use-volume-snapshots=true \
     --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
     --snapshot-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
-    --features=EnableCSI
+    ${FEATURES}
 
-  kubectl wait -n velero deployment/velero --for=condition=Available --timeout=${DEPLYOMENT_TIMEOUT}s
+  kubectl wait -n velero deployment/velero --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
+
+  if [[ "${USE_CSI}" == "1" ]]; then
+    kubectl label volumesnapshotclass/csi-rbdplugin-snapclass velero.io/csi-volumesnapshot-class=true --overwrite=true
+  fi
 fi
