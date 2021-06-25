@@ -3,7 +3,6 @@ module kubevirt.io/kubevirt-velero-plugin
 go 1.16
 
 require (
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/hashicorp/go-plugin v1.0.1-0.20190610192547-a1bc61569a26 // indirect
 	github.com/onsi/ginkgo v1.14.1
@@ -14,10 +13,10 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/vmware-tanzu/velero v1.5.3
 	k8s.io/api v0.20.2
-	k8s.io/apiextensions-apiserver v0.20.2 // indirect
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v8.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.8.3 // indirect
+	k8s.io/klog/v2 v2.4.0
+	kubevirt.io/containerized-data-importer v1.35.0
 )
 
 replace (
