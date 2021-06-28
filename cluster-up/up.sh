@@ -22,9 +22,9 @@ kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconf
 # Deploy KubeVirt
 $kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-operator.yaml
 $kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-cr.yaml
-$kubectl wait -n kubevirt deployment/virt-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLYOMENT_TIMEOUT}s
+$kubectl wait -n kubevirt deployment/virt-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s
 
 # Deploy CDI
 $kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml
 $kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-cr.yaml
-$kubectl wait -n cdi deployment/cdi-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLYOMENT_TIMEOUT}s
+$kubectl wait -n cdi deployment/cdi-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s

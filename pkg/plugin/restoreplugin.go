@@ -41,7 +41,12 @@ func NewRestorePlugin(log logrus.FieldLogger) *RestorePlugin {
 // A RestoreItemAction's Execute function will only be invoked on items that match the returned
 // selector. A zero-valued ResourceSelector matches all resources.g
 func (p *RestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
-	return velero.ResourceSelector{}, nil
+	return velero.ResourceSelector{
+		IncludedResources: []string{
+			"PersistentVolumeClaim",
+			"DataVolume",
+		},
+	}, nil
 }
 
 // Execute allows the RestorePlugin to perform arbitrary logic with the item being restored,

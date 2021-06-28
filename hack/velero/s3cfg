@@ -1,0 +1,16 @@
+## This is a configuration for s3cfg which can be used to
+## access velero backup items stored in minio bucket on the
+## local cluster.
+
+# Setup endpoint
+host_base = minio.velero.svc:9000
+host_bucket = minio.velero.svc:9000
+bucket_location = aws-minio
+use_https = False
+
+# Setup access keys
+access_key = minio
+secret_key = minio123
+
+# Enable S3 v4 signature APIs
+signature_v2 = False
