@@ -7,6 +7,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	kubecli "kubevirt.io/client-go/kubecli"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
@@ -42,4 +43,17 @@ func GetCDIclientset() (*cdiclientset.Clientset, error) {
 		return nil, err
 	}
 	return cdiClient, nil
+}
+
+func GetKubeVirtclient() (*kubecli.KubevirtClient, error) {
+	kubeConfig := os.Getenv("KUBECONFIG")
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	kubevirtClient, err := kubecli.GetKubevirtClientFromRESTConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &kubevirtClient, nil
 }

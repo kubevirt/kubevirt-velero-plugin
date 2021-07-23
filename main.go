@@ -30,29 +30,29 @@ import (
 func main() {
 	framework.NewServer().
 		BindFlags(pflag.CommandLine).
-		//RegisterObjectStore("kubevirt-velero-plugin/object-store-plugin", newObjectStorePlugin).
-		//RegisterVolumeSnapshotter("kubevirt-velero-plugin/volume-snapshotter-plugin", newNoOpVolumeSnapshotterPlugin).
-		//RegisterRestoreItemAction("kubevirt-velero-plugin/restore-plugin", newRestorePlugin).
-		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datavolume-action", newNewDVBackupItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-vm-action", newVMRestoreItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-vmi-action", newVMIRestoreItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-pod-action", newPodRestoreItemAction).
+		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datavolume-action", newDVBackupItemAction).
 		Serve()
 }
 
-func newNewDVBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
+func newDVBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
 	logger.Debug("Creating DVBackupItemAction")
 	return plugin.NewDVBackupItemAction(logger), nil
 }
 
-// func newObjectStorePlugin(logger logrus.FieldLogger) (interface{}, error) {
-// 	logger.Debug("Creating object store plugin")
-// 	return plugin.NewFileObjectStore(logger), nil
-// }
+func newVMRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMIRestoreItemAction")
+	return plugin.NewVMRestoreItemAction(logger), nil
+}
 
-// func newRestorePlugin(logger logrus.FieldLogger) (interface{}, error) {
-// 	logger.Debug("Creating restore plugin")
-// 	return plugin.NewRestorePlugin(logger), nil
-// }
+func newVMIRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMIRestoreItemAction")
+	return plugin.NewVMIRestoreItemAction(logger), nil
+}
 
-// func newNoOpVolumeSnapshotterPlugin(logger logrus.FieldLogger) (interface{}, error) {
-// 	logger.Debug("Creating volume snapshotter plugin")
-// 	return plugin.NewNoOpVolumeSnapshotter(logger), nil
-// }
+func newPodRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating PodRestoreItemAction")
+	return plugin.NewPodRestoreItemAction(logger), nil
+}

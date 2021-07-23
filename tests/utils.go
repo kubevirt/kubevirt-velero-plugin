@@ -19,13 +19,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	kvv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
 const (
 	pollInterval = 3 * time.Second
-	waitTime     = 270 * time.Second
+	waitTime     = 400 * time.Second
 	veleroCLI    = "velero"
 )
 
@@ -43,6 +45,22 @@ func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace
 		return nil, err
 	}
 	return dataVolume, nil
+}
+
+func CreateVirtualMachineFromDefinition(client kubecli.KubevirtClient, namespace string, def *kvv1.VirtualMachine) (*kvv1.VirtualMachine, error) {
+	var virtualMachine *kvv1.VirtualMachine
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		var err error
+		virtualMachine, err = client.VirtualMachine(namespace).Create(def)
+		if err == nil || apierrs.IsAlreadyExists(err) {
+			return true, nil
+		}
+		return false, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return virtualMachine, nil
 }
 
 func CreateNamespace(client *kubernetes.Clientset) (*v1.Namespace, error) {
@@ -76,6 +94,10 @@ func CreateNamespace(client *kubernetes.Clientset) (*v1.Namespace, error) {
 func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		dataVolume, err := clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		}
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s, got %s\n", phase, dataVolume.Status.Phase)
 		if err != nil || dataVolume.Status.Phase != phase {
 			return false, err
 		}
@@ -98,6 +120,16 @@ func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace, name string)
 	})
 }
 
+func DeleteVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
+	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		err := client.VirtualMachine(namespace).Delete(name, &metav1.DeleteOptions{})
+		if err == nil || apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	})
+}
+
 func WaitDataVolumeDeleted(clientSet *cdiclientset.Clientset, namespace, dvName string) (bool, error) {
 	var result bool
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -112,6 +144,40 @@ func WaitDataVolumeDeleted(clientSet *cdiclientset.Clientset, namespace, dvName 
 		return false, nil
 	})
 	return result, err
+}
+
+func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace, name string, phase kvv1.VirtualMachineInstancePhase) error {
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		vmi, err := client.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s, got %s\n", phase, vmi.Status.Phase)
+		return vmi.Status.Phase == phase, nil
+	})
+
+	return err
+}
+
+func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name string, status kvv1.VirtualMachinePrintableStatus) error {
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s, got %s\n", status, vm.Status.PrintableStatus)
+		return vm.Status.PrintableStatus == status, nil
+	})
+
+	return err
 }
 
 func createBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, wait bool) error {
@@ -301,4 +367,34 @@ func getRestorePhase(ctx context.Context, restoreName string) (velerov1api.Resto
 	}
 
 	return restore.Status.Phase, nil
+}
+
+func StartVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
+	return client.VirtualMachine(namespace).Start(name, &kvv1.StartOptions{})
+}
+
+func StopVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
+	return client.VirtualMachine(namespace).Stop(name)
+}
+
+func GetVirtualMachine(client kubecli.KubevirtClient, namespace, name string) (*kvv1.VirtualMachine, error) {
+	return client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+}
+
+func PrintEventsForKind(client kubecli.KubevirtClient, kind, namespace, name string) {
+	events, _ := client.EventsV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
+	for _, event := range events.Items {
+		if event.Regarding.Kind == kind && event.Regarding.Name == name {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "  INFO: event for %s/%s: %s, %s, %s\n",
+				event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note)
+		}
+	}
+}
+
+func PrintEvents(client kubecli.KubevirtClient, namespace, name string) {
+	events, _ := client.EventsV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
+	for _, event := range events.Items {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "  INFO: event for %s/%s: %s, %s, %s\n",
+			event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note)
+	}
 }

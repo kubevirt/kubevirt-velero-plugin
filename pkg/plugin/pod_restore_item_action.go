@@ -24,28 +24,29 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 )
 
-// VMIRestorePlugin is a VMI restore item action plugin for Velero (duh!)
-type VMIRestorePlugin struct {
+// VIMRestorePlugin is a VMI restore item action plugin for Velero (duh!)
+type PodRestorePlugin struct {
 	log logrus.FieldLogger
 }
 
-// NewVMIRestorePlugin instantiates a RestorePlugin.
-func NewVMIRestoreItemAction(log logrus.FieldLogger) *VMIRestorePlugin {
-	return &VMIRestorePlugin{log: log}
+// NewPodRestorePlugin instantiates a RestorePlugin.
+func NewPodRestoreItemAction(log logrus.FieldLogger) *PodRestorePlugin {
+	return &PodRestorePlugin{log: log}
 }
 
 // AppliesTo returns information about which resources this action should be invoked for.
-func (p *VMIRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
+func (p *PodRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
 	return velero.ResourceSelector{
 		IncludedResources: []string{
-			"VirtualMachineInstance",
+			"Pod",
 		},
+		LabelSelector: "kubevirt.io=virt-launcher",
 	}, nil
 }
 
-// Execute – VMI should be unconditionally skipped
-func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
-	p.log.Info("Running VMIRestorePlugin")
+// Execute – Launcher Pod should be unconditionally skipped
+func (p *PodRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
+	p.log.Info("Running PodRestorePlugin")
 
 	return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil
 }
