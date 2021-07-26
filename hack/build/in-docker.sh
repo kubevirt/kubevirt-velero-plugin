@@ -22,8 +22,8 @@ source "${script_dir}"/../config.sh
 WORK_DIR="/go/src/kubevirt.io/kubevirt-velero-plugin"
 
 # Ensure that a build server is running
-if [ -z "$(docker ps --format '{{.Image}}' | grep ${BUILDER_IMAGE})" ]; then
-    docker run \
+if [ -z "$(${DOCKER_CMD} ps --format '{{.Image}}' | grep ${BUILDER_IMAGE})" ]; then
+    ${DOCKER_CMD} run \
         --rm \
         -d \
         --name ${BUILDER_CONTAINER_NAME} \
@@ -36,11 +36,11 @@ if [ -z "$(docker ps --format '{{.Image}}' | grep ${BUILDER_IMAGE})" ]; then
         -w ${WORK_DIR} \
         --privileged \
         --net=host \
-        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v ${DOCKER_HOST_SOCK}:/run/docker.sock \
         ${BUILDER_IMAGE} "while true; do sleep 24h; done"
 fi
 
 # Execute the build
 [ -t 1 ] && USE_TTY="-it"
 
-docker exec ${USE_TTY} ${BUILDER_CONTAINER_NAME} bash -c "$@"
+${DOCKER_CMD} exec ${USE_TTY} ${BUILDER_CONTAINER_NAME} bash -c "$@"

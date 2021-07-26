@@ -20,6 +20,6 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
 mkdir -p _output/bin/${GOOS}/${GOARCH}
-go build -v -a -ldflags '-extldflags "-static"' -tags static -o _output/bin/${GOOS}/${GOARCH} .
+go build -a -ldflags '-extldflags "-static"' -tags static -o _output/bin/${GOOS}/${GOARCH} .
 
 ln -f _output/bin/${GOOS}/${GOARCH}/${BIN} ${BIN_DIR}/${BIN}

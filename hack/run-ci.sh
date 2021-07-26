@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 #Copyright 2021 The CDI Authors.
 #
@@ -16,22 +16,8 @@
 
 set -e
 
-if [ -z "$KUBEVIRTCI_PATH" ]; then
-    KUBEVIRTCI_PATH="$(
-        cd "$(dirname "$BASH_SOURCE[0]")/"
-        echo "$(pwd)/"
-    )"../../cluster-up/
-fi
+# Setup a cluster
+make build-builder cluster-up cluster-push-image cluster-sync CLUSTER_PREFIX='-p pull-kvp-functional-test'
 
-script_dir="$(cd "$(dirname "$0")" && pwd -P)"
-velero_dir=${script_dir}/../velero
-source "${script_dir}"/../config.sh
-
-${velero_dir}/velero  \
-  --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
-  plugin add ${IMAGE}:${VERSION}
-
-sleep 15
-${velero_dir}/velero  \
-  --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
-  plugin get
+# Run the tests
+make test-functional CLUSTER_PREFIX='-p pull-kvp-functional-test'
