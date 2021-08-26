@@ -10,21 +10,23 @@ import (
 )
 
 func TestDV(t *testing.T) {
+	object := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cdi.kubevirt.io/v1beta1",
+			"kind":       "DataVolume",
+			"metadata": map[string]interface{}{
+				"name": "test-datavolume",
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
+
 	testCases := []struct {
 		name string
 		dv   *unstructured.Unstructured
 	}{
-		{"Adds AnnPrePopulated to DV", &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "cdi.kubevirt.io/v1beta1",
-				"kind":       "DataVolume",
-				"metadata": map[string]interface{}{
-					"name": "test-datavolume",
-				},
-				"spec": map[string]interface{}{},
-			},
-		},
-		}}
+		{"Adds AnnPrePopulated to DV", &object},
+	}
 
 	logrus.SetLevel(logrus.ErrorLevel)
 	action := NewDVBackupItemAction(logrus.StandardLogger())
@@ -37,6 +39,14 @@ func TestDV(t *testing.T) {
 			assert.Contains(t, annotations, AnnPrePopulated)
 		})
 	}
+
+	t.Run("DV should request PVC to be backed up as well", func(t *testing.T) {
+		_, extra, _ := action.Execute(&object, nil)
+
+		assert.Equal(t, 1, len(extra))
+		assert.Equal(t, "persistentvolumeclaims", extra[0].Resource)
+		assert.Equal(t, "test-datavolume", extra[0].Name)
+	})
 }
 
 func TestPVC(t *testing.T) {
