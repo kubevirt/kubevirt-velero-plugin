@@ -29,31 +29,42 @@ BUILDER_SPEC="${BUILD_DIR}/docker/builder"
 
 DOCKER_PREFIX=${DOCKER_PREFIX:-"quay.io/kubevirt"}
 DOCKER_TAG=${DOCKER_TAG:-latest}
+DOCKER_HOST_SOCK=${DOCKER_HOST_SOCK:-/run/docker.sock}
+DOCKER_GUEST_SOCK=${DOCKER_GUEST_SOCK:-/run/docker.sock}
+DOCKER_CMD=${DOCKER_CMD:-docker -H unix://${DOCKER_HOST_SOCK}}
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.19}
 
-PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.19}
+PROVIDER=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
 KUBEVIRTCI_TAG=2103240101-142f745
 
-GOOS=$(go env GOOS)
-GOARCH=$(go env GOARCH)
+if [[ $(which go 2>/dev/null) ]]; then
+  GOOS=$(go env GOOS)
+  GOARCH=$(go env GOARCH)
+else
+  GOOS=linux
+  GOARCH=arch64
+fi
 PKG=kubevirt.io/${IMAGE_NAME}
 BIN=kubevirt-velero-plugin
 
 _cli_container="${KUBEVIRTCI_GOCLI_CONTAINER:-quay.io/kubevirtci/gocli:${KUBEVIRTCI_TAG}}"
-_cli_command="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock"
+_cli_command="${DOCKER_CMD} run --privileged --net=host --rm ${USE_TTY} -v ${DOCKER_HOST_SOCK}:${DOCKER_GUEST_SOCK}"
 _cli="${_cli_command} ${_cli_container} --prefix ${PROVIDER}"
 
 _ssh=hack/ssh.sh
+kubectl="${_cli} --prefix ${PROVIDER} ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
 
 LOCAL_REGISTRY=localhost
 DOCKER_PREFIX=${LOCAL_REGISTRY}:${PORT}
 REGISTRY=registry:5000
-IMAGE_NAME=kubevirt-velero-plugin
+IMAGE_NAME=kubevirt/kubevirt-velero-plugin
 DEFAULT_IMAGE=${REGISTRY}/${IMAGE_NAME}
 IMAGE=${IMAGE:-${DEFAULT_IMAGE}}
 VERSION=${VERSION:-0.1}
 
 # Test infrastructure
-DEPLOYMENT_TIMEOUT=480
+#DEPLOYMENT_TIMEOUT=480
+DEPLOYMENT_TIMEOUT=600
 USE_CSI=${USE_CSI:-1}
 USE_RESTIC=${USE_RESTIC:-0}
-CSI_PLUGIN=${CSI_PLUGIN:-velero/velero-plugin-for-csi:v0.1.2}
+CSI_PLUGIN=${CSI_PLUGIN:-velero/velero-plugin-for-csi:main}

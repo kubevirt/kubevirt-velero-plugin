@@ -16,12 +16,24 @@
 
 set -eo pipefail
 
+if [ -z "$KUBEVIRTCI_PATH" ]; then
+    KUBEVIRTCI_PATH="$(
+        cd "$(dirname "$BASH_SOURCE[0]")/"
+        echo "$(pwd)/"
+    )"../../cluster-up/
+fi
+
 readonly MAX_CDI_WAIT_RETRY=30
 readonly CDI_WAIT_TIME=10
 
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source hack/config.sh
-source cluster-up/hack/common.sh
+source ${KUBEVIRTCI_PATH}hack/common.sh
+source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
+kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
+
+CONFIG=$(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig
+VELERO_DIR=$(pwd)/hack/velero
 
 # parsetTestOpts sets 'pkgs' and test_args
 function parseTestOpts() {
@@ -53,5 +65,5 @@ test_command="${TESTS_OUT_DIR}/tests.test -test.timeout 360m ${test_args}"
 echo "$test_command"
 (
     cd ${TESTS_DIR}
-    ${test_command}
+    KUBECONFIG=${CONFIG} PATH=${PATH}:${VELERO_DIR} ${test_command}
 )

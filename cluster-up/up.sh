@@ -9,6 +9,9 @@ fi
 
 source ${KUBEVIRTCI_PATH}hack/common.sh
 source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
+
+KUBEVIRT_STORAGE=rook-ceph-default
+
 up
 
 # check if the environment has a corrupted host

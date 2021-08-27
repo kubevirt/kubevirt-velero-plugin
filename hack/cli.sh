@@ -27,6 +27,7 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
 fi
 
 test -t 1 && USE_TTY="-it"
+DOCKER_GUEST_SOCK=/var/run/docker.sock
 source ${KUBEVIRTCI_PATH}/config.sh
 
 ${_cli} "$@"
