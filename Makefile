@@ -108,8 +108,7 @@ clean: stop-builder
 
 test: build-dirs
 	@echo -e "${GREEN}Testing${WHITE}"
-	# Temporarily turn off
-	# @${DO} "CGO_ENABLED=0 go test -v -timeout 60s ./pkg/..."
+	@${DO} "CGO_ENABLED=0 go test -v -timeout 60s ./pkg/..."
 
 test-functional: ${TESTS_BINARY}
 	@echo -e "${GREEN}Running functional tests${WHITE}"
