@@ -149,16 +149,16 @@ var _ = Describe("VM Backup", func() {
 			err := DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = deleteBackup(timeout, "test-backup")
+			err = DeleteBackup(timeout, "test-backup")
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Backing up stopped VM should succeed", func() {
 			By("Creating backup")
-			err := createBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
+			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			phase, err := getBackupPhase(timeout, "test-backup")
+			phase, err := GetBackupPhase(timeout, "test-backup")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 		})
@@ -172,20 +172,20 @@ var _ = Describe("VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = createBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
+			err = CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			phase, err := getBackupPhase(timeout, "test-backup")
+			phase, err := GetBackupPhase(timeout, "test-backup")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 		})
 
 		It("Stopeed VM should be restored", func() {
 			By("Creating backup")
-			err := createBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
+			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			phase, err := getBackupPhase(timeout, "test-backup")
+			phase, err := GetBackupPhase(timeout, "test-backup")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 
@@ -194,10 +194,10 @@ var _ = Describe("VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating restore")
-			err = createRestoreForBackup(timeout, "test-backup", "test-restore", true)
+			err = CreateRestoreForBackup(timeout, "test-backup", "test-restore", true)
 			Expect(err).ToNot(HaveOccurred())
 
-			rPhase, err := getRestorePhase(timeout, "test-restore")
+			rPhase, err := GetRestorePhase(timeout, "test-restore")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
@@ -214,10 +214,10 @@ var _ = Describe("VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = createBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
+			err = CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			phase, err := getBackupPhase(timeout, "test-backup")
+			phase, err := GetBackupPhase(timeout, "test-backup")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 
@@ -232,10 +232,10 @@ var _ = Describe("VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating restore")
-			err = createRestoreForBackup(timeout, "test-backup", "test-restore", true)
+			err = CreateRestoreForBackup(timeout, "test-backup", "test-restore", true)
 			Expect(err).ToNot(HaveOccurred())
 
-			rPhase, err := getRestorePhase(timeout, "test-restore")
+			rPhase, err := GetRestorePhase(timeout, "test-restore")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 

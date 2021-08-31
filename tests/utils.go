@@ -15,6 +15,7 @@ import (
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -63,6 +64,22 @@ func CreateVirtualMachineFromDefinition(client kubecli.KubevirtClient, namespace
 	return virtualMachine, nil
 }
 
+func CreateVirtualMachineInstanceFromDefinition(client kubecli.KubevirtClient, namespace string, def *kvv1.VirtualMachineInstance) (*kvv1.VirtualMachineInstance, error) {
+	var virtualMachineInstance *kvv1.VirtualMachineInstance
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		var err error
+		virtualMachineInstance, err = client.VirtualMachineInstance(namespace).Create(def)
+		if err == nil || apierrs.IsAlreadyExists(err) {
+			return true, nil
+		}
+		return false, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return virtualMachineInstance, nil
+}
+
 func CreateNamespace(client *kubernetes.Clientset) (*v1.Namespace, error) {
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -90,6 +107,55 @@ func CreateNamespace(client *kubernetes.Clientset) (*v1.Namespace, error) {
 	return nsObj, nil
 }
 
+// FindPVC Finds the passed in PVC
+func FindPVC(clientSet *kubernetes.Clientset, namespace, pvcName string) (*v1.PersistentVolumeClaim, error) {
+	return clientSet.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+}
+
+// WaitForPVC waits for a PVC
+func WaitForPVC(clientSet *kubernetes.Clientset, namespace, name string) (*v1.PersistentVolumeClaim, error) {
+	var pvc *v1.PersistentVolumeClaim
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		var err error
+		pvc, err = FindPVC(clientSet, namespace, name)
+		if err != nil {
+			if apierrs.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return pvc, nil
+}
+
+// WaitForPVCPhase waits for a PVC to reach a given phase
+func WaitForPVCPhase(clientSet *kubernetes.Clientset, namespace, name string, phase v1.PersistentVolumeClaimPhase) error {
+	var pvc *v1.PersistentVolumeClaim
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		var err error
+		pvc, err = FindPVC(clientSet, namespace, name)
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil || pvc.Status.Phase != phase {
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("PVC %s not in phase %s within %v", name, phase, waitTime)
+	}
+	return nil
+}
+
+func FindDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataVolumeName string) (*cdiv1.DataVolume, error) {
+	return clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
+}
+
 // WaitForDataVolumePhase waits for DV's phase to be in a particular phase (Pending, Bound, or Lost)
 func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -105,6 +171,31 @@ func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string,
 	})
 	if err != nil {
 		return fmt.Errorf("DataVolume %s not in phase %s within %v", dataVolumeName, phase, waitTime)
+	}
+	return nil
+}
+
+// WaitForDataVolumePhaseButNot waits for DV's phase to be in a particular phase without going through another phase
+func WaitForDataVolumePhaseButNot(clientSet *cdiclientset.Clientset, namespace string, phase cdiv1.DataVolumePhase, unwanted cdiv1.DataVolumePhase, dataVolumeName string) error {
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		dataVolume, err := clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if dataVolume.Status.Phase == unwanted {
+			return false, fmt.Errorf("reached unawanted phase %s", unwanted)
+		}
+		if dataVolume.Status.Phase == phase {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return err
+		// return fmt.Errorf("DataVolume %s not in phase %s within %v", dataVolumeName, phase, waitTime)
 	}
 	return nil
 }
@@ -130,10 +221,47 @@ func DeleteVirtualMachine(client kubecli.KubevirtClient, namespace, name string)
 	})
 }
 
+func DeleteVirtualMachineInstance(client kubecli.KubevirtClient, namespace, name string) error {
+	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		err := client.VirtualMachineInstance(namespace).Delete(name, &metav1.DeleteOptions{})
+		if err == nil || apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	})
+}
+
+// DeletePVC deletes the passed in PVC
+func DeletePVC(clientSet *kubernetes.Clientset, namespace string, pvcName string) error {
+	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		err := clientSet.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), pvcName, metav1.DeleteOptions{})
+		if err == nil || apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	})
+}
+
 func WaitDataVolumeDeleted(clientSet *cdiclientset.Clientset, namespace, dvName string) (bool, error) {
 	var result bool
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		_, err := clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+		if err != nil {
+			if apierrs.IsNotFound(err) {
+				result = true
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	})
+	return result, err
+}
+
+func WaitPVCDeleted(clientSet *kubernetes.Clientset, namespace, pvcName string) (bool, error) {
+	var result bool
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		_, err := clientSet.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
 		if err != nil {
 			if apierrs.IsNotFound(err) {
 				result = true
@@ -180,7 +308,82 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 	return err
 }
 
-func createBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, wait bool) error {
+func WaitForVirtualMachineStatuses(client kubecli.KubevirtClient, namespace, name string, statuses ...kvv1.VirtualMachinePrintableStatus) error {
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+
+		for _, status := range statuses {
+			if vm.Status.PrintableStatus == status {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+
+	return err
+}
+
+func WaitForVirtualMachineInstanceStatus(client kubecli.KubevirtClient, namespace, name string, phase kvv1.VirtualMachineInstancePhase) error {
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		vm, err := client.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+
+		return vm.Status.Phase == phase, nil
+	})
+
+	return err
+}
+
+func WaitVirtualMachineDeleted(client kubecli.KubevirtClient, namespace, name string) (bool, error) {
+	var result bool
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		_, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		if err != nil {
+			if apierrs.IsNotFound(err) {
+				result = true
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	})
+	return result, err
+}
+
+func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        dataVolumeName,
+			Annotations: map[string]string{},
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				Blank: &cdiv1.DataVolumeBlankImage{},
+			},
+			PVC: &v1.PersistentVolumeClaimSpec{
+				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceName(v1.ResourceStorage): resource.MustParse(size),
+					},
+				},
+			},
+		},
+	}
+}
+
+func CreateBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--include-namespaces", namespace,
@@ -206,10 +409,18 @@ func createBackupForNamespace(ctx context.Context, backupName string, namespace 
 	return nil
 }
 
-func deleteBackup(ctx context.Context, backupName string) error {
+func CreateBackupForSelector(ctx context.Context, backupName string, selector string, snapshotLocation string, wait bool) error {
 	args := []string{
-		"delete", "backup", backupName,
-		"--confirm",
+		"create", "backup", backupName,
+		"--selector", selector,
+	}
+
+	if snapshotLocation != "" {
+		args = append(args, "--volume-snapshot-locations", snapshotLocation)
+	}
+
+	if wait {
+		args = append(args, "--wait")
 	}
 
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
@@ -224,7 +435,53 @@ func deleteBackup(ctx context.Context, backupName string) error {
 	return nil
 }
 
-func getBackup(ctx context.Context, backupName string) (*velerov1api.Backup, error) {
+func CreateBackupForResources(ctx context.Context, backupName string, resources string, snapshotLocation string, wait bool) error {
+	args := []string{
+		"create", "backup", backupName,
+		"--include-resources", resources,
+	}
+
+	if snapshotLocation != "" {
+		args = append(args, "--volume-snapshot-locations", snapshotLocation)
+	}
+
+	if wait {
+		args = append(args, "--wait")
+	}
+
+	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
+	backupCmd.Stdout = os.Stdout
+	backupCmd.Stderr = os.Stderr
+	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	err := backupCmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DeleteBackup(ctx context.Context, backupName string) error {
+	args := []string{
+		"delete", "backup", backupName,
+		"--confirm",
+	}
+
+	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
+	backupCmd.Stdout = os.Stdout
+	backupCmd.Stderr = os.Stderr
+	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	err := backupCmd.Run()
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(2 * time.Second)
+
+	return nil
+}
+
+func GetBackup(ctx context.Context, backupName string) (*velerov1api.Backup, error) {
 	checkCMD := exec.CommandContext(ctx, veleroCLI, "backup", "get", "-o", "json", backupName)
 
 	stdoutPipe, err := checkCMD.StdoutPipe()
@@ -260,8 +517,8 @@ func getBackup(ctx context.Context, backupName string) (*velerov1api.Backup, err
 	return &backup, nil
 }
 
-func getBackupPhase(ctx context.Context, backupName string) (velerov1api.BackupPhase, error) {
-	backup, err := getBackup(ctx, backupName)
+func GetBackupPhase(ctx context.Context, backupName string) (velerov1api.BackupPhase, error) {
+	backup, err := GetBackup(ctx, backupName)
 	if err != nil {
 		return "", err
 	}
@@ -269,9 +526,9 @@ func getBackupPhase(ctx context.Context, backupName string) (velerov1api.BackupP
 	return backup.Status.Phase, nil
 }
 
-func waitForBackupPhase(ctx context.Context, backupName string, expectedPhase velerov1api.BackupPhase) error {
+func WaitForBackupPhase(ctx context.Context, backupName string, expectedPhase velerov1api.BackupPhase) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		phase, err := getBackupPhase(ctx, backupName)
+		phase, err := GetBackupPhase(ctx, backupName)
 		ginkgo.By(fmt.Sprintf("Waiting for backup phase %v, got %v", expectedPhase, phase))
 		if err != nil || phase != expectedPhase {
 			return false, err
@@ -284,7 +541,7 @@ func waitForBackupPhase(ctx context.Context, backupName string, expectedPhase ve
 	return nil
 }
 
-func createSnapshotLocation(ctx context.Context, locationName, provider, region string) error {
+func CreateSnapshotLocation(ctx context.Context, locationName, provider, region string) error {
 	args := []string{
 		"snapshot-location", "create", locationName,
 		"--provider", provider,
@@ -302,7 +559,7 @@ func createSnapshotLocation(ctx context.Context, locationName, provider, region 
 	return nil
 }
 
-func createRestoreForBackup(ctx context.Context, backupName, restoreName string, wait bool) error {
+func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string, wait bool) error {
 	args := []string{
 		"restore", "create", restoreName,
 		"--from-backup", backupName,
@@ -324,7 +581,7 @@ func createRestoreForBackup(ctx context.Context, backupName, restoreName string,
 	return nil
 }
 
-func getRestore(ctx context.Context, restoreName string) (*velerov1api.Restore, error) {
+func GetRestore(ctx context.Context, restoreName string) (*velerov1api.Restore, error) {
 	checkCMD := exec.CommandContext(ctx, veleroCLI, "restore", "get", "-o", "json", restoreName)
 
 	stdoutPipe, err := checkCMD.StdoutPipe()
@@ -360,8 +617,8 @@ func getRestore(ctx context.Context, restoreName string) (*velerov1api.Restore, 
 	return &restore, nil
 }
 
-func getRestorePhase(ctx context.Context, restoreName string) (velerov1api.RestorePhase, error) {
-	restore, err := getRestore(ctx, restoreName)
+func GetRestorePhase(ctx context.Context, restoreName string) (velerov1api.RestorePhase, error) {
+	restore, err := GetRestore(ctx, restoreName)
 	if err != nil {
 		return "", err
 	}
@@ -369,8 +626,27 @@ func getRestorePhase(ctx context.Context, restoreName string) (velerov1api.Resto
 	return restore.Status.Phase, nil
 }
 
+func WaitForRestorePhase(ctx context.Context, restoreName string, expectedPhase velerov1api.RestorePhase) error {
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		phase, err := GetRestorePhase(ctx, restoreName)
+		ginkgo.By(fmt.Sprintf("Waiting for restore phase %v, got %v", expectedPhase, phase))
+		if err != nil || phase != expectedPhase {
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("restore %s not in phase %s within %v", restoreName, expectedPhase, waitTime)
+	}
+	return nil
+}
+
 func StartVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
 	return client.VirtualMachine(namespace).Start(name, &kvv1.StartOptions{})
+}
+
+func PauseVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
+	return client.VirtualMachineInstance(namespace).Pause(name)
 }
 
 func StopVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {

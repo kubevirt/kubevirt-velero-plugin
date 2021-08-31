@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 )
 
@@ -65,6 +66,7 @@ func (p *DVBackupItemAction) AppliesTo() (velero.ResourceSelector, error) {
 func (p *DVBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backup) (runtime.Unstructured, []velero.ResourceIdentifier, error) {
 	p.log.Info("Executing DVBackupItemAction")
 	p.log.Debugf("Item: %+v", item.GetObjectKind())
+	extra := []velero.ResourceIdentifier{}
 
 	metadata, err := meta.Accessor(item)
 	if err != nil {
@@ -81,20 +83,26 @@ func (p *DVBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 	case "PersistentVolumeClaim":
 		annotations = p.handlePVC(annotations, metadata)
 	case "DataVolume":
-		annotations = p.handleDataVolume(annotations, metadata)
+		annotations, extra = p.handleDataVolume(annotations, metadata)
 	}
 
 	metadata.SetAnnotations(annotations)
 
-	return item, nil, nil
+	return item, extra, nil
 }
 
-func (p *DVBackupItemAction) handleDataVolume(annotations map[string]string, metadata metav1.Object) map[string]string {
+func (p *DVBackupItemAction) handleDataVolume(annotations map[string]string, metadata metav1.Object) (map[string]string, []velero.ResourceIdentifier) {
 	p.log.Infof("handling DataVolume %v/%v", metadata.GetNamespace(), metadata.GetName())
 	// TODO: if DV name will ever be different that PVC name, this must be changed
 	annotations[AnnPrePopulated] = metadata.GetName()
 
-	return annotations
+	extra := []velero.ResourceIdentifier{{
+		GroupResource: kuberesource.PersistentVolumeClaims,
+		Namespace:     metadata.GetNamespace(),
+		Name:          metadata.GetName(),
+	}}
+
+	return annotations, extra
 }
 
 func (p *DVBackupItemAction) handlePVC(annotations map[string]string, metadata metav1.Object) map[string]string {
