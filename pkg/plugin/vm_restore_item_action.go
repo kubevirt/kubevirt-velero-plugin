@@ -20,6 +20,8 @@
 package plugin
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
@@ -51,6 +53,10 @@ func (p *VMRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
 // Execute – If VM was running, it must be restored as stopped
 func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
 	p.log.Info("Running VMRestorePlugin")
+
+	if input == nil {
+		return nil, fmt.Errorf("input object nil!")
+	}
 
 	vm := new(kvcore.VirtualMachine)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(input.Item.UnstructuredContent(), vm); err != nil {

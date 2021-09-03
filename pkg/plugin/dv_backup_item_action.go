@@ -20,6 +20,8 @@
 package plugin
 
 import (
+	"fmt"
+
 	"github.com/sirupsen/logrus"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -65,7 +67,11 @@ func (p *DVBackupItemAction) AppliesTo() (velero.ResourceSelector, error) {
 // in this case, setting a custom annotation on the item being backed up.
 func (p *DVBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backup) (runtime.Unstructured, []velero.ResourceIdentifier, error) {
 	p.log.Info("Executing DVBackupItemAction")
-	p.log.Debugf("Item: %+v", item.GetObjectKind())
+
+	if backup == nil {
+		return nil, nil, fmt.Errorf("backup object nil!")
+	}
+
 	extra := []velero.ResourceIdentifier{}
 
 	metadata, err := meta.Accessor(item)

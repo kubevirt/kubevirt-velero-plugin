@@ -32,6 +32,7 @@ import (
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	kvcore "kubevirt.io/client-go/api/v1"
@@ -70,6 +71,11 @@ func (p *VMIBackupItemAction) AppliesTo() (velero.ResourceSelector, error) {
 // Execute returns VM's DataVolumes as extra items to back up.
 func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backup) (runtime.Unstructured, []velero.ResourceIdentifier, error) {
 	p.log.Info("Executing VMIBackupItemAction")
+
+	if backup == nil {
+		return nil, nil, fmt.Errorf("backup object nil!")
+	}
+
 	extra := []velero.ResourceIdentifier{}
 
 	vmi := new(kvcore.VirtualMachineInstance)
@@ -77,31 +83,44 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, errors.WithStack(err)
 	}
 
-	if isVMIOwned(vmi) {
-		if !util.IsResourceIncluded("virtualmachines", backup) {
-			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
+	if !util.IsVMIPaused(vmi) {
+		if !util.IsResourceInBackup("pods", backup) && util.IsResourceInBackup("persistentvolumeclaims", backup) {
+			return nil, nil, fmt.Errorf("VM is running but launcher pod is not included in the backup")
 		}
 
-		paused, err := isVMPaused(vmi)
+		excluded, err := p.isPodExcludedByLabel(vmi)
 		if err != nil {
 			return nil, nil, errors.WithStack(err)
 		}
-		if !paused && !util.IsResourceIncluded("pods", backup) {
+
+		if excluded {
 			return nil, nil, fmt.Errorf("VM is running but launcher pod is not included in the backup")
+		}
+	}
+
+	if isVMIOwned(vmi) {
+		if !util.IsResourceInBackup("virtualmachines", backup) {
+			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
+		}
+
+		excluded, err := isVMExcludedByLabel(vmi)
+		if err != nil {
+			return nil, nil, errors.WithStack(err)
+		}
+
+		if excluded {
+			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
 		}
 
 		util.AddAnnotation(item, AnnIsOwned, "true")
 	} else {
-		if !util.IsResourceIncluded("pods", backup) {
-			return nil, nil, fmt.Errorf("VM is running but launcher pod is not included in the backup")
+		restore, err := util.RestorePossible(vmi.Spec.Volumes, backup, vmi.Namespace, func(volume kvcore.Volume) bool { return false }, p.log)
+		if err != nil {
+			return nil, nil, errors.WithStack(err)
 		}
-		if hasDVVolumes(vmi) && !util.IsResourceIncluded("datavolumes", backup) {
-			return nil, nil, fmt.Errorf("VM has DataVolume volumes and DataVolumes is not included in the backup")
+		if !restore {
+			return nil, nil, fmt.Errorf("VM has DataVolume or PVC volumes and DataVolumes/PVCs is not included in the backup")
 		}
-		if hasPVCVolumes(vmi) && !util.IsResourceIncluded("persistentvolumeclaims", backup) {
-			return nil, nil, fmt.Errorf("VM has PVC volumes and PVCs is not included in the backup")
-		}
-		// TODO: what about other types of volumes?
 	}
 
 	extra, err := p.addLauncherPod(vmi, extra)
@@ -119,7 +138,7 @@ func isVMIOwned(vmi *kvcore.VirtualMachineInstance) bool {
 }
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
-var isVMPaused = func(vmi *kvcore.VirtualMachineInstance) (bool, error) {
+var isVMExcludedByLabel = func(vmi *kvcore.VirtualMachineInstance) (bool, error) {
 	client, err := util.GetKubeVirtclient()
 	if err != nil {
 		return false, err
@@ -130,10 +149,29 @@ var isVMPaused = func(vmi *kvcore.VirtualMachineInstance) (bool, error) {
 		return false, err
 	}
 
-	return vm.Status.PrintableStatus == kvcore.VirtualMachineStatusPaused, nil
+	label, ok := vm.GetLabels()[util.VELERO_EXCLUDE_LABEL]
+	return ok && label == "true", nil
 }
 
-func (p *VMIBackupItemAction) addLauncherPod(vmi *kvcore.VirtualMachineInstance, extra []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+func (p *VMIBackupItemAction) isPodExcludedByLabel(vmi *kvcore.VirtualMachineInstance) (bool, error) {
+	pod, err := p.getLauncherPod(vmi)
+	if err != nil {
+		return false, err
+	}
+	if pod == nil {
+		return false, fmt.Errorf("pod for running VMI not found")
+	}
+
+	labels := pod.GetLabels()
+	if labels == nil {
+		return false, nil
+	}
+
+	label, ok := labels[util.VELERO_EXCLUDE_LABEL]
+	return ok && label == "true", nil
+}
+
+func (p *VMIBackupItemAction) getLauncherPod(vmi *kvcore.VirtualMachineInstance) (*core.Pod, error) {
 	pods, err := p.client.CoreV1().Pods(vmi.GetNamespace()).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "kubevirt.io=virt-launcher",
 	})
@@ -143,12 +181,24 @@ func (p *VMIBackupItemAction) addLauncherPod(vmi *kvcore.VirtualMachineInstance,
 
 	for _, pod := range pods.Items {
 		if pod.Annotations["kubevirt.io/domain"] == vmi.GetName() {
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: kuberesource.Pods,
-				Namespace:     vmi.GetNamespace(),
-				Name:          pod.GetName(),
-			})
+			return &pod, nil
 		}
+	}
+
+	return nil, nil
+}
+
+func (p *VMIBackupItemAction) addLauncherPod(vmi *kvcore.VirtualMachineInstance, extra []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	pod, err := p.getLauncherPod(vmi)
+	if err != nil {
+		return nil, err
+	}
+	if pod != nil {
+		extra = append(extra, velero.ResourceIdentifier{
+			GroupResource: kuberesource.Pods,
+			Namespace:     vmi.GetNamespace(),
+			Name:          pod.GetName(),
+		})
 	}
 
 	return extra, nil
@@ -174,24 +224,4 @@ func addVolumes(vmi *kvcore.VirtualMachineInstance, extra []velero.ResourceIdent
 	}
 
 	return extra
-}
-
-func hasDVVolumes(vmi *kvcore.VirtualMachineInstance) bool {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.DataVolume != nil {
-			return true
-		}
-	}
-
-	return false
-}
-
-func hasPVCVolumes(vmi *kvcore.VirtualMachineInstance) bool {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.PersistentVolumeClaim != nil {
-			return true
-		}
-	}
-
-	return false
 }

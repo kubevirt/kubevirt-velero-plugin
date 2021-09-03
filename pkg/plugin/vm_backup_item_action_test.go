@@ -12,22 +12,16 @@ import (
 	kvcore "kubevirt.io/client-go/api/v1"
 )
 
-// VirtualMachineStatusStopped VirtualMachinePrintableStatus = "Stopped"
-// 	VirtualMachineStatusProvisioning VirtualMachinePrintableStatus = "Provisioning"
-// 	VirtualMachineStatusStarting VirtualMachinePrintableStatus = "Starting"
-// 	VirtualMachineStatusRunning VirtualMachinePrintableStatus = "Running"
-// 	VirtualMachineStatusPaused VirtualMachinePrintableStatus = "Paused"
-// 	VirtualMachineStatusStopping VirtualMachinePrintableStatus = "Stopping"
-// 	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
-// 	VirtualMachineStatusMigrating VirtualMachinePrintableStatus = "Migrating"
-// 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
+func returnTrue(vm *kvcore.VirtualMachine) (bool, error)  { return true, nil }
+func returnFalse(vm *kvcore.VirtualMachine) (bool, error) { return false, nil }
 
 func TestCanBeSafelyBackedUp(t *testing.T) {
 	testCases := []struct {
-		name     string
-		vm       kvcore.VirtualMachine
-		backup   v1.Backup
-		expected bool
+		name                 string
+		vm                   kvcore.VirtualMachine
+		backup               v1.Backup
+		isVMIExcludedByLabel func(vm *kvcore.VirtualMachine) (bool, error)
+		expected             bool
 	}{
 		{"Stopped VM can be safely backed up",
 			kvcore.VirtualMachine{
@@ -36,6 +30,7 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
 		{"Provisioning VM can be safely backed up",
@@ -45,6 +40,7 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
 		{"Paused VM can be safely backed up",
@@ -54,6 +50,7 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
 		{"Stopping VM can be safely backed up", // TODO: Can it really!?
@@ -63,6 +60,7 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
 		{"Terminating VM can be safely backed up",
@@ -72,6 +70,7 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
 		{"Migrating VM can be safely backed up", // TODO: Can it really?
@@ -81,6 +80,7 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
 		{"VM with unknown status can be safely backed up",
@@ -90,25 +90,38 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
-		{"Running VM can be safely backed up when IncludeResource is empty",
+		{"Running VM can be safely backed up when IncludeResources and ExcludedResources is empty and VMI not excluded by label",
 			kvcore.VirtualMachine{
 				Status: kvcore.VirtualMachineStatus{
 					PrintableStatus: kvcore.VirtualMachineStatusRunning,
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
 		},
-		{"Starting VM can be safely backed up when IncludeResource is empty",
+		{"Starting VM can be safely backed up when IncludeResources and ExcludedResrouces is empty and VMI not excluded by label",
 			kvcore.VirtualMachine{
 				Status: kvcore.VirtualMachineStatus{
 					PrintableStatus: kvcore.VirtualMachineStatusStarting,
 				},
 			},
 			v1.Backup{},
+			returnFalse,
 			true,
+		},
+		{"Running VM can be safely backed up when IncludeResources and ExcludedResources is empty and VMI is excluded by label",
+			kvcore.VirtualMachine{
+				Status: kvcore.VirtualMachineStatus{
+					PrintableStatus: kvcore.VirtualMachineStatusRunning,
+				},
+			},
+			v1.Backup{},
+			returnTrue,
+			false,
 		},
 		{"Running VM can be safely backed up when IncludeResource contains both pods and VMIs",
 			kvcore.VirtualMachine{
@@ -121,22 +134,38 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 					IncludedResources: []string{"pods", "virtualmachineinstances"},
 				},
 			},
+			returnFalse,
 			true,
 		},
-		{"Starting VM can be safely backed up when IncludeResource contains both pods and VMIs",
+		{"Running VM can be safely backed up when ExcludeResource contains both pods and PVCs",
 			kvcore.VirtualMachine{
 				Status: kvcore.VirtualMachineStatus{
-					PrintableStatus: kvcore.VirtualMachineStatusStarting,
+					PrintableStatus: kvcore.VirtualMachineStatusRunning,
 				},
 			},
 			v1.Backup{
 				Spec: v1.BackupSpec{
-					IncludedResources: []string{"pods", "virtualmachineinstances"},
+					ExcludedResources: []string{"pods", "persistentvolumeclaims"},
 				},
 			},
+			returnFalse,
 			true,
 		},
-		{"Running VM cannot be safely backed up when IncludeResource do not contains pods",
+		{"Running VM cannot be safely backed up when IncludeResource do not contain pods",
+			kvcore.VirtualMachine{
+				Status: kvcore.VirtualMachineStatus{
+					PrintableStatus: kvcore.VirtualMachineStatusRunning,
+				},
+			},
+			v1.Backup{
+				Spec: v1.BackupSpec{
+					IncludedResources: []string{"virtualmachineinstances", "persistentvolumeclaims"},
+				},
+			},
+			returnFalse,
+			false,
+		},
+		{"Running VM can be safely backed up when IncludeResource do not contain pods or PVCs",
 			kvcore.VirtualMachine{
 				Status: kvcore.VirtualMachineStatus{
 					PrintableStatus: kvcore.VirtualMachineStatusRunning,
@@ -147,9 +176,10 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 					IncludedResources: []string{"virtualmachineinstances"},
 				},
 			},
-			false,
+			returnFalse,
+			true,
 		},
-		{"Running VM cannot be safely backed up when IncludeResource do not contains VMIs",
+		{"Running VM cannot be safely backed up when IncludeResource do not contain VMIs",
 			kvcore.VirtualMachine{
 				Status: kvcore.VirtualMachineStatus{
 					PrintableStatus: kvcore.VirtualMachineStatusRunning,
@@ -160,40 +190,56 @@ func TestCanBeSafelyBackedUp(t *testing.T) {
 					IncludedResources: []string{"pods"},
 				},
 			},
+			returnFalse,
 			false,
 		},
-		{"Starting VM cannot be safely backed up when IncludeResource do not contains pods",
+		{"Running VM cannot be safely backed up when ExcludeResource contains pods",
 			kvcore.VirtualMachine{
 				Status: kvcore.VirtualMachineStatus{
-					PrintableStatus: kvcore.VirtualMachineStatusStarting,
+					PrintableStatus: kvcore.VirtualMachineStatusRunning,
 				},
 			},
 			v1.Backup{
 				Spec: v1.BackupSpec{
-					IncludedResources: []string{"virtualmachineinstances"},
+					ExcludedResources: []string{"pods"},
 				},
 			},
+			returnFalse,
 			false,
 		},
-		{"Starting VM cannot be safely backed up when IncludeResource do not contains VMIs",
+		{"Running VM cannot be safely backed up when ExcludeResource contains VMIs",
 			kvcore.VirtualMachine{
 				Status: kvcore.VirtualMachineStatus{
-					PrintableStatus: kvcore.VirtualMachineStatusStarting,
+					PrintableStatus: kvcore.VirtualMachineStatusRunning,
 				},
 			},
 			v1.Backup{
 				Spec: v1.BackupSpec{
-					IncludedResources: []string{"pods"},
+					ExcludedResources: []string{"virtualmachineinstances"},
 				},
 			},
+			returnFalse,
+			false,
+		},
+		{"Running VM cannot be safely backed up when VMI is excluded by label",
+			kvcore.VirtualMachine{
+				Status: kvcore.VirtualMachineStatus{
+					PrintableStatus: kvcore.VirtualMachineStatusRunning,
+				},
+			},
+			v1.Backup{},
+			returnTrue,
 			false,
 		},
 	}
 
 	logrus.SetLevel(logrus.ErrorLevel)
+	action := NewVMBackupItemAction(logrus.StandardLogger())
 	for _, tc := range testCases {
+		isVMIExcludedByLabel = tc.isVMIExcludedByLabel
 		t.Run(tc.name, func(t *testing.T) {
-			actual := canBeSafelyBackedUp(&tc.vm, &tc.backup)
+			actual, err := action.canBeSafelyBackedUp(&tc.vm, &tc.backup)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
@@ -231,6 +277,40 @@ func TestVMBackupAction(t *testing.T) {
 			true,
 			[]velero.ResourceIdentifier{},
 		},
+		{"Action should return err for a VM would not be safely restored",
+			unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "kubevirt.io",
+					"kind":       "VirtualMachine",
+					"metadata": map[string]interface{}{
+						"name":      "test-vm",
+						"namespace": "test-namespace",
+					},
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"volumes": []map[string]interface{}{
+									{
+										"volumeSource": map[string]interface{}{
+											"dataVolume": map[string]interface{}{},
+										},
+									},
+								},
+							},
+						},
+					},
+					"status": map[string]interface{}{
+						"created":         true,
+						"printableStatus": "Running",
+					},
+				},
+			},
+			v1.Backup{Spec: v1.BackupSpec{
+				IncludedResources: []string{"datavolume"},
+			}},
+			true,
+			[]velero.ResourceIdentifier{},
+		},
 		{"Created VM needs to include VMI",
 			unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -240,7 +320,13 @@ func TestVMBackupAction(t *testing.T) {
 						"name":      "test-vm",
 						"namespace": "test-namespace",
 					},
-					"spec": map[string]interface{}{},
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"volumes": []map[string]interface{}{},
+							},
+						},
+					},
 					"status": map[string]interface{}{
 						"created": true,
 					},
@@ -264,6 +350,11 @@ func TestVMBackupAction(t *testing.T) {
 						"namespace": "test-namespace",
 					},
 					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"volumes": []map[string]interface{}{},
+							},
+						},
 						"dataVolumeTemplates": []interface{}{
 							map[string]interface{}{
 								"apiVersion": "cdi.kubevirt.io/v1beta1",
@@ -303,16 +394,23 @@ func TestVMBackupAction(t *testing.T) {
 
 	logrus.SetLevel(logrus.ErrorLevel)
 	action := NewVMBackupItemAction(logrus.StandardLogger())
+	isVMIExcludedByLabel = returnFalse
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, extra, err := action.Execute(&tc.vm, &tc.backup)
 
-			if !tc.errorExpected {
-				assert.Nil(t, err)
+			if tc.errorExpected {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 			for _, item := range tc.expectedExtra {
 				assert.Contains(t, extra, item)
 			}
 		})
 	}
+}
+
+func TestRestorePossible_VM(t *testing.T) {
+
 }

@@ -28,7 +28,7 @@ import (
 
 const (
 	pollInterval = 3 * time.Second
-	waitTime     = 400 * time.Second
+	waitTime     = 270 * time.Second
 	veleroCLI    = "velero"
 )
 
@@ -291,24 +291,7 @@ func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace
 	return err
 }
 
-func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name string, status kvv1.VirtualMachinePrintableStatus) error {
-	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
-		if apierrs.IsNotFound(err) {
-			return false, nil
-		}
-		if err != nil {
-			return false, err
-		}
-
-		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s, got %s\n", status, vm.Status.PrintableStatus)
-		return vm.Status.PrintableStatus == status, nil
-	})
-
-	return err
-}
-
-func WaitForVirtualMachineStatuses(client kubecli.KubevirtClient, namespace, name string, statuses ...kvv1.VirtualMachinePrintableStatus) error {
+func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name string, statuses ...kvv1.VirtualMachinePrintableStatus) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
@@ -409,7 +392,61 @@ func CreateBackupForNamespace(ctx context.Context, backupName string, namespace 
 	return nil
 }
 
-func CreateBackupForSelector(ctx context.Context, backupName string, selector string, snapshotLocation string, wait bool) error {
+func CreateBackupForNamespaceExcludeNamespace(ctx context.Context, backupName, includedNamespace, excludedNamespace, snapshotLocation string, wait bool) error {
+	args := []string{
+		"create", "backup", backupName,
+		"--include-namespaces", includedNamespace,
+		"--exclude-namespaces", excludedNamespace,
+	}
+
+	if snapshotLocation != "" {
+		args = append(args, "--volume-snapshot-locations", snapshotLocation)
+	}
+
+	if wait {
+		args = append(args, "--wait")
+	}
+
+	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
+	backupCmd.Stdout = os.Stdout
+	backupCmd.Stderr = os.Stderr
+	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	err := backupCmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateBackupForNamespaceExcludeResources(ctx context.Context, backupName, namespace, resources, snapshotLocation string, wait bool) error {
+	args := []string{
+		"create", "backup", backupName,
+		"--include-namespaces", namespace,
+		"--exclude-resources", resources,
+	}
+
+	if snapshotLocation != "" {
+		args = append(args, "--volume-snapshot-locations", snapshotLocation)
+	}
+
+	if wait {
+		args = append(args, "--wait")
+	}
+
+	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
+	backupCmd.Stdout = os.Stdout
+	backupCmd.Stderr = os.Stderr
+	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	err := backupCmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateBackupForSelector(ctx context.Context, backupName, selector, snapshotLocation string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--selector", selector,
@@ -435,7 +472,7 @@ func CreateBackupForSelector(ctx context.Context, backupName string, selector st
 	return nil
 }
 
-func CreateBackupForResources(ctx context.Context, backupName string, resources string, snapshotLocation string, wait bool) error {
+func CreateBackupForResources(ctx context.Context, backupName, resources, snapshotLocation string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--include-resources", resources,
@@ -655,6 +692,10 @@ func StopVirtualMachine(client kubecli.KubevirtClient, namespace, name string) e
 
 func GetVirtualMachine(client kubecli.KubevirtClient, namespace, name string) (*kvv1.VirtualMachine, error) {
 	return client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+}
+
+func GetVirtualMachineInstance(client kubecli.KubevirtClient, namespace, name string) (*kvv1.VirtualMachineInstance, error) {
+	return client.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
 }
 
 func PrintEventsForKind(client kubecli.KubevirtClient, kind, namespace, name string) {
