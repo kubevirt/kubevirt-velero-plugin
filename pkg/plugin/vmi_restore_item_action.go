@@ -20,6 +20,8 @@
 package plugin
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
@@ -35,7 +37,7 @@ type VMIRestorePlugin struct {
 
 // Copied over from KubeVirt
 // TODO: Consider making it public in KubeVirt
-var restriectedVmiLabels = []string{
+var restrictedVmiLabels = []string{
 	kvcore.CreatedByLabel,
 	kvcore.MigrationJobLabel,
 	kvcore.NodeNameLabel,
@@ -61,6 +63,10 @@ func (p *VMIRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
 func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
 	p.log.Info("Running VMIRestorePlugin")
 
+	if input == nil {
+		return nil, fmt.Errorf("input object nil!")
+	}
+
 	vmi := new(kvcore.VirtualMachineInstance)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(input.Item.UnstructuredContent(), vmi); err != nil {
 		return nil, errors.WithStack(err)
@@ -77,6 +83,8 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 		return nil, err
 	}
 
+	// Restricted labels must be cleared otherwise the VMI will be rejected.
+	// The restricted labels contain runtime information about the underlying KVM object.
 	labels := removeRestrictedLabels(vmi.GetLabels())
 	metadata.SetLabels(labels)
 
@@ -84,7 +92,7 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 }
 
 func removeRestrictedLabels(labels map[string]string) map[string]string {
-	for _, label := range restriectedVmiLabels {
+	for _, label := range restrictedVmiLabels {
 		delete(labels, label)
 	}
 	return labels

@@ -5,6 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -32,7 +33,7 @@ func TestDV(t *testing.T) {
 	action := NewDVBackupItemAction(logrus.StandardLogger())
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			item, _, _ := action.Execute(tc.dv, nil)
+			item, _, _ := action.Execute(tc.dv, &v1.Backup{})
 
 			metadata, _ := meta.Accessor(item)
 			annotations := metadata.GetAnnotations()
@@ -41,7 +42,7 @@ func TestDV(t *testing.T) {
 	}
 
 	t.Run("DV should request PVC to be backed up as well", func(t *testing.T) {
-		_, extra, _ := action.Execute(&object, nil)
+		_, extra, _ := action.Execute(&object, &v1.Backup{})
 
 		assert.Equal(t, 1, len(extra))
 		assert.Equal(t, "persistentvolumeclaims", extra[0].Resource)
@@ -108,7 +109,7 @@ func TestPVC(t *testing.T) {
 	action := NewDVBackupItemAction(logrus.StandardLogger())
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			item, _, _ := action.Execute(tc.pvc, nil)
+			item, _, _ := action.Execute(tc.pvc, &v1.Backup{})
 
 			metadata, _ := meta.Accessor(item)
 			annotations := metadata.GetAnnotations()

@@ -20,6 +20,8 @@
 package plugin
 
 import (
+	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 )
@@ -47,6 +49,10 @@ func (p *PodRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
 // Execute – Launcher Pod should be unconditionally skipped
 func (p *PodRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
 	p.log.Info("Running PodRestorePlugin")
+
+	if input == nil {
+		return nil, fmt.Errorf("input object nil!")
+	}
 
 	return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil
 }

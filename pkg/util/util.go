@@ -1,19 +1,27 @@
 package util
 
 import (
+	"context"
 	"os"
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 
+	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	kvv1 "kubevirt.io/client-go/api/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
+
+const VELERO_EXCLUDE_LABEL = "velero.io/exclude-from-backup"
 
 func GetK8sClient() (*kubernetes.Clientset, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -62,25 +70,52 @@ func GetKubeVirtclient() (*kubecli.KubevirtClient, error) {
 	return &kubevirtClient, nil
 }
 
-func IsResourceIncluded(resource string, backup *velerov1.Backup) bool {
+func IsResourceIncluded(resourceKind string, backup *velerov1.Backup) bool {
 	if len(backup.Spec.IncludedResources) == 0 {
 		// Not a "--include-resources" backup, assume the resource is included
 		return true
 	}
 
 	for _, res := range backup.Spec.IncludedResources {
-		if strings.EqualFold(res, resource) {
-			return true
-		}
-		if strings.EqualFold(res+"s", resource) {
-			return true
-		}
-		if strings.EqualFold(res, resource+"s") {
+		if equalIgnorePlural(res, resourceKind) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func IsResourceExcluded(resourceKind string, backup *velerov1.Backup) bool {
+	if len(backup.Spec.ExcludedResources) == 0 {
+		// Not a "--exclude-resources" backup, assume the resource is included
+		return false
+	}
+
+	for _, res := range backup.Spec.ExcludedResources {
+		if equalIgnorePlural(res, resourceKind) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func equalIgnorePlural(str1, str2 string) bool {
+	if strings.EqualFold(str1, str2) {
+		return true
+	}
+	if strings.EqualFold(str1+"s", str2) {
+		return true
+	}
+	if strings.EqualFold(str1, str2+"s") {
+		return true
+	}
+
+	return false
+}
+
+func IsResourceInBackup(resourceKind string, backup *velerov1.Backup) bool {
+	return IsResourceIncluded(resourceKind, backup) && !IsResourceExcluded(resourceKind, backup)
 }
 
 func AddAnnotation(item runtime.Unstructured, annotation, value string) {
@@ -97,4 +132,97 @@ func AddAnnotation(item runtime.Unstructured, annotation, value string) {
 	annotations[annotation] = value
 
 	metadata.SetAnnotations(annotations)
+}
+
+func IsVMIPaused(vmi *kvv1.VirtualMachineInstance) bool {
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == kvv1.VirtualMachineInstancePaused && c.Status == k8score.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
+}
+
+// This is assigned to a variable so it can be replaced by a mock function in tests
+var IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) {
+	client, err := GetCDIclientset()
+	if err != nil {
+		return false, err
+	}
+
+	dv, err := (*client).CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	labels := dv.GetLabels()
+	if labels == nil {
+		return false, nil
+	}
+
+	label, ok := labels[VELERO_EXCLUDE_LABEL]
+	return ok && label == "true", nil
+}
+
+// This is assigned to a variable so it can be replaced by a mock function in tests
+var IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) {
+	client, err := GetK8sClient()
+	if err != nil {
+		return false, err
+	}
+
+	pvc, err := (*client).CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	labels := pvc.GetLabels()
+	if labels == nil {
+		return false, nil
+	}
+
+	label, ok := labels[VELERO_EXCLUDE_LABEL]
+	return ok && label == "true", nil
+}
+
+// RestorePossible returns false in cases when restoring a VM would not be possible due to missing objects
+func RestorePossible(volumes []kvv1.Volume, backup *v1.Backup, namespace string, skipVolume func(volume kvv1.Volume) bool, log logrus.FieldLogger) (bool, error) {
+	// Restore will not be possible if a DV or PVC volume outside VM's DVTemplates is not backed up
+	for _, volume := range volumes {
+		if volume.VolumeSource.DataVolume != nil && !skipVolume(volume) {
+			if !IsResourceInBackup("datavolume", backup) {
+				log.Infof("DataVolume not included in backup")
+				return false, nil
+			}
+
+			excluded, err := IsDVExcludedByLabel(namespace, volume.VolumeSource.DataVolume.Name)
+			if err != nil {
+				return false, err
+			}
+			if excluded {
+				log.Infof("DataVolume not included in backup")
+				return false, nil
+			}
+		}
+
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			if !IsResourceInBackup("persistentvolumeclaims", backup) {
+				log.Infof("PVC not included in backup")
+				return false, nil
+			}
+
+			excluded, err := IsPVCExcludedByLabel(namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+			if err != nil {
+				return false, err
+			}
+			if excluded {
+				log.Infof("PVC not included in backup")
+				return false, nil
+			}
+		}
+		// TODO: what about other types of volumes?
+	}
+
+	return true, nil
 }
