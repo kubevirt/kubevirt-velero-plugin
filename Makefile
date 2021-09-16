@@ -61,7 +61,7 @@ all: clean build-image cluster-push-image
 
 build-image: build-all
 	@echo -e "${GREEN}Building plugin image${WHITE}"
-	@${DO} hack/build/build-image.sh
+	DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} PORT=${PORT} hack/build/build-image.sh
 
 build-all: build-dirs ${BIN}
 
@@ -71,7 +71,7 @@ ${BIN}: ${SRC_FILES}
 
 push-image: build-image
 	@echo -e "${GREEN}Pushing plugin image to local registry${WHITE}"
-	@${DO} "hack/build/push-image.sh ${PORT}"
+	DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} PORT=${PORT} hack/build/push-image.sh
 
 cluster-push-image: push-image
 	@echo -e "${GREEN}Pushing plugin image to local K8s cluster${WHITE}"

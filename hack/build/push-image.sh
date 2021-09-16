@@ -14,11 +14,13 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-set -e
-
-PORT=${1}
+set -ex -o pipefail
 
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
-buildah push --tls-verify=false ${IMAGE}:${VERSION} docker://${DOCKER_PREFIX}/${IMAGE_NAME}:${VERSION}
+# check why this buildah does not see a login,
+echo "docker_prefix: $DOCKER_PREFIX, docker_tag: $DOCKER_TAG"
+
+# TODO: REMOVE--tls-verify=false
+buildah push  --tls-verify=false ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}

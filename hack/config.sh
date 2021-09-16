@@ -12,6 +12,8 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
+## TODO this file is a mess, cleanup ASAP!!
+
 PLUGIN_DIR="$(cd $(dirname $0)/../../ && pwd -P)"
 BIN_DIR=${PLUGIN_DIR}/bin
 OUT_DIR=${PLUGIN_DIR}/_output
@@ -20,6 +22,8 @@ TESTS_OUT_DIR=${OUT_DIR}/tests
 BUILD_DIR=${PLUGIN_DIR}/hack/build
 CACHE_DIR=${OUT_DIR}/gocache
 
+script_dir="$(cd "$(dirname "$0")" && pwd -P)"
+
 # update this whenever builder Dockerfile is updated
 BUILDER_TAG=${BUILDER_TAG:-0.1}
 BUILDER_CONTAINER_NAME=kubevirt-velero-plugin-builder
@@ -27,11 +31,11 @@ UNTAGGED_BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/${BUILDER_CONTAINER_NAM
 BUILDER_IMAGE=${UNTAGGED_BUILDER_IMAGE}:${BUILDER_TAG}
 BUILDER_SPEC="${BUILD_DIR}/docker/builder"
 
-DOCKER_PREFIX=${DOCKER_PREFIX:-"quay.io/kubevirt"}
 DOCKER_TAG=${DOCKER_TAG:-latest}
 DOCKER_HOST_SOCK=${DOCKER_HOST_SOCK:-/run/docker.sock}
 DOCKER_GUEST_SOCK=${DOCKER_GUEST_SOCK:-/run/docker.sock}
 DOCKER_CMD=${DOCKER_CMD:-docker -H unix://${DOCKER_HOST_SOCK}}
+
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.19}
 
 PROVIDER=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
@@ -55,9 +59,11 @@ _ssh=hack/ssh.sh
 kubectl="${_cli} --prefix ${PROVIDER} ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
 
 LOCAL_REGISTRY=localhost
-DOCKER_PREFIX=${LOCAL_REGISTRY}:${PORT}
+LOCAL_DOCKER_PREFIX=${LOCAL_REGISTRY}:${PORT}/kubevirt
+DOCKER_PREFIX=${DOCKER_PREFIX:-${LOCAL_DOCKER_PREFIX}}
+
 REGISTRY=registry:5000
-IMAGE_NAME=kubevirt/kubevirt-velero-plugin
+IMAGE_NAME=kubevirt-velero-plugin
 DEFAULT_IMAGE=${REGISTRY}/${IMAGE_NAME}
 IMAGE=${IMAGE:-${DEFAULT_IMAGE}}
 VERSION=${VERSION:-0.1}

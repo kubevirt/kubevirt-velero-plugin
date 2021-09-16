@@ -19,4 +19,4 @@ set -e
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
-buildah bud -t ${IMAGE}:${VERSION} -f Dockerfile
+buildah bud -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} -f Dockerfile

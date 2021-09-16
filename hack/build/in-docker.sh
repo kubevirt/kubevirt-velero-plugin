@@ -35,7 +35,6 @@ if [ -z "$(${DOCKER_CMD} ps --format '{{.Image}}' | grep ${BUILDER_IMAGE})" ]; t
         -e GOCACHE=/gocache \
         -w ${WORK_DIR} \
         --privileged \
-        --net=host \
         -v ${DOCKER_HOST_SOCK}:/run/docker.sock \
         ${BUILDER_IMAGE} "while true; do sleep 24h; done"
 fi
