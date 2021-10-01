@@ -18,7 +18,7 @@ set -e
 
 if [ -z "$KUBEVIRTCI_PATH" ]; then
     KUBEVIRTCI_PATH="$(
-        cd "$(dirname "$BASH_SOURCE[0]")/"
+        cd "$(dirname "${BASH_SOURCE[0]}")/"
         echo "$(pwd)/"
     )"../../cluster-up/
 fi
@@ -29,7 +29,7 @@ source "${script_dir}"/../config.sh
 
 ${velero_dir}/velero  \
   --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
-  plugin add ${IMAGE}:${VERSION}
+  plugin add ${REGISTRY}/kubevirt/${IMAGE_NAME}:${DOCKER_TAG}
 
 sleep 15
 ${velero_dir}/velero  \

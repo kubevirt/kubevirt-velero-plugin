@@ -13,6 +13,7 @@
 #limitations under the License.
 
 ## TODO this file is a mess, cleanup ASAP!!
+script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 
 PLUGIN_DIR="$(cd $(dirname $0)/../../ && pwd -P)"
 BIN_DIR=${PLUGIN_DIR}/bin
@@ -22,7 +23,6 @@ TESTS_OUT_DIR=${OUT_DIR}/tests
 BUILD_DIR=${PLUGIN_DIR}/hack/build
 CACHE_DIR=${OUT_DIR}/gocache
 
-script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 
 # update this whenever builder Dockerfile is updated
 BUILDER_TAG=${BUILDER_TAG:-0.1}
@@ -64,12 +64,8 @@ DOCKER_PREFIX=${DOCKER_PREFIX:-${LOCAL_DOCKER_PREFIX}}
 
 REGISTRY=registry:5000
 IMAGE_NAME=kubevirt-velero-plugin
-DEFAULT_IMAGE=${REGISTRY}/${IMAGE_NAME}
-IMAGE=${IMAGE:-${DEFAULT_IMAGE}}
-VERSION=${VERSION:-0.1}
 
 # Test infrastructure
-#DEPLOYMENT_TIMEOUT=480
 DEPLOYMENT_TIMEOUT=600
 USE_CSI=${USE_CSI:-1}
 USE_RESTIC=${USE_RESTIC:-0}

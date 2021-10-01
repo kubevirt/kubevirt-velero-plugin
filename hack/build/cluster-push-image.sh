@@ -19,4 +19,4 @@ set -e
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
-${_ssh} node01 "sudo docker pull ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}"
+${_ssh} node01 "sudo docker pull ${REGISTRY}/kubevirt/${IMAGE_NAME}:${DOCKER_TAG}"

@@ -19,8 +19,6 @@ set -ex -o pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
-# check why this buildah does not see a login,
-echo "docker_prefix: $DOCKER_PREFIX, docker_tag: $DOCKER_TAG"
 
-# TODO: REMOVE--tls-verify=false
-buildah push  --tls-verify=false ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
+echo "docker_prefix: $DOCKER_PREFIX, docker_tag: $DOCKER_TAG"
+docker push   ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}

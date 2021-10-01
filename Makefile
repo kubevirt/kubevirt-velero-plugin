@@ -44,8 +44,6 @@ else
 	DO=eval
 endif
 
-PORT=$(shell hack/cli.sh ${CLUSTER_PREFIX} ports registry)
-
 GREEN=\e[0;32m
 WHITE=\e[0;37m
 BIN=bin/kubevirt-velero-plugin
@@ -57,7 +55,10 @@ TESTS_BINARY=_output/tests/tests.test
 TESTS_SRC_FILES=\
 	$(shell find tests -name "*.go")
 
-all: clean build-image cluster-push-image
+PORT=$(shell ./cluster-up/cli.sh ports registry)
+
+
+all: clean build-image
 
 build-image: build-all
 	@echo -e "${GREEN}Building plugin image${WHITE}"
@@ -75,7 +76,7 @@ push-image: build-image
 
 cluster-push-image: push-image
 	@echo -e "${GREEN}Pushing plugin image to local K8s cluster${WHITE}"
-	@hack/build/cluster-push-image.sh
+	DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/build/cluster-push-image.sh
 
 local-deploy-velero:
 	@echo -e "${GREEN}Deploying velero to local cluster${WHITE}"
@@ -102,9 +103,11 @@ build-builder: stop-builder
 push-builder:
 	@hack/build/push-builder.sh
 
-clean: stop-builder
+clean-dirs:
 	@echo -e "${GREEN}Removing output directories${WHITE}"
-	@rm -rf _output bin
+	@${DO} "rm -rf _output bin"
+
+clean: clean-dirs stop-builder
 
 test: build-dirs
 	@echo -e "${GREEN}Testing${WHITE}"

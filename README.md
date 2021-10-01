@@ -32,7 +32,7 @@ $ make build-image
 This builds an image tagged as `registry:5000/kubevirt-velero-plugin:0.1`. If you want to specify a different name or version/tag, run:
 
 ```bash
-$ IMAGE=your-repo/your-name VERSION=your-version-tag make build-image
+$ DOCKER_PREFIX=your-repo/your-name DOCKER_TAG=your-version-tag make build-image
 ```
 
 ## Deploying the plugin to local cluster
