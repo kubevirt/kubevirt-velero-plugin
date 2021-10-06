@@ -27,11 +27,28 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
 
+function wait_plugin_available {
+    echo "Waiting 60 seconds for plugin to become available"
+    available=$(${velero_dir}/velero  \
+                    --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
+                    plugin get | grep kubevirt-velero | wc -l)
+
+    wait_time=0
+    while [[ $available != "6" ]] && [[ $wait_time -lt 60 ]]; do
+      wait_time=$((wait_time + 5))
+      sleep 5
+      available=$(${velero_dir}/velero  \
+                    --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
+                    plugin get | grep kubevirt-velero  | wc -l)
+    done
+  }
+
 ${velero_dir}/velero  \
   --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
-  plugin add ${REGISTRY}/kubevirt/${IMAGE_NAME}:${DOCKER_TAG}
+  plugin add ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
 
-sleep 15
+wait_plugin_available
+
 ${velero_dir}/velero  \
   --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
   plugin get

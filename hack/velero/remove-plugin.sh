@@ -30,8 +30,8 @@ source ${KUBEVIRTCI_PATH}hack/common.sh
 source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
 kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
 
-if [[ `${kubectl} get deployment velero -n velero -o json | tail -n +3 | jq .spec.template.spec.initContainers[].image | grep ${REGISTRY}/kubevirt/${IMAGE_NAME}:${DOCKER_TAG}` ]]; then
+if [[ `${kubectl} get deployment velero -n velero -o json | tail -n +3 | jq .spec.template.spec.initContainers[].image | grep ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}` ]]; then
     ${velero_dir}/velero \
       --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
-      plugin remove ${REGISTRY}/kubevirt/${IMAGE_NAME}:${DOCKER_TAG}
+      plugin remove ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
 fi
