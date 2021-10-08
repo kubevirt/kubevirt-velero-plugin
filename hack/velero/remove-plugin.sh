@@ -18,7 +18,7 @@ set -e
 
 if [ -z "$KUBEVIRTCI_PATH" ]; then
     KUBEVIRTCI_PATH="$(
-        cd "$(dirname "$BASH_SOURCE[0]")/"
+        cd "$(dirname "${BASH_SOURCE[0]}")/"
         echo "$(pwd)/"
     )"../../cluster-up/
 fi
@@ -30,8 +30,8 @@ source ${KUBEVIRTCI_PATH}hack/common.sh
 source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
 kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
 
-if [[ `${kubectl} get deployment velero -n velero -o json | tail -n +3 | jq .spec.template.spec.initContainers[].image | grep ${IMAGE}:${VERSION}` ]]; then
+if [[ `${kubectl} get deployment velero -n velero -o json | tail -n +3 | jq .spec.template.spec.initContainers[].image | grep ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}` ]]; then
     ${velero_dir}/velero \
       --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
-      plugin remove ${IMAGE}:${VERSION}
+      plugin remove ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
 fi

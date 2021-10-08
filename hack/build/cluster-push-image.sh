@@ -14,9 +14,17 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-set -e
+set -ex
 
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
-${_ssh} node01 "sudo docker pull ${IMAGE}:${VERSION}"
+LOCAL_CLUSTER_REGISTRY_PREFIX=localhost:${PORT}/kubevirt
+
+docker tag ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}  ${LOCAL_CLUSTER_REGISTRY_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
+docker push ${LOCAL_CLUSTER_REGISTRY_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
+
+# fetch latest version so it is available when container starts
+${_ssh} node01 "sudo docker pull ${KUBEVIRTCI_REGISTRY_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}"
+
+

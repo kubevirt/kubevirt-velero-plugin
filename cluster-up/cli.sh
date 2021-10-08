@@ -17,7 +17,7 @@
 # Copyright 2019 Red Hat, Inc.
 #
 
-set -e
+set -ex
 
 if [ -z "$KUBEVIRTCI_PATH" ]; then
     KUBEVIRTCI_PATH="$(

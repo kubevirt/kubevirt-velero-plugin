@@ -44,8 +44,6 @@ else
 	DO=eval
 endif
 
-PORT=$(shell hack/cli.sh ${CLUSTER_PREFIX} ports registry)
-
 GREEN=\e[0;32m
 WHITE=\e[0;37m
 BIN=bin/kubevirt-velero-plugin
@@ -57,11 +55,18 @@ TESTS_BINARY=_output/tests/tests.test
 TESTS_SRC_FILES=\
 	$(shell find tests -name "*.go")
 
-all: clean build-image cluster-push-image
+DOCKER_PREFIX?=kubevirt
+DOCKER_TAG?=latest
+IMAGE_NAME?=kubevirt-velero-plugin
+# registry prefix is the prefix usable from inside the local cluster
+KUBEVIRTCI_REGISTRY_PREFIX=registry:5000/kubevirt
+PORT=$(shell ./cluster-up/cli.sh ports registry)
+
+all: clean build-image
 
 build-image: build-all
 	@echo -e "${GREEN}Building plugin image${WHITE}"
-	@${DO} hack/build/build-image.sh
+	@docker build -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} .
 
 build-all: build-dirs ${BIN}
 
@@ -71,28 +76,29 @@ ${BIN}: ${SRC_FILES}
 
 push-image: build-image
 	@echo -e "${GREEN}Pushing plugin image to local registry${WHITE}"
-	@${DO} "hack/build/push-image.sh ${PORT}"
+	@docker push ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
 
-cluster-push-image: push-image
+cluster-push-image: build-image
 	@echo -e "${GREEN}Pushing plugin image to local K8s cluster${WHITE}"
-	@hack/build/cluster-push-image.sh
+	DOCKER_PREFIX=${DOCKER_PREFIX} IMAGE_NAME=${IMAGE_NAME} DOCKER_TAG=${DOCKER_TAG} PORT=${PORT} KUBEVIRTCI_REGISTRY_PREFIX=${KUBEVIRTCI_REGISTRY_PREFIX} \
+	hack/build/cluster-push-image.sh
+
+
+add-plugin: local-deploy-velero
+	@echo -e "${GREEN}Adding the plugin to local Velero${WHITE}"
+	IMAGE_NAME=${IMAGE_NAME} DOCKER_TAG=${DOCKER_TAG} DOCKER_PREFIX=${KUBEVIRTCI_REGISTRY_PREFIX} hack/velero/add-plugin.sh
+
+remove-plugin:
+	@echo -e "${GREEN}Removing the plugin from local Velero${WHITE}"
+	IMAGE_NAME=${IMAGE_NAME} DOCKER_TAG=${DOCKER_TAG} DOCKER_PREFIX=${KUBEVIRTCI_REGISTRY_PREFIX} hack/velero/remove-plugin.sh
 
 local-deploy-velero:
 	@echo -e "${GREEN}Deploying velero to local cluster${WHITE}"
 	@hack/velero/deploy-velero.sh
 
-add-plugin: local-deploy-velero
-	@echo -e "${GREEN}Adding the plugin to local Velero${WHITE}"
-	@hack/velero/add-plugin.sh
-
-remove-plugin:
-	@echo -e "${GREEN}Removing the plugin from local Velero${WHITE}"
-	@hack/velero/remove-plugin.sh
-
 local-undeploy-velero:
 	@echo -e "${GREEN}Removing velero from local cluster${WHITE}"
-	@kubectl delete deployment velero -n velero --ignore-not-found=true
-	@kubectl delete deployment minio -n velero --ignore-not-found=true
+	@hack/velero/undeploy-velero.sh
 
 gomod-update: modules vendor
 
@@ -102,9 +108,11 @@ build-builder: stop-builder
 push-builder:
 	@hack/build/push-builder.sh
 
-clean: stop-builder
+clean-dirs:
 	@echo -e "${GREEN}Removing output directories${WHITE}"
-	@rm -rf _output bin
+	@${DO} "rm -rf _output bin"
+
+clean: clean-dirs stop-builder
 
 test: build-dirs
 	@echo -e "${GREEN}Testing${WHITE}"
@@ -151,5 +159,5 @@ cluster-up:
 cluster-down:
 	@cluster-up/down.sh
 
-cluster-sync: local-deploy-velero remove-plugin cluster-push-image add-plugin
+cluster-sync: local-undeploy-velero local-deploy-velero remove-plugin cluster-push-image add-plugin
 	@echo -e "${GREEN}Plugin redeployed${WHITE}"
