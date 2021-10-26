@@ -7,8 +7,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiClientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 	"os"
 	"path/filepath"
 	"sort"
@@ -51,7 +52,16 @@ func NewKubernetesReporter() *KubernetesReporter {
 
 // Dump dumps the current state of the cluster. The relevant logs are collected starting
 // from the since parameter.
-func (r *KubernetesReporter) Dump(kubeCli *kubernetes.Clientset, cdiClient *cdiClientset.Clientset, duration time.Duration) {
+func (r *KubernetesReporter) Dump(duration time.Duration) {
+
+	kvClient, err := util.GetKubeVirtclient()
+	kubeCli := (*kvClient).(kubernetes.Interface)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to get client: %v\n", err)
+		return
+	}
+
 	// If we got not directory, print to stderr
 	if r.artifactsDir == "" {
 		return
@@ -68,7 +78,7 @@ func (r *KubernetesReporter) Dump(kubeCli *kubernetes.Clientset, cdiClient *cdiC
 	}
 	since := time.Now().Add(-duration)
 
-	r.logDVs(cdiClient)
+	r.logDVs(*kvClient)
 	r.logEvents(kubeCli, since)
 	r.logNodes(kubeCli)
 	r.logPVCs(kubeCli)
@@ -76,8 +86,9 @@ func (r *KubernetesReporter) Dump(kubeCli *kubernetes.Clientset, cdiClient *cdiC
 	r.logPods(kubeCli)
 	r.logServices(kubeCli)
 	r.logEndpoints(kubeCli)
+	r.logVMs(*kvClient)
 
-	//TODO: logVm logVMi logBackup...
+	//TODO: logBackup...
 	//r.logLogs(kubeCli, since)
 }
 
@@ -103,7 +114,7 @@ func (r *KubernetesReporter) logObjects(elements interface{}, name string) {
 	fmt.Fprintln(f, string(j))
 }
 
-func (r *KubernetesReporter) logEvents(kubeCli *kubernetes.Clientset, since time.Time) {
+func (r *KubernetesReporter) logEvents(kubeCli kubernetes.Interface, since time.Time) {
 	events, err := kubeCli.CoreV1().Events(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to fetch events")
@@ -125,8 +136,8 @@ func (r *KubernetesReporter) logEvents(kubeCli *kubernetes.Clientset, since time
 	r.logObjects(eventsToPrint, "events")
 }
 
-func (r *KubernetesReporter) logDVs(cdiClientset *cdiClientset.Clientset) {
-	dvs, err := cdiClientset.CdiV1beta1().DataVolumes(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+func (r *KubernetesReporter) logDVs(kvClient kubecli.KubevirtClient) {
+	dvs, err := kvClient.CdiClient().CdiV1beta1().DataVolumes(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch dvs: %v\n", err)
 		return
@@ -135,7 +146,7 @@ func (r *KubernetesReporter) logDVs(cdiClientset *cdiClientset.Clientset) {
 	r.logObjects(dvs, "dvs")
 }
 
-func (r *KubernetesReporter) logNodes(kubeCli *kubernetes.Clientset) {
+func (r *KubernetesReporter) logNodes(kubeCli kubernetes.Interface) {
 	nodes, err := kubeCli.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch nodes: %v\n", err)
@@ -145,7 +156,7 @@ func (r *KubernetesReporter) logNodes(kubeCli *kubernetes.Clientset) {
 	r.logObjects(nodes, "nodes")
 }
 
-func (r *KubernetesReporter) logPVs(kubeCli *kubernetes.Clientset) {
+func (r *KubernetesReporter) logPVs(kubeCli kubernetes.Interface) {
 	pvs, err := kubeCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pvs: %v\n", err)
@@ -155,7 +166,7 @@ func (r *KubernetesReporter) logPVs(kubeCli *kubernetes.Clientset) {
 	r.logObjects(pvs, "pvs")
 }
 
-func (r *KubernetesReporter) logPVCs(kubeCli *kubernetes.Clientset) {
+func (r *KubernetesReporter) logPVCs(kubeCli kubernetes.Interface) {
 	pvcs, err := kubeCli.CoreV1().PersistentVolumeClaims(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
@@ -165,7 +176,7 @@ func (r *KubernetesReporter) logPVCs(kubeCli *kubernetes.Clientset) {
 	r.logObjects(pvcs, "pvcs")
 }
 
-func (r *KubernetesReporter) logPods(kubeCli *kubernetes.Clientset) {
+func (r *KubernetesReporter) logPods(kubeCli kubernetes.Interface) {
 	pods, err := kubeCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
@@ -175,7 +186,7 @@ func (r *KubernetesReporter) logPods(kubeCli *kubernetes.Clientset) {
 	r.logObjects(pods, "pods")
 }
 
-func (r *KubernetesReporter) logServices(kubeCli *kubernetes.Clientset) {
+func (r *KubernetesReporter) logServices(kubeCli kubernetes.Interface) {
 	services, err := kubeCli.CoreV1().Services(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch services: %v\n", err)
@@ -185,7 +196,7 @@ func (r *KubernetesReporter) logServices(kubeCli *kubernetes.Clientset) {
 	r.logObjects(services, "services")
 }
 
-func (r *KubernetesReporter) logEndpoints(kubeCli *kubernetes.Clientset) {
+func (r *KubernetesReporter) logEndpoints(kubeCli kubernetes.Interface) {
 	endpoints, err := kubeCli.CoreV1().Endpoints(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch endpointss: %v\n", err)
@@ -193,4 +204,13 @@ func (r *KubernetesReporter) logEndpoints(kubeCli *kubernetes.Clientset) {
 	}
 
 	r.logObjects(endpoints, "endpoints")
+}
+
+func (r *KubernetesReporter) logVMs(kvClient kubecli.KubevirtClient) {
+	vms, err := kvClient.VirtualMachine(v1.NamespaceAll).List(&metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vms: %v\n", err)
+		return
+	}
+	r.logObjects(vms, "vms")
 }

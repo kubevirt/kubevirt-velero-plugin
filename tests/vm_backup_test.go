@@ -54,7 +54,7 @@ var _ = Describe("VM Backup", func() {
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
 			r.FailureCount++
-			r.Dump(client, cdiClient, CurrentGinkgoTestDescription().Duration)
+			r.Dump(CurrentGinkgoTestDescription().Duration)
 		}
 
 		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
