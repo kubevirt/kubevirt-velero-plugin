@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -21,18 +22,19 @@ import (
 
 var _ = Describe("VM Backup", func() {
 	var client, _ = util.GetK8sClient()
-	var clientSet *cdiclientset.Clientset
+	var cdiClient *cdiclientset.Clientset
 	var kvClient *kubecli.KubevirtClient
 	var namespace *v1.Namespace
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
+	var r = framework.NewKubernetesReporter()
 
 	const snapshotLocation = "test-location"
 
 	// BeforeSuite(func() {
 	BeforeEach(func() {
 		var err error
-		clientSet, err = util.GetCDIclientset()
+		cdiClient, err = util.GetCDIclientset()
 		Expect(err).ToNot(HaveOccurred())
 		kvClient, err = util.GetKubeVirtclient()
 		Expect(err).ToNot(HaveOccurred())
@@ -50,6 +52,12 @@ var _ = Describe("VM Backup", func() {
 	})
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			r.FailureCount++
+			r.Dump(client, cdiClient, CurrentGinkgoTestDescription().Duration)
+		}
+
+		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
 		err := client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
 		if err != nil && !apierrs.IsNotFound(err) {
 			Expect(err).ToNot(HaveOccurred())
@@ -141,7 +149,7 @@ var _ = Describe("VM Backup", func() {
 			vm, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = WaitForDataVolumePhase(cdiClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
