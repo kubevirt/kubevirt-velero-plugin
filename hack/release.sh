@@ -53,9 +53,6 @@ function update_github_release() {
     else
         set -e
     fi
-
-    gh release upload --repo "$GITHUB_REPOSITORY" --clobber "$TAG" \
-        deploy/*.yaml
 }
 
 function main() {
