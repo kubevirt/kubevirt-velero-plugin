@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -216,12 +217,18 @@ var _ = Describe("Resource includes", func() {
 	var client, _ = util.GetK8sClient()
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
+	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
 		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
 	})
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			r.FailureCount++
+			r.Dump(CurrentGinkgoTestDescription().Duration)
+		}
+
 		// Deleting the backup also deletes all restores, volume snapshots etc.
 		err := DeleteBackup(timeout, backupName)
 		Expect(err).ToNot(HaveOccurred())
@@ -1728,15 +1735,21 @@ var _ = Describe("Resource excludes", func() {
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
 	var namespace *v1.Namespace
+	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
-		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
 		var err error
+		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
 		namespace, err = CreateNamespace(client)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			r.FailureCount++
+			r.Dump(CurrentGinkgoTestDescription().Duration)
+		}
+
 		// Deleting the backup also deletes all restores, volume snapshots etc.
 		err := DeleteBackup(timeout, backupName)
 		Expect(err).ToNot(HaveOccurred())
