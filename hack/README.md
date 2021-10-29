@@ -27,7 +27,7 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `build-all`: compiles the plugin if source files changed
 - `build-image`: compiles the plugin if necessary and builds the image
 - `build-dirs`: creates output directories
-- `push-image`: pushes image to local registry
+- `push`: pushes image to local registry
 - `cluster-push-image`: pushes image to registry of the local cluster
 - `local-deploy-velero`: deploys Minio and Velero to the local cluster
 - `local-undeploy-velero`: removes Minio and Velero fro the local cluster
