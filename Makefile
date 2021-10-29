@@ -17,7 +17,7 @@
 	build-all \
 	build-image \
 	build-dirs \
-	push-image \
+	push \
 	cluster-push-image \
 	test \
 	modules \
@@ -74,7 +74,7 @@ ${BIN}: ${SRC_FILES}
 	@echo -e "${GREEN}Building...${WHITE}"
 	@${DO} hack/build/build.sh
 
-push-image: build-image
+push: build-image
 	@echo -e "${GREEN}Pushing plugin image to local registry${WHITE}"
 	@docker push ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
 
