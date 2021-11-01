@@ -68,7 +68,7 @@ build-image: build-all
 	@echo -e "${GREEN}Building plugin image${WHITE}"
 	@docker build -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} .
 
-build-all: build-dirs ${BIN}
+build-all: build-builder build-dirs ${BIN}
 
 ${BIN}: ${SRC_FILES}
 	@echo -e "${GREEN}Building...${WHITE}"
