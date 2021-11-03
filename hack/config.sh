@@ -61,4 +61,4 @@ kubectl="${_cli} --prefix ${PROVIDER} ssh node01 -- sudo kubectl --kubeconfig=/e
 DEPLOYMENT_TIMEOUT=600
 USE_CSI=${USE_CSI:-1}
 USE_RESTIC=${USE_RESTIC:-0}
-CSI_PLUGIN=${CSI_PLUGIN:-velero/velero-plugin-for-csi:main}
+CSI_PLUGIN=${CSI_PLUGIN:-velero/velero-plugin-for-csi:v0.2.0}
