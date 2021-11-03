@@ -19,6 +19,9 @@ set -ex
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/../config.sh
 
+
+source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
+
 LOCAL_CLUSTER_REGISTRY_PREFIX=localhost:${PORT}/kubevirt
 
 docker tag ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}  ${LOCAL_CLUSTER_REGISTRY_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}

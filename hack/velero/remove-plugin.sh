@@ -26,11 +26,10 @@ fi
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
-source ${KUBEVIRTCI_PATH}hack/common.sh
-source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
-kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
 
-if [[ `${kubectl} get deployment velero -n velero -o json | tail -n +3 | jq .spec.template.spec.initContainers[].image | grep ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}` ]]; then
+source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
+
+if [[ $(_kubectl get deployment velero -n velero -o json | jq ".spec.template.spec.initContainers[].image" | grep ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}) ]]; then
     ${velero_dir}/velero \
       --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
       plugin remove ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
