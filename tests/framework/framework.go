@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,12 @@ import (
 	"sort"
 	"strconv"
 	"time"
+)
+
+const (
+	veleroEntityUriTemplate = "apis/velero.io/v1/namespaces/%s/%s/"
+	veleroBackup            = "backups"
+	veleroRestore           = "restores"
 )
 
 // KubernetesReporter is the struct that holds the report info.
@@ -88,7 +95,9 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logEndpoints(kubeCli)
 	r.logVMs(*kvClient)
 
-	//TODO: logBackup...
+	r.logRestores(kubeCli)
+	r.logBackups(kubeCli)
+
 	//r.logLogs(kubeCli, since)
 }
 
@@ -112,6 +121,32 @@ func (r *KubernetesReporter) logObjects(elements interface{}, name string) {
 		return
 	}
 	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) dumpK8sEntityToFile(kubeCli kubernetes.Interface, entityName string, namespace string, entityURITemplate string) {
+	requestURI := fmt.Sprintf(entityURITemplate, namespace, entityName)
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_%s.log", r.FailureCount, entityName)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	response, err := kubeCli.Discovery().RESTClient().Get().RequestURI(requestURI).Do(context.Background()).Raw()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to dump entity named [%s]: %v\n", entityName, err)
+		return
+	}
+
+	var prettyJson bytes.Buffer
+	err = json.Indent(&prettyJson, response, "", "    ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to marshall [%s] state objects\n", entityName)
+		return
+	}
+	fmt.Fprintln(f, string(prettyJson.Bytes()))
 }
 
 func (r *KubernetesReporter) logEvents(kubeCli kubernetes.Interface, since time.Time) {
@@ -213,4 +248,12 @@ func (r *KubernetesReporter) logVMs(kvClient kubecli.KubevirtClient) {
 		return
 	}
 	r.logObjects(vms, "vms")
+}
+
+func (r *KubernetesReporter) logBackups(kubeCli kubernetes.Interface) {
+	r.dumpK8sEntityToFile(kubeCli, veleroBackup, v1.NamespaceAll, veleroEntityUriTemplate)
+}
+
+func (r *KubernetesReporter) logRestores(kubeCli kubernetes.Interface) {
+	r.dumpK8sEntityToFile(kubeCli, veleroRestore, v1.NamespaceAll, veleroEntityUriTemplate)
 }
