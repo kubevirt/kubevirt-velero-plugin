@@ -98,7 +98,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logRestores(kubeCli)
 	r.logBackups(kubeCli)
 
-	//r.logLogs(kubeCli, since)
+	r.logLogs(kubeCli, since)
 }
 
 func (r *KubernetesReporter) logObjects(elements interface{}, name string) {
@@ -149,7 +149,52 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(kubeCli kubernetes.Interface, e
 	fmt.Fprintln(f, string(prettyJson.Bytes()))
 }
 
-func (r *KubernetesReporter) logEvents(kubeCli kubernetes.Interface, since time.Time) {
+func (r *KubernetesReporter) logLogs(kubeCli kubernetes.Interface, startTime time.Time) {
+
+	logsdir := filepath.Join(r.artifactsDir, "pods")
+
+	if err := os.MkdirAll(logsdir, 0777); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create directory: %v\n", err)
+		return
+	}
+
+	pods, err := kubeCli.CoreV1().Pods(v1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
+		return
+	}
+
+	for _, pod := range pods.Items {
+		for _, container := range pod.Spec.Containers {
+			current, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s.log", r.FailureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
+				return
+			}
+			defer current.Close()
+
+			previous, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s_previous.log", r.FailureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
+				return
+			}
+			defer previous.Close()
+
+			logStart := metav1.NewTime(startTime)
+			logs, err := kubeCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name}).DoRaw(context.TODO())
+			if err == nil {
+				fmt.Fprintln(current, string(logs))
+			}
+
+			logs, err = kubeCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name, Previous: true}).DoRaw(context.TODO())
+			if err == nil {
+				fmt.Fprintln(previous, string(logs))
+			}
+		}
+	}
+}
+
+func (r *KubernetesReporter) logEvents(kubeCli kubernetes.Interface, startTime time.Time) {
 	events, err := kubeCli.CoreV1().Events(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to fetch events")
@@ -163,7 +208,7 @@ func (r *KubernetesReporter) logEvents(kubeCli kubernetes.Interface, since time.
 
 	eventsToPrint := v1.EventList{}
 	for _, event := range e {
-		if event.LastTimestamp.Time.After(since) {
+		if event.LastTimestamp.Time.After(startTime) {
 			eventsToPrint.Items = append(eventsToPrint.Items, event)
 		}
 	}
