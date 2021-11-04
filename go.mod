@@ -18,6 +18,7 @@ require (
 	k8s.io/klog/v2 v2.4.0
 	kubevirt.io/client-go v0.43.0
 	kubevirt.io/containerized-data-importer v1.35.0
+	kubevirt.io/qe-tools v0.1.6
 )
 
 replace (
