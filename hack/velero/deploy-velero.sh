@@ -28,13 +28,11 @@ DOCKER_GUEST_SOCK=/var/run/docker.sock
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
 
-source ${KUBEVIRTCI_PATH}hack/common.sh
 source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
-kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
 
-if [[ ! `${kubectl} get deployments -n velero | grep minio` ]]; then
-  $kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/main/examples/minio/00-minio-deployment.yaml
-  $kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
+if [[ ! $(_kubectl get deployments -n velero | grep minio) ]]; then
+  _kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/main/examples/minio/00-minio-deployment.yaml
+  _kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
 fi
 
 PLUGINS=velero/velero-plugin-for-aws:v1.0.0
@@ -49,7 +47,7 @@ if [[ "${USE_RESTIC}" == "1" ]]; then
   FEATURES="${FEATURES} --use-restic"
 fi
 
-if [[ ! `$kubectl get deployments -n velero | grep velero` ]]; then
+if [[ ! $(_kubectl get deployments -n velero | grep velero) ]]; then
   echo "Plugins: ${PLUGINS}"
   echo "Features: ${FEATURES}"
 
@@ -64,9 +62,9 @@ if [[ ! `$kubectl get deployments -n velero | grep velero` ]]; then
     --snapshot-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
     ${FEATURES}
 
-  $kubectl wait -n velero deployment/velero --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
+  _kubectl wait -n velero deployment/velero --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
 
   if [[ "${USE_CSI}" == "1" ]]; then
-    $kubectl label volumesnapshotclass/csi-rbdplugin-snapclass velero.io/csi-volumesnapshot-class=true --overwrite=true
+    _kubectl label volumesnapshotclass/csi-rbdplugin-snapclass velero.io/csi-volumesnapshot-class=true --overwrite=true
   fi
 fi

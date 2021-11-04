@@ -28,10 +28,8 @@ DOCKER_GUEST_SOCK=/var/run/docker.sock
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
 
-source ${KUBEVIRTCI_PATH}hack/common.sh
-source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
-kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
+source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 
-$kubectl delete deployment minio -n velero --ignore-not-found=true
+_kubectl delete deployment minio -n velero --ignore-not-found=true
 
-$kubectl delete deployment velero -n velero --ignore-not-found=true
+_kubectl delete deployment velero -n velero --ignore-not-found=true

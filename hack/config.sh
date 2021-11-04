@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #Copyright 2018 The CDI Authors.
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +12,10 @@
 #WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #See the License for the specific language governing permissions and
 #limitations under the License.
+
+if [ -f cluster-up/hack/common.sh ]; then
+    source cluster-up/hack/common.sh
+fi
 
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 
@@ -34,11 +39,6 @@ DOCKER_HOST_SOCK=${DOCKER_HOST_SOCK:-/run/docker.sock}
 DOCKER_GUEST_SOCK=${DOCKER_GUEST_SOCK:-/run/docker.sock}
 DOCKER_CMD=${DOCKER_CMD:-docker -H unix://${DOCKER_HOST_SOCK}}
 
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.19}
-
-PROVIDER=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
-KUBEVIRTCI_TAG=2103240101-142f745
-
 if [[ $(which go 2>/dev/null) ]]; then
   GOOS=$(go env GOOS)
   GOARCH=$(go env GOARCH)
@@ -49,13 +49,7 @@ fi
 PKG=kubevirt.io/${IMAGE_NAME}
 BIN=kubevirt-velero-plugin
 
-_cli_container="${KUBEVIRTCI_GOCLI_CONTAINER:-quay.io/kubevirtci/gocli:${KUBEVIRTCI_TAG}}"
-_cli_command="${DOCKER_CMD} run --privileged --net=host --rm ${USE_TTY} -v ${DOCKER_HOST_SOCK}:${DOCKER_GUEST_SOCK}"
-_cli="${_cli_command} ${_cli_container} --prefix ${PROVIDER}"
-
-_ssh=hack/ssh.sh
-kubectl="${_cli} --prefix ${PROVIDER} ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
-
+_ssh=${KUBEVIRTCI_PATH}ssh.sh
 
 # Test infrastructure
 DEPLOYMENT_TIMEOUT=600

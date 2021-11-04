@@ -154,7 +154,7 @@ goveralls: test
 	${DO} "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"
 
 cluster-up:
-	@cluster-up/up.sh
+	@hack/cluster-up.sh
 
 cluster-down:
 	@cluster-up/down.sh
