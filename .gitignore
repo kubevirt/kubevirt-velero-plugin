@@ -2,5 +2,6 @@ _output
 kubevirt-velero-plugin
 
 .go
+.idea
 
 _ci-configs

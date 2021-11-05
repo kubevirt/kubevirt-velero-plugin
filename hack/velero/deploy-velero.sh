@@ -35,7 +35,7 @@ if [[ ! $(_kubectl get deployments -n velero | grep minio) ]]; then
   _kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
 fi
 
-PLUGINS=velero/velero-plugin-for-aws:v1.0.0
+PLUGINS=velero/velero-plugin-for-aws:v1.3.0
 FEATURES=""
 
 if [[ "${USE_CSI}" == "1" ]]; then
