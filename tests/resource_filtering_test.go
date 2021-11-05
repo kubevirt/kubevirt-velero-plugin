@@ -18,11 +18,6 @@ import (
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
-const (
-	backupName  = "test-backup"
-	restoreName = "test-restore"
-)
-
 var newVMSpecDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
 	no := false
 	var zero int64 = 0
@@ -217,10 +212,15 @@ var _ = Describe("Resource includes", func() {
 	var client, _ = util.GetK8sClient()
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
+	var backupName string
+	var restoreName string
 	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
 		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
+		t := time.Now().UnixNano()
+		backupName = fmt.Sprintf("test-backup-%d", t)
+		restoreName = fmt.Sprintf("test-restore-%d", t)
 	})
 
 	AfterEach(func() {
@@ -1735,6 +1735,8 @@ var _ = Describe("Resource excludes", func() {
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
 	var namespace *v1.Namespace
+	var backupName string
+	var restoreName string
 	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
@@ -1742,6 +1744,9 @@ var _ = Describe("Resource excludes", func() {
 		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
 		namespace, err = CreateNamespace(client)
 		Expect(err).ToNot(HaveOccurred())
+		t := time.Now().UnixNano()
+		backupName = fmt.Sprintf("test-backup-%d", t)
+		restoreName = fmt.Sprintf("test-restore-%d", t)
 	})
 
 	AfterEach(func() {
