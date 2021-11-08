@@ -17,8 +17,7 @@
 # based on: https://raw.githubusercontent.com/kubevirt/containerized-data-importer/main/hack/update-kubevirtci.sh
 
 # the kubevirtci release to vendor from (https://github.com/kubevirt/kubevirtci/releases)
-#kubevirtci_release_tag=`curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest`
-kubevirtci_release_tag=2103240101-142f745
+kubevirtci_release_tag=`curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest`
 
 # remove previous cluster-up dir entirely before vendoring
 rm -rf ./cluster-up
