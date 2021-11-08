@@ -7,6 +7,7 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
     )"
 fi
 
+
 source ${KUBEVIRTCI_PATH}hack/common.sh
 source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
 up
