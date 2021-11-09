@@ -33,7 +33,7 @@ RUN sed -i 's/proxy = None//gI' /tmp/fedora_ci.dnf.repo && \
 	mv /etc/yum.repos.d/old/* /etc/yum.repos.d/ && \
 	rmdir /etc/yum.repos.d/old
 
-ENV GIMME_GO_VERSION=1.14.6 GOPATH="/go" KUBEBUILDER_VERSION="2.3.1" ARCH="amd64" GO111MODULE="on"
+ENV GIMME_GO_VERSION=1.16.10 GOPATH="/go" KUBEBUILDER_VERSION="2.3.1" ARCH="amd64" GO111MODULE="on"
 
 RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
