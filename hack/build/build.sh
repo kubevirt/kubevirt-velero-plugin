@@ -14,12 +14,36 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
 
-script_dir="$(cd "$(dirname "$0")" && pwd -P)"
-source "${script_dir}"/../config.sh
+if [ -z "${BIN}" ]; then
+    echo "BIN must be set"
+    exit 1
+fi
+if [ -z "${GOOS}" ]; then
+    echo "GOOS must be set"
+    exit 1
+fi
+if [ -z "${GOARCH}" ]; then
+    echo "GOARCH must be set"
+    exit 1
+fi
 
-mkdir -p _output/bin/${GOOS}/${GOARCH}
-go build -a -ldflags '-extldflags "-static"' -tags static -o _output/bin/${GOOS}/${GOARCH} .
 
-ln -f _output/bin/${GOOS}/${GOARCH}/${BIN} ${BIN_DIR}/${BIN}
+export CGO_ENABLED=0
+
+if [[ -z "${OUTPUT_DIR:-}" ]]; then
+  OUTPUT_DIR=.
+fi
+OUTPUT=${OUTPUT_DIR}/${BIN}
+if [[ "${GOOS}" = "windows" ]]; then
+  OUTPUT="${OUTPUT}.exe"
+fi
+
+go build \
+    -o ${OUTPUT} \
+    -installsuffix "static" \
+    -mod=readonly \
+    ./

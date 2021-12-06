@@ -16,6 +16,4 @@
 
 set -e
 
-make build-builder
-# Run the tests
 make test
