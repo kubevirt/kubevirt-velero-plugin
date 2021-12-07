@@ -15,6 +15,7 @@
 .PHONY: clean \
 	all \
 	build-all \
+	build-builder \
 	build-image \
 	build-dirs \
 	push \
@@ -80,6 +81,9 @@ local: build-dirs
 	./hack/build.sh
 
 build-all: build-dirs _output/bin/$(GOOS)/$(GOARCH)/$(BIN)
+
+build-builder:
+	@echo "deprecated"
 
 _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 	@echo -e "${GREEN}Building...${WHITE}"
@@ -159,7 +163,19 @@ clean-test:
 
 ${TESTS_BINARY}: ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
 	@echo -e "${GREEN}Building functional tests${WHITE}"
-	@${DO} hack/build/build-functest.sh
+	$(MAKE) shell CMD="-c '\
+		GOOS=$(GOOS) \
+		GOARCH=$(GOARCH) \
+		PKG=$(PKG) \
+        BIN=$(BIN) \
+        GIT_SHA=$(GIT_SHA) \
+        GIT_DIRTY="$(GIT_DIRTY)" \
+		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
+		GO111MODULE=on \
+ 		GOFLAGS=-mod=readonly \
+ 		TESTS_OUT_DIR=$(TESTS_OUT_DIR) \
+ 		JOB_TYPE="${JOB_TYPE:-}" \
+		./hack/build/build-functest.sh'"
 
 ${TESTS_OUT_DIR}:
 	@mkdir -p ${TESTS_OUT_DIR}

@@ -14,13 +14,29 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-set -e
+set -euo pipefail
 
-script_dir="$(cd "$(dirname "$0")" && pwd -P)"
-source "${script_dir}"/../config.sh
+export PATH=$PATH:$HOME/gopath/bin
+JOB_TYPE="${JOB_TYPE:-}"
 
-mkdir -p ${TESTS_OUT_DIR}/
-# use vendor
-export GO111MODULE=off
-ginkgo build tests/
-mv tests/tests.test ${TESTS_OUT_DIR}/
+if [ "${JOB_TYPE}" == "travis" ]; then
+    go get -v -t ./...
+    go install github.com/mattn/goveralls@latest
+    go install github.com/onsi/ginkgo/ginkgo@latest
+    go get -v github.com/onsi/gomega
+    go get -u github.com/evanphx/json-patch
+    go mod vendor
+    PACKAGE_PATH="pkg/"
+    mkdir -p coverprofiles
+    ginkgo -r -covermode atomic -outputdir=./coverprofiles -coverprofile=cover.coverprofile ${PACKAGE_PATH}
+else
+    test_path="tests"
+    (cd $test_path; go install github.com/onsi/ginkgo/ginkgo@latest)
+    (cd $test_path; GOFLAGS= go get github.com/onsi/gomega)
+    (cd $test_path; go mod  tidy; go mod vendor)
+    test_out_path=${test_path}/_out
+    mkdir -p ${test_out_path}
+    (cd $test_path; ginkgo build .)
+    mv ${test_path}/tests.test ${TESTS_OUT_DIR} 
+fi
+
