@@ -17,7 +17,7 @@
 set -e
 
 # Setup a cluster
-make build-builder cluster-up cluster-push-image cluster-sync CLUSTER_PREFIX='-p pull-kvp-functional-test'
+make cluster-up cluster-push-image cluster-sync CLUSTER_PREFIX='-p pull-kvp-functional-test'
 
 # Run the tests
 make test-functional CLUSTER_PREFIX='-p pull-kvp-functional-test'

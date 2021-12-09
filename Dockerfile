@@ -5,6 +5,6 @@
 
 FROM alpine:3.13
 RUN mkdir /plugins
-COPY bin/kubevirt-velero-plugin /plugins/
+ADD ./kubevirt-velero-plugin /plugins/
 USER nobody:nogroup
 ENTRYPOINT ["/bin/sh", "-c", "cp /plugins/* /target/."]

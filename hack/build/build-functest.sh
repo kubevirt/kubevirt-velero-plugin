@@ -14,13 +14,16 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-set -e
+set -euo pipefail
 
-script_dir="$(cd "$(dirname "$0")" && pwd -P)"
-source "${script_dir}"/../config.sh
+export PATH=$PATH:$HOME/gopath/bin
 
-mkdir -p ${TESTS_OUT_DIR}/
-# use vendor
-export GO111MODULE=off
-ginkgo build tests/
-mv tests/tests.test ${TESTS_OUT_DIR}/
+test_path="tests"
+(cd $test_path; go install github.com/onsi/ginkgo/ginkgo@latest)
+(cd $test_path; GOFLAGS= go get github.com/onsi/gomega)
+(cd $test_path; go mod  tidy; go mod vendor)
+test_out_path=${test_path}/_out
+mkdir -p ${test_out_path}
+(cd $test_path; ginkgo build .)
+mv ${test_path}/tests.test ${TESTS_OUT_DIR}
+
