@@ -181,11 +181,11 @@ ${TESTS_OUT_DIR}:
 	@mkdir -p ${TESTS_OUT_DIR}
 
 modules:
-	@${DO} "GO111MODULE=on go mod tidy -v"
+	GO111MODULE=on go mod tidy -v
 
 vendor:
-	@${DO} "GO111MODULE=on go mod tidy -v"
-	@${DO} "GO111MODULE=on go mod vendor -v"
+	GO111MODULE=on go mod tidy -v
+	GO111MODULE=on go mod vendor -v
 
 goveralls: test
 	${DO} "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"
