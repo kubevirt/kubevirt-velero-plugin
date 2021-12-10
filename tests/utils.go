@@ -32,6 +32,135 @@ const (
 	veleroCLI    = "velero"
 )
 
+func CreateVmWithGuestAgent(vmName string) *kvv1.VirtualMachine {
+	no := false
+	var zero int64 = 0
+	dataVolumeName := vmName + "-dv"
+	size := "5Gi"
+
+	networkData := `ethernets:
+  eth0:
+    addresses:
+    - fd10:0:2::2/120
+    dhcp4: true
+    gateway6: fd10:0:2::1
+    match: {}
+    nameservers:
+      addresses:
+      - 10.96.0.10
+      search:
+      - default.svc.cluster.local
+      - svc.cluster.local
+      - cluster.local
+version: 2`
+
+	vmiSpec := kvv1.VirtualMachineInstanceSpec{
+		Domain: kvv1.DomainSpec{
+			Resources: kvv1.ResourceRequirements{
+				Requests: v1.ResourceList{
+					v1.ResourceName(v1.ResourceMemory): resource.MustParse("256M"),
+				},
+			},
+			Machine: &kvv1.Machine{
+				Type: "q35",
+			},
+			Devices: kvv1.Devices{
+				Rng: &kvv1.Rng{},
+				Disks: []kvv1.Disk{
+					{
+						Name: "volume0",
+						DiskDevice: kvv1.DiskDevice{
+							Disk: &kvv1.DiskTarget{
+								Bus: "virtio",
+							},
+						},
+					},
+					{
+						Name: "volume1",
+						DiskDevice: kvv1.DiskDevice{
+							Disk: &kvv1.DiskTarget{
+								Bus: "virtio",
+							},
+						},
+					},
+				},
+				Interfaces: []kvv1.Interface{{
+					Name: "default",
+					InterfaceBindingMethod: kvv1.InterfaceBindingMethod{
+						Masquerade: &kvv1.InterfaceMasquerade{},
+					},
+				}},
+			},
+		},
+		Networks: []kvv1.Network{{
+			Name: "default",
+			NetworkSource: kvv1.NetworkSource{
+				Pod: &kvv1.PodNetwork{},
+			},
+		}},
+		Volumes: []kvv1.Volume{
+			{
+				Name: "volume0",
+				VolumeSource: kvv1.VolumeSource{
+					DataVolume: &kvv1.DataVolumeSource{
+						Name: dataVolumeName,
+					},
+				},
+			},
+			{
+				Name: "volume1",
+				VolumeSource: kvv1.VolumeSource{
+					CloudInitNoCloud: &kvv1.CloudInitNoCloudSource{
+						NetworkData: networkData,
+					},
+				},
+			},
+		},
+		TerminationGracePeriodSeconds: &zero,
+	}
+
+	fedoraUrl := "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
+	nodePullMethod := cdiv1.RegistryPullNode
+
+	return &kvv1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: vmName,
+		},
+		Spec: kvv1.VirtualMachineSpec{
+			Running: &no,
+			Template: &kvv1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: vmName,
+				},
+				Spec: vmiSpec,
+			},
+			DataVolumeTemplates: []kvv1.DataVolumeTemplateSpec{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: dataVolumeName,
+					},
+					Spec: cdiv1.DataVolumeSpec{
+						Source: &cdiv1.DataVolumeSource{
+							Registry: &cdiv1.DataVolumeSourceRegistry{
+								URL:        &fedoraUrl,
+								PullMethod: &nodePullMethod,
+							},
+						},
+						PVC: &v1.PersistentVolumeClaimSpec{
+							AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+							Resources: v1.ResourceRequirements{
+								Requests: v1.ResourceList{
+									v1.ResourceName(v1.ResourceStorage): resource.MustParse(size),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {
 	var dataVolume *cdiv1.DataVolume
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -158,15 +287,29 @@ func FindDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataVol
 
 // WaitForDataVolumePhase waits for DV's phase to be in a particular phase (Pending, Bound, or Lost)
 func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
+	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s\n", phase)
+	var lastPhase cdiv1.DataVolumePhase
+
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		dataVolume, err := clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			return false, nil
 		}
-		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s, got %s\n", phase, dataVolume.Status.Phase)
-		if err != nil || dataVolume.Status.Phase != phase {
+		if err != nil {
 			return false, err
 		}
+
+		if dataVolume.Status.Phase != phase {
+			if dataVolume.Status.Phase != lastPhase {
+				lastPhase = dataVolume.Status.Phase
+				fmt.Fprintf(ginkgo.GinkgoWriter, "\nINFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase)
+			} else {
+				fmt.Fprint(ginkgo.GinkgoWriter, ".")
+			}
+			return false, err
+		}
+
+		fmt.Fprintf(ginkgo.GinkgoWriter, "\nINFO: Waiting for status %s, got %s\n", phase, dataVolume.Status.Phase)
 		return true, nil
 	})
 	if err != nil {
@@ -274,6 +417,31 @@ func WaitPVCDeleted(clientSet *kubernetes.Clientset, namespace, pvcName string) 
 	return result, err
 }
 
+func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, namespace, name string, conditionType kvv1.VirtualMachineInstanceConditionType) (bool, error) {
+	fmt.Fprintf(ginkgo.GinkgoWriter, "Waiting for %s condition\n", conditionType)
+	var result bool
+
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		vmi, err := client.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, condition := range vmi.Status.Conditions {
+			if condition.Type == conditionType && condition.Status == v1.ConditionTrue {
+				result = true
+
+				fmt.Fprintf(ginkgo.GinkgoWriter, " got %s\n", conditionType)
+				return true, nil
+			}
+		}
+
+		fmt.Fprint(ginkgo.GinkgoWriter, ".")
+		return false, nil
+	})
+
+	return result, err
+}
+
 func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace, name string, phase kvv1.VirtualMachineInstancePhase) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		vmi, err := client.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
@@ -344,6 +512,34 @@ func WaitVirtualMachineDeleted(client kubecli.KubevirtClient, namespace, name st
 	return result, err
 }
 
+func NewDataVolumeForFedoraWithGuestAgentImage(dataVolumeName string) *cdiv1.DataVolume {
+	fedoraUrl := "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
+	nodePullMethod := cdiv1.RegistryPullNode
+
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        dataVolumeName,
+			Annotations: map[string]string{},
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: &cdiv1.DataVolumeSource{
+				Registry: &cdiv1.DataVolumeSourceRegistry{
+					URL:        &fedoraUrl,
+					PullMethod: &nodePullMethod,
+				},
+			},
+			PVC: &v1.PersistentVolumeClaimSpec{
+				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceName(v1.ResourceStorage): resource.MustParse("5Gi"),
+					},
+				},
+			},
+		},
+	}
+}
+
 func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolume {
 	return &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -351,7 +547,7 @@ func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolum
 			Annotations: map[string]string{},
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
+			Source: &cdiv1.DataVolumeSource{
 				Blank: &cdiv1.DataVolumeBlankImage{},
 			},
 			PVC: &v1.PersistentVolumeClaimSpec{
@@ -565,10 +761,17 @@ func GetBackupPhase(ctx context.Context, backupName string) (velerov1api.BackupP
 
 func WaitForBackupPhase(ctx context.Context, backupName string, expectedPhase velerov1api.BackupPhase) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		phase, err := GetBackupPhase(ctx, backupName)
-		ginkgo.By(fmt.Sprintf("Waiting for backup phase %v, got %v", expectedPhase, phase))
-		if err != nil || phase != expectedPhase {
+		backup, err := GetBackup(ctx, backupName)
+		if err != nil {
 			return false, err
+		}
+		phase := backup.Status.Phase
+		ginkgo.By(fmt.Sprintf("Waiting for backup phase %v, got %v", expectedPhase, phase))
+		if backup.Status.CompletionTimestamp != nil && phase != expectedPhase {
+			return false, errors.Errorf("Backup finished with: %v ", phase)
+		}
+		if phase != expectedPhase {
+			return false, nil
 		}
 		return true, nil
 	})
