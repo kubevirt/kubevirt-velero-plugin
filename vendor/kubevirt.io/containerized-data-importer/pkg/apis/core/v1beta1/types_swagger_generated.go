@@ -11,7 +11,8 @@ func (DataVolume) SwaggerDoc() map[string]string {
 func (DataVolumeSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "DataVolumeSpec defines the DataVolume type specification",
-		"source":            "Source is the src of the data for the requested DataVolume",
+		"source":            "Source is the src of the data for the requested DataVolume\n+optional",
+		"sourceRef":         "SourceRef is an indirect reference to the source of data for the requested DataVolume\n+optional",
 		"pvc":               "PVC is the PVC specification",
 		"storage":           "Storage is the requested storage specification",
 		"priorityClassName": "PriorityClassName for Importer, Cloner and Uploader pod",
@@ -81,9 +82,11 @@ func (DataVolumeSourceS3) SwaggerDoc() map[string]string {
 func (DataVolumeSourceRegistry) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
-		"url":           "URL is the url of the Docker registry source",
-		"secretRef":     "SecretRef provides the secret reference needed to access the Registry source",
-		"certConfigMap": "CertConfigMap provides a reference to the Registry certs",
+		"url":           "URL is the url of the registry source (starting with the scheme: docker, oci-archive)\n+optional",
+		"imageStream":   "ImageStream is the name of image stream for import\n+optional",
+		"pullMethod":    "PullMethod can be either \"pod\" (default import), or \"node\" (node docker cache based import)\n+optional",
+		"secretRef":     "SecretRef provides the secret reference needed to access the Registry source\n+optional",
+		"certConfigMap": "CertConfigMap provides a reference to the Registry certs\n+optional",
 	}
 }
 
@@ -117,6 +120,15 @@ func (DataVolumeSourceVDDK) SwaggerDoc() map[string]string {
 	}
 }
 
+func (DataVolumeSourceRef) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "DataVolumeSourceRef defines an indirect reference to the source of data for the DataVolume",
+		"kind":      "The kind of the source reference, currently only \"DataSource\" is supported",
+		"namespace": "The namespace of the source reference, defaults to the DataVolume namespace\n+optional",
+		"name":      "The name of the source reference",
+	}
+}
+
 func (DataVolumeStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "DataVolumeStatus contains the current status of the DataVolume",
@@ -147,6 +159,7 @@ func (StorageProfile) SwaggerDoc() map[string]string {
 func (StorageProfileSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "StorageProfileSpec defines specification for StorageProfile",
+		"cloneStrategy":     "CloneStrategy defines the preferred method for performing a CDI clone",
 		"claimPropertySets": "ClaimPropertySets is a provided set of properties applicable to PVC",
 	}
 }
@@ -156,6 +169,7 @@ func (StorageProfileStatus) SwaggerDoc() map[string]string {
 		"":                  "StorageProfileStatus provides the most recently observed status of the StorageProfile",
 		"storageClass":      "The StorageClass name for which capabilities are defined",
 		"provisioner":       "The Storage class provisioner plugin name",
+		"cloneStrategy":     "CloneStrategy defines the preferred method for performing a CDI clone",
 		"claimPropertySets": "ClaimPropertySets computed from the spec and detected in the system",
 	}
 }
@@ -164,7 +178,7 @@ func (ClaimPropertySet) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "ClaimPropertySet is a set of properties applicable to PVC",
 		"accessModes": "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+optional",
-		"volumeMode":  "volumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
+		"volumeMode":  "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
 	}
 }
 
@@ -172,6 +186,89 @@ func (StorageProfileList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "StorageProfileList provides the needed parameters to request a list of StorageProfile from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"items": "Items provides a list of StorageProfile",
+	}
+}
+
+func (DataSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataSource references an import/clone source for a DataVolume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion",
+	}
+}
+
+func (DataSourceSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "DataSourceSpec defines specification for DataSource",
+		"source": "Source is the source of the data referenced by the DataSource",
+	}
+}
+
+func (DataSourceSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":    "DataSourceSource represents the source for our DataSource",
+		"pvc": "+optional",
+	}
+}
+
+func (DataSourceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataSourceStatus provides the most recently observed status of the DataSource",
+	}
+}
+
+func (DataSourceCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataSourceCondition represents the state of a data source condition",
+	}
+}
+
+func (DataSourceList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "DataSourceList provides the needed parameters to do request a list of Data Sources from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "Items provides a list of DataSources",
+	}
+}
+
+func (DataImportCron) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataImportCron defines a cron job for recurring polling/importing disk images as PVCs into a golden image namespace\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion",
+	}
+}
+
+func (DataImportCronSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "DataImportCronSpec defines specification for DataImportCron",
+		"source":            "Source specifies where to poll disk images from",
+		"schedule":          "Schedule specifies in cron format when and how often to look for new imports",
+		"garbageCollect":    "GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported.\nOptions are currently \"Never\" and \"Outdated\", defaults to \"Never\".\n+optional",
+		"managedDataSource": "ManagedDataSource specifies the name of the corresponding DataSource this cron will manage.\nDataSource has to be in the same namespace.",
+	}
+}
+
+func (DataImportCronSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataImportCronSource defines where to poll and import disk images from",
+	}
+}
+
+func (DataImportCronStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                       "DataImportCronStatus provides the most recently observed status of the DataImportCron",
+		"lastImportedPVC":        "LastImportedPVC is the last imported PVC",
+		"lastExecutionTimestamp": "LastExecutionTimestamp is the time of the last polling",
+		"lastImportTimestamp":    "LastImportTimestamp is the time of the last import",
+	}
+}
+
+func (DataImportCronCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataImportCronCondition represents the state of a data import cron condition",
+	}
+}
+
+func (DataImportCronList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "DataImportCronList provides the needed parameters to do request a list of DataImportCrons from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "Items provides a list of DataImportCrons",
 	}
 }
 
@@ -208,6 +305,7 @@ func (CDISpec) SwaggerDoc() map[string]string {
 		"cloneStrategyOverride": "Clone strategy override: should we use a host-assisted copy even if snapshots are available?\n+kubebuilder:validation:Enum=\"copy\";\"snapshot\"",
 		"config":                "CDIConfig at CDI level",
 		"certConfig":            "certificate configuration",
+		"priorityClass":         "PriorityClass of the CDI control plane",
 	}
 }
 
