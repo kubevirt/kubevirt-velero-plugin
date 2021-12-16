@@ -27,14 +27,6 @@ TESTS_OUT_DIR=${OUT_DIR}/tests
 BUILD_DIR=${PLUGIN_DIR}/hack/build
 CACHE_DIR=${OUT_DIR}/gocache
 
-
-# update this whenever builder Dockerfile is updated
-BUILDER_TAG=${BUILDER_TAG:-0.1}
-BUILDER_CONTAINER_NAME=kubevirt-velero-plugin-builder
-UNTAGGED_BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/${BUILDER_CONTAINER_NAME}}
-BUILDER_IMAGE=${UNTAGGED_BUILDER_IMAGE}:${BUILDER_TAG}
-BUILDER_SPEC="${BUILD_DIR}/docker/builder"
-
 DOCKER_HOST_SOCK=${DOCKER_HOST_SOCK:-/run/docker.sock}
 DOCKER_GUEST_SOCK=${DOCKER_GUEST_SOCK:-/run/docker.sock}
 DOCKER_CMD=${DOCKER_CMD:-docker -H unix://${DOCKER_HOST_SOCK}}
