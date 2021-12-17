@@ -1687,15 +1687,15 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Starting VM")
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
+				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
 				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, true)
@@ -1972,7 +1972,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 	})
 
-	Context("CCC Exclude resources", func() {
+	Context("Exclude resources", func() {
 		Context("Standalone DV", func() {
 			It("PVC excluded: DV restored, PVC be re-imported", func() {
 				By("Creating DVs")
@@ -2773,7 +2773,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 	})
 
-	Context("DDD Exclude label", func() {
+	Context("Exclude label", func() {
 		addExcludeLabel := func(labels map[string]string) map[string]string {
 			if labels == nil {
 				labels = make(map[string]string)
@@ -2886,7 +2886,8 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("PVC included, DV excluded: PVC should be restored, ownership relation empty", func() {
+			// TODO: BR: check what should happen with PVC here
+			XIt("PVC included, DV excluded: PVC should be restored, ownership relation empty", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
