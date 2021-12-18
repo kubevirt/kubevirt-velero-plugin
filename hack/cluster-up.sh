@@ -25,8 +25,17 @@ source ./cluster-up/up.sh
 # Deploy KubeVirt
 _kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-operator.yaml
 _kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-cr.yaml
-_kubectl wait -n kubevirt deployment/virt-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s
 
+# Deploy CDI
+_kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml
+_kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-cr.yaml
+
+
+# pre fetch fedora test image
+${_ssh} node01 "sudo docker pull quay.io/kubevirt/fedora-with-test-tooling-container-disk"
+
+
+_kubectl wait -n kubevirt deployment/virt-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s
 
 # Ensure the KubeVirt CR is created
 count=0
@@ -44,7 +53,4 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     sleep 1m
 done
 
-# Deploy CDI
-_kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml
-_kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-cr.yaml
 _kubectl wait -n cdi deployment/cdi-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s
