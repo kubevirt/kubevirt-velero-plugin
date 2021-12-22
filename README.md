@@ -1,13 +1,27 @@
 # Kubevirt Velero Plugin
 
-Velero is the preferred solution for OpenShift for backup, disaster recovery
-and migration. Out-of-the-box it allows backing up VMs and DVs in a couple
-limited scenarios and requires jumping through several hoops.
+This repository contains Velero plugins. Thanks to this plugin, velero can correctly backup and restore 
+VMs, DVs and other resources managed by kubevirt - https://kubevirt.io/. 
 
-The plugin will ensure full support as well as automation of the abovementioned
-hoop-jumping. ;-)
+For more information on Velero check https://velero.io/.
 
 This is still a work in progress, not intended for production use.
+
+## Install
+
+To install remove the plugin check current velero documentation https://velero.io/docs/v1.7/overview-plugins/.
+Below example for kubevirt-velero-plugin version v0.2.0 on Velero 1.7.0
+
+```bash
+velero plugin add quay.io/kubevirt/kubevirt-velero-plugin:v0.2.0
+```
+## Compatibility 
+
+Plugin versions and respective Velero/Kubevirt/CDI versions that are tested to be compatible.
+
+| Plugin Version  | Velero Version | Kubevirt Version | CDI Version   |
+|-----------------|----------------|------------------|---------------|
+| v0.2.0          | v1.6.x, v1.7.x | v0.48.x          | \>= v1.37.0 |
 
 ## Building the plugins
 
