@@ -1,0 +1,15 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: example-dv
+spec:
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+  source:
+    registry:
+      pullMethod: node
+      url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk
