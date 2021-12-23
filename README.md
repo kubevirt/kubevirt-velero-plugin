@@ -43,12 +43,9 @@ kubectl create namespace demo
 kubectl create -f example/datavolume.yaml -n demo
 kubectl create -f example/vm.yaml -n demo
 ```
-Start a VM (wait for condition AgentConnected):
-```bash
-virtctl start example-vm -n demo`
-```
-Login and add some data:
+Wait for Vm running and with condition `AgentConnected`. Then login and add some data:
 `virtctl console example-vm -n demo`
+
 ### 2. Backup
 
 `./velero backup create demobackup1 --include-namespaces demo --wait`
