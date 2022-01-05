@@ -10,12 +10,37 @@ This is still a work in progress, not intended for production use.
 
 ## Kinds of Plugins Included
 
-Kubevirt Velero Plugin implements two kinds of plugins:
-- **Backup Item Action** - performs arbitrary logic on individual items prior to storing them in the backup file.
-- **Restore Item Action** - performs arbitrary logic on individual items prior to restoring them in the Kubernetes cluster.
+The plugin operates on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance.
 
-The plugin operates on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance
+### **DVBackupItemAction** 
+A plugin that backs up the `PersistentVolumeClaim` and `DataVolume`
  
+Finds the PVC for DV and adds the `"cdi.kubevirt.io/storage.prePopulated" or "cdi.kubevirt.io/storage.populatedFor"` annotations
+### **VMBackupItemAction** 
+A plugin that backs up the `VirtualMachine`
+ 
+The plugin checks if a `VM` can be safely backed up and if the backup contains all required objects for the successful restore. 
+The plugin also returns the underlying `DataVolume` if a VM has `DataVolumeTemplate` and `virtualmachineinstances` as extra items to back up.
+
+### **VMIBackupItemAction** 
+A plugin that backs up the `VirtualMachineInstance`
+ 
+The plugin checks if a `VMI` can be safely backed up and if the backup contains all required objects for the successful restore.
+The plugin also returns the underlying VM volumes (`DataVolume` and `PersistentVolumeClaim`) and launcher `pod` as extra items to back up.
+
+### **VMRestoreItemAction**
+A plugin that restores the `VirtualMachine`
+ 
+Adds a `datavolumes` to list of restored items.
+
+### **VMIRestoreItemAction** 
+A plugin that restores the `VirtualMachineInstance`
+
+Skips the VMI if owned by a VM. The plugin also clears restricted labels, so the VMI is not rejected by kubevirt.  The restricted labels contain runtime information about the underlying KVM object.
+
+### **PodRestoreItemAction**
+A plugin that restores the virt-launcher `Pod`
+
 ## Compatibility
 
 Plugin versions and respective Velero/Kubevirt/CDI versions that are tested to be compatible.
