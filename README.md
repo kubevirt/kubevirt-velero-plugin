@@ -1,45 +1,45 @@
 # Kubevirt Velero Plugin
 
-This repository contains Velero plugins. Thanks to this plugin, [Velero](https://velero.io/) can correctly backup and restore
-VirtualMachines, DataVolumess and other resources managed by [KubeVirt](https://kubevirt.io/) and 
+This repository contains a Velero plugin. Thanks to the plugin, [Velero](https://velero.io/) can correctly backup and restore
+VirtualMachines, DataVolumes and other resources managed by [KubeVirt](https://kubevirt.io/) and 
 [CDI](https://github.com/kubevirt/containerized-data-importer/).
 
 For more information on Velero check https://velero.io/.
 
 This is still a work in progress, not intended for production use.
 
-## Kinds of Plugins Included
+## Plugin actions Included
 
-The plugin operates on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance.
+The plugin registers backup and restore actions that operate on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance.
 
 ### **DVBackupItemAction** 
-A plugin that backs up the `PersistentVolumeClaim` and `DataVolume`
+An action that backs up the `PersistentVolumeClaim` and `DataVolume`
  
 Finds the PVC for DV and adds the `"cdi.kubevirt.io/storage.prePopulated" or "cdi.kubevirt.io/storage.populatedFor"` annotations
 ### **VMBackupItemAction** 
-A plugin that backs up the `VirtualMachine`
+An action that backs up the `VirtualMachine`
  
-The plugin checks if a `VM` can be safely backed up and if the backup contains all required objects for the successful restore. 
-The plugin also returns the underlying `DataVolume` if a VM has `DataVolumeTemplate` and `virtualmachineinstances` as extra items to back up.
+It checks if a `VM` can be safely backed up and if the backup contains all required objects for the successful restore. 
+The action also returns the underlying `DataVolume` if a VM has `DataVolumeTemplate` and `virtualmachineinstances` as extra items to back up.
 
 ### **VMIBackupItemAction** 
-A plugin that backs up the `VirtualMachineInstance`
+An action that backs up the `VirtualMachineInstance`
  
-The plugin checks if a `VMI` can be safely backed up and if the backup contains all required objects for the successful restore.
-The plugin also returns the underlying VM volumes (`DataVolume` and `PersistentVolumeClaim`) and launcher `pod` as extra items to back up.
+It checks if a `VMI` can be safely backed up and if the backup contains all required objects for the successful restore.
+The action also returns the underlying VM volumes (`DataVolume` and `PersistentVolumeClaim`) and launcher `pod` as extra items to back up.
 
 ### **VMRestoreItemAction**
-A plugin that restores the `VirtualMachine`
+An action that restores the `VirtualMachine`
  
 Adds a `datavolumes` to list of restored items.
 
 ### **VMIRestoreItemAction** 
-A plugin that restores the `VirtualMachineInstance`
+An action that restores the `VirtualMachineInstance`
 
 Skips the VMI if owned by a VM. The plugin also clears restricted labels, so the VMI is not rejected by kubevirt.  The restricted labels contain runtime information about the underlying KVM object.
 
 ### **PodRestoreItemAction**
-A plugin that restores the virt-launcher `Pod`
+An action that handles the virt-launcher `Pod`. It makes sure virt-launcher pod is always skipped.
 
 ## Compatibility
 
