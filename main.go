@@ -61,7 +61,7 @@ func newVMIBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
 }
 
 func newVMRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
-	logger.Debug("Creating VMIRestoreItemAction")
+	logger.Debug("Creating VMRestoreItemAction")
 	return plugin.NewVMRestoreItemAction(logger), nil
 }
 
