@@ -26,12 +26,12 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 )
 
-// VIMRestorePlugin is a VMI restore item action plugin for Velero (duh!)
+// PodRestorePlugin is a pod restore item action plugin for Velero (duh!)
 type PodRestorePlugin struct {
 	log logrus.FieldLogger
 }
 
-// NewPodRestorePlugin instantiates a RestorePlugin.
+// NewPodRestoreItemAction instantiates a RestorePlugin.
 func NewPodRestoreItemAction(log logrus.FieldLogger) *PodRestorePlugin {
 	return &PodRestorePlugin{log: log}
 }
