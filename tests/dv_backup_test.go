@@ -14,7 +14,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
+
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 )
 
 const snapshotLocation = "test-location"
@@ -27,6 +29,7 @@ var _ = Describe("DV Backup", func() {
 	var namespace *v1.Namespace
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
+	var r = framework.NewKubernetesReporter()
 
 	BeforeSuite(func() {
 		var err error
@@ -75,25 +78,25 @@ var _ = Describe("DV Backup", func() {
 			err := DeleteDataVolume(clientSet, namespace.Name, dv.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = DeleteBackup(timeout, "test-backup")
+			err = DeleteBackup(timeout, "test-backup", r.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Backup should succeed", func() {
-			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
+			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			phase, err := GetBackupPhase(timeout, "test-backup")
+			phase, err := GetBackupPhase(timeout, "test-backup", r.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 		})
 
 		It("DataVolume should be restored", func() {
 			By("Crating backup test-backup")
-			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, true)
+			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			phase, err := GetBackupPhase(timeout, "test-backup")
+			phase, err := GetBackupPhase(timeout, "test-backup", r.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 
@@ -106,10 +109,10 @@ var _ = Describe("DV Backup", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore test-restore")
-			err = CreateRestoreForBackup(timeout, "test-backup", "test-restore", true)
+			err = CreateRestoreForBackup(timeout, "test-backup", "test-restore", r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForRestorePhase(timeout, "test-restore", velerov1api.RestorePhaseCompleted)
+			err = WaitForRestorePhase(timeout, "test-restore", r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking DataVolume exists")
