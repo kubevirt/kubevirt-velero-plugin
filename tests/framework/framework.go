@@ -26,9 +26,21 @@ const (
 
 // KubernetesReporter is the struct that holds the report info.
 type KubernetesReporter struct {
-	FailureCount int
-	artifactsDir string
-	maxFails     int
+	BackupNamespace string
+	FailureCount    int
+	artifactsDir    string
+	maxFails        int
+}
+
+func getBackupNamespaceFromEnv() string {
+	backupNamespace := os.Getenv("KVP_BACKUP_NS")
+	if backupNamespace == "" {
+		fmt.Fprintf(os.Stderr, "defaulting to velero ns\n")
+		return "velero"
+	}
+
+	fmt.Fprintf(os.Stderr, "Backup Namespace [%s]\n", backupNamespace)
+	return backupNamespace
 }
 
 func getMaxFailsFromEnv() int {
@@ -51,9 +63,10 @@ func getMaxFailsFromEnv() int {
 // NewKubernetesReporter creates a new instance of the reporter.
 func NewKubernetesReporter() *KubernetesReporter {
 	return &KubernetesReporter{
-		FailureCount: 0,
-		artifactsDir: os.Getenv("ARTIFACTS"),
-		maxFails:     getMaxFailsFromEnv(),
+		BackupNamespace: getBackupNamespaceFromEnv(),
+		FailureCount:    0,
+		artifactsDir:    os.Getenv("ARTIFACTS"),
+		maxFails:        getMaxFailsFromEnv(),
 	}
 }
 
