@@ -22,6 +22,8 @@ const (
 	veleroEntityUriTemplate = "apis/velero.io/v1/namespaces/%s/%s/"
 	veleroBackup            = "backups"
 	veleroRestore           = "restores"
+	backupNamespaceEnv      = "KVP_BACKUP_NS"
+	defaultBackupNamespace  = "velero"
 )
 
 // KubernetesReporter is the struct that holds the report info.
@@ -33,10 +35,10 @@ type KubernetesReporter struct {
 }
 
 func getBackupNamespaceFromEnv() string {
-	backupNamespace := os.Getenv("KVP_BACKUP_NS")
+	backupNamespace := os.Getenv(backupNamespaceEnv)
 	if backupNamespace == "" {
 		fmt.Fprintf(os.Stderr, "defaulting to velero ns\n")
-		return "velero"
+		return defaultBackupNamespace
 	}
 
 	fmt.Fprintf(os.Stderr, "Backup Namespace [%s]\n", backupNamespace)
