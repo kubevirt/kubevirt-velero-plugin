@@ -277,7 +277,7 @@ var _ = Describe("Resource includes", func() {
 		}
 
 		// Deleting the backup also deletes all restores, volume snapshots etc.
-		err := DeleteBackup(timeout, backupName)
+		err := DeleteBackup(timeout, backupName, r.BackupNamespace)
 		Expect(err).ToNot(HaveOccurred())
 
 		cancelFunc()
@@ -325,10 +325,10 @@ var _ = Describe("Resource includes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Crating backup test-backup")
-			err = CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, true)
+			err = CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting DVs")
@@ -345,9 +345,9 @@ var _ = Describe("Resource includes", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore test-restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking included DataVolume exists")
@@ -379,9 +379,9 @@ var _ = Describe("Resource includes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, true)
+			err = CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VMs")
@@ -398,9 +398,9 @@ var _ = Describe("Resource includes", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying included VM exists")
@@ -446,14 +446,14 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = CreateBackupForResources(timeout, backupName, "datavolumes,persistentvolumeclaims", snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, "datavolumes,persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following 2 items:
@@ -468,9 +468,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
@@ -502,14 +502,14 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup test-backup")
 				resources := "datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following items:
@@ -530,9 +530,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
@@ -559,13 +559,13 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = CreateBackupForResources(timeout, backupName, "datavolumes", snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, "datavolumes", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following item:
@@ -579,9 +579,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -609,14 +609,14 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup test-backup")
 				resources := "persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following items:
@@ -636,9 +636,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
@@ -670,9 +670,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -683,9 +683,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -716,9 +716,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -741,9 +741,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances,persistentvolumeclaims"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -767,9 +767,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -792,9 +792,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -836,9 +836,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -861,9 +861,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -898,9 +898,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -928,9 +928,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -948,9 +948,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -976,9 +976,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -992,9 +992,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -1020,9 +1020,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -1033,9 +1033,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -1065,9 +1065,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -1081,9 +1081,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -1109,9 +1109,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -1122,9 +1122,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -1160,9 +1160,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup with DV+PVC+Pod")
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -1186,9 +1186,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup without DV+PVC+Pod")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -1220,9 +1220,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -1239,9 +1239,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -1280,9 +1280,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -1298,9 +1298,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -1340,9 +1340,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1374,9 +1374,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1403,9 +1403,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
@@ -1418,9 +1418,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -1459,9 +1459,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances,pods"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1486,9 +1486,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances,pods"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1513,9 +1513,9 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, true)
+				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1558,9 +1558,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Crating backup test-backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, true)
+				err = CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
@@ -1577,9 +1577,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking included DataVolume exists")
@@ -1609,13 +1609,13 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Crating backup test-backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, true)
+				err = CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1654,13 +1654,13 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, true)
+				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1698,13 +1698,13 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, true)
+				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1760,13 +1760,13 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, true)
+				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName)
+				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1822,7 +1822,7 @@ var _ = Describe("Resource excludes", func() {
 		}
 
 		// Deleting the backup also deletes all restores, volume snapshots etc.
-		err := DeleteBackup(timeout, backupName)
+		err := DeleteBackup(timeout, backupName, r.BackupNamespace)
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
@@ -1879,10 +1879,10 @@ var _ = Describe("Resource excludes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Crating backup test-backup")
-			err = CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, true)
+			err = CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting DVs")
@@ -1899,9 +1899,9 @@ var _ = Describe("Resource excludes", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore test-restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking included DataVolume exists")
@@ -1933,9 +1933,9 @@ var _ = Describe("Resource excludes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, true)
+			err = CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VMs")
@@ -1952,9 +1952,9 @@ var _ = Describe("Resource excludes", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying included VM exists")
@@ -1985,9 +1985,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
@@ -1997,9 +1997,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -2026,10 +2026,10 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "datavolumes", snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "datavolumes", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
@@ -2041,9 +2041,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
@@ -2080,9 +2080,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "pods", snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "pods", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -2105,9 +2105,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "pods,datavolumes"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -2130,9 +2130,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "pods,persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -2143,9 +2143,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -2175,9 +2175,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "pods"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -2188,9 +2188,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -2231,9 +2231,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "pods"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -2244,9 +2244,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -2278,9 +2278,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -2298,9 +2298,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -2311,9 +2311,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -2343,9 +2343,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "datavolumes,persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -2356,9 +2356,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -2388,9 +2388,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "datavolumes"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -2401,9 +2401,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -2434,9 +2434,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachine"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -2454,9 +2454,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachine"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Delete VM")
@@ -2472,9 +2472,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -2511,9 +2511,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "datavolumes"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2542,9 +2542,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -2561,9 +2561,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -2606,9 +2606,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -2632,9 +2632,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "pods"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2660,9 +2660,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "pod"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
@@ -2675,9 +2675,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -2714,9 +2714,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
@@ -2729,9 +2729,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -2765,9 +2765,9 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating backup")
 				resources := "datavolumes"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -2856,9 +2856,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToPVC("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
@@ -2868,9 +2868,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -2901,9 +2901,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToDV("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, true)
+				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
@@ -2913,9 +2913,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
@@ -2948,9 +2948,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToVMI("test-vm")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -2979,9 +2979,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToLauncherPodForVM("test-vm")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -3018,9 +3018,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToDV(vmSpec.Spec.DataVolumeTemplates[0].Name)
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -3031,9 +3031,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -3062,9 +3062,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToPVC(vmSpec.Spec.DataVolumeTemplates[0].Name)
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -3075,9 +3075,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -3109,9 +3109,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToDV(vmSpec.Spec.DataVolumeTemplates[0].Name)
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -3122,9 +3122,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -3158,9 +3158,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToVM("test-vm")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -3195,9 +3195,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToDV("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -3228,9 +3228,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToPVC("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
@@ -3247,9 +3247,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
@@ -3294,9 +3294,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToPVC("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -3322,9 +3322,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToLauncherPodForVM("test-vmi")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -3356,9 +3356,9 @@ var _ = Describe("Resource excludes", func() {
 
 				// time.Sleep(300 * time.Second)
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
@@ -3371,9 +3371,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -3412,9 +3412,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToVMI("test-vmi")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhaseCompleted)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
@@ -3427,9 +3427,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, true)
+				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, velerov1api.RestorePhaseCompleted)
+				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
@@ -3465,9 +3465,9 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToDV("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, true)
+				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, velerov1api.BackupPhasePartiallyFailed)
+				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
