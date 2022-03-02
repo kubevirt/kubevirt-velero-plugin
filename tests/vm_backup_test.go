@@ -74,7 +74,13 @@ var _ = Describe("VM Backup", func() {
 			vm, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("Starting VM")
+			err = StartVirtualMachine(*kvClient, namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+
 			err = WaitForDataVolumePhase(cdiClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			Expect(err).ToNot(HaveOccurred())
+			err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vm.Name, kvv1.Running)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -87,8 +93,12 @@ var _ = Describe("VM Backup", func() {
 		})
 
 		It("Backing up stopped VM should succeed", func() {
+			By("Stoppin a VM")
+			err := StopVirtualMachine(*kvClient, namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Creating backup")
-			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, r.BackupNamespace, true)
+			err = CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			phase, err := GetBackupPhase(timeout, "test-backup", r.BackupNamespace)
@@ -97,10 +107,7 @@ var _ = Describe("VM Backup", func() {
 		})
 
 		It("Backing up started VM should succeed", func() {
-			By("Starting VM")
-			err := StartVirtualMachine(*kvClient, namespace.Name, vm.Name)
-			Expect(err).ToNot(HaveOccurred())
-			err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vm.Name, kvv1.Running)
+			err := WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vm.Name, kvv1.Running)
 			Expect(err).ToNot(HaveOccurred())
 			ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 			Expect(err).ToNot(HaveOccurred())
@@ -116,8 +123,12 @@ var _ = Describe("VM Backup", func() {
 		})
 
 		It("Stoped VM should be restored", func() {
+			By("Stoppin a VM")
+			err := StopVirtualMachine(*kvClient, namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Creating backup")
-			err := CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, r.BackupNamespace, true)
+			err = CreateBackupForNamespace(timeout, "test-backup", namespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			phase, err := GetBackupPhase(timeout, "test-backup", r.BackupNamespace)
@@ -142,10 +153,7 @@ var _ = Describe("VM Backup", func() {
 		})
 
 		It("started VM should be restored", func() {
-			By("Starting VM")
-			err := StartVirtualMachine(*kvClient, namespace.Name, vm.Name)
-			Expect(err).ToNot(HaveOccurred())
-			err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			err := WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 			Expect(err).ToNot(HaveOccurred())
 			ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 			Expect(err).ToNot(HaveOccurred())
