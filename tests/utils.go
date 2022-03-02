@@ -562,10 +562,11 @@ func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolum
 	}
 }
 
-func CreateBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, wait bool) error {
+func CreateBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--include-namespaces", namespace,
+		"--namespace", backupNamespace,
 	}
 
 	if snapshotLocation != "" {
@@ -588,11 +589,12 @@ func CreateBackupForNamespace(ctx context.Context, backupName string, namespace 
 	return nil
 }
 
-func CreateBackupForNamespaceExcludeNamespace(ctx context.Context, backupName, includedNamespace, excludedNamespace, snapshotLocation string, wait bool) error {
+func CreateBackupForNamespaceExcludeNamespace(ctx context.Context, backupName, includedNamespace, excludedNamespace, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--include-namespaces", includedNamespace,
 		"--exclude-namespaces", excludedNamespace,
+		"--namespace", backupNamespace,
 	}
 
 	if snapshotLocation != "" {
@@ -615,11 +617,12 @@ func CreateBackupForNamespaceExcludeNamespace(ctx context.Context, backupName, i
 	return nil
 }
 
-func CreateBackupForNamespaceExcludeResources(ctx context.Context, backupName, namespace, resources, snapshotLocation string, wait bool) error {
+func CreateBackupForNamespaceExcludeResources(ctx context.Context, backupName, namespace, resources, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--include-namespaces", namespace,
 		"--exclude-resources", resources,
+		"--namespace", backupNamespace,
 	}
 
 	if snapshotLocation != "" {
@@ -642,10 +645,11 @@ func CreateBackupForNamespaceExcludeResources(ctx context.Context, backupName, n
 	return nil
 }
 
-func CreateBackupForSelector(ctx context.Context, backupName, selector, snapshotLocation string, wait bool) error {
+func CreateBackupForSelector(ctx context.Context, backupName, selector, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--selector", selector,
+		"--namespace", backupNamespace,
 	}
 
 	if snapshotLocation != "" {
@@ -668,10 +672,11 @@ func CreateBackupForSelector(ctx context.Context, backupName, selector, snapshot
 	return nil
 }
 
-func CreateBackupForResources(ctx context.Context, backupName, resources, snapshotLocation string, wait bool) error {
+func CreateBackupForResources(ctx context.Context, backupName, resources, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
 		"--include-resources", resources,
+		"--namespace", backupNamespace,
 	}
 
 	if snapshotLocation != "" {
@@ -694,10 +699,11 @@ func CreateBackupForResources(ctx context.Context, backupName, resources, snapsh
 	return nil
 }
 
-func DeleteBackup(ctx context.Context, backupName string) error {
+func DeleteBackup(ctx context.Context, backupName string, backupNamespace string) error {
 	args := []string{
 		"delete", "backup", backupName,
 		"--confirm",
+		"--namespace", backupNamespace,
 	}
 
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
@@ -714,8 +720,8 @@ func DeleteBackup(ctx context.Context, backupName string) error {
 	return nil
 }
 
-func GetBackup(ctx context.Context, backupName string) (*velerov1api.Backup, error) {
-	checkCMD := exec.CommandContext(ctx, veleroCLI, "backup", "get", "-o", "json", backupName)
+func GetBackup(ctx context.Context, backupName string, backupNamespace string) (*velerov1api.Backup, error) {
+	checkCMD := exec.CommandContext(ctx, veleroCLI, "backup", "get", "-n", backupNamespace, "-o", "json", backupName)
 
 	stdoutPipe, err := checkCMD.StdoutPipe()
 	if err != nil {
@@ -750,8 +756,8 @@ func GetBackup(ctx context.Context, backupName string) (*velerov1api.Backup, err
 	return &backup, nil
 }
 
-func GetBackupPhase(ctx context.Context, backupName string) (velerov1api.BackupPhase, error) {
-	backup, err := GetBackup(ctx, backupName)
+func GetBackupPhase(ctx context.Context, backupName string, backupNamespace string) (velerov1api.BackupPhase, error) {
+	backup, err := GetBackup(ctx, backupName, backupNamespace)
 	if err != nil {
 		return "", err
 	}
@@ -759,9 +765,9 @@ func GetBackupPhase(ctx context.Context, backupName string) (velerov1api.BackupP
 	return backup.Status.Phase, nil
 }
 
-func WaitForBackupPhase(ctx context.Context, backupName string, expectedPhase velerov1api.BackupPhase) error {
+func WaitForBackupPhase(ctx context.Context, backupName string, backupNamespace string, expectedPhase velerov1api.BackupPhase) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		backup, err := GetBackup(ctx, backupName)
+		backup, err := GetBackup(ctx, backupName, backupNamespace)
 		if err != nil {
 			return false, err
 		}
@@ -799,10 +805,11 @@ func CreateSnapshotLocation(ctx context.Context, locationName, provider, region 
 	return nil
 }
 
-func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string, wait bool) error {
+func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string, backupNamespace string, wait bool) error {
 	args := []string{
 		"restore", "create", restoreName,
 		"--from-backup", backupName,
+		"--namespace", backupNamespace,
 	}
 
 	if wait {
@@ -821,8 +828,8 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string,
 	return nil
 }
 
-func GetRestore(ctx context.Context, restoreName string) (*velerov1api.Restore, error) {
-	checkCMD := exec.CommandContext(ctx, veleroCLI, "restore", "get", "-o", "json", restoreName)
+func GetRestore(ctx context.Context, restoreName string, backupNamespace string) (*velerov1api.Restore, error) {
+	checkCMD := exec.CommandContext(ctx, veleroCLI, "restore", "get", "-n", backupNamespace, "-o", "json", restoreName)
 
 	stdoutPipe, err := checkCMD.StdoutPipe()
 	if err != nil {
@@ -857,8 +864,8 @@ func GetRestore(ctx context.Context, restoreName string) (*velerov1api.Restore, 
 	return &restore, nil
 }
 
-func GetRestorePhase(ctx context.Context, restoreName string) (velerov1api.RestorePhase, error) {
-	restore, err := GetRestore(ctx, restoreName)
+func GetRestorePhase(ctx context.Context, restoreName string, backupNamespace string) (velerov1api.RestorePhase, error) {
+	restore, err := GetRestore(ctx, restoreName, backupNamespace)
 	if err != nil {
 		return "", err
 	}
@@ -866,9 +873,9 @@ func GetRestorePhase(ctx context.Context, restoreName string) (velerov1api.Resto
 	return restore.Status.Phase, nil
 }
 
-func WaitForRestorePhase(ctx context.Context, restoreName string, expectedPhase velerov1api.RestorePhase) error {
+func WaitForRestorePhase(ctx context.Context, restoreName string, backupNamespace string, expectedPhase velerov1api.RestorePhase) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		phase, err := GetRestorePhase(ctx, restoreName)
+		phase, err := GetRestorePhase(ctx, restoreName, backupNamespace)
 		ginkgo.By(fmt.Sprintf("Waiting for restore phase %v, got %v", expectedPhase, phase))
 		if err != nil || phase != expectedPhase {
 			return false, err
