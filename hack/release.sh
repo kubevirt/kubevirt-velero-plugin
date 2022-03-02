@@ -53,6 +53,9 @@ function update_github_release() {
     else
         set -e
     fi
+
+    gh release upload --repo "$GITHUB_REPOSITORY" --clobber "$DOCKER_TAG" \
+        _output/tests/tests.test
 }
 
 function main() {
