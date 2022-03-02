@@ -787,11 +787,12 @@ func WaitForBackupPhase(ctx context.Context, backupName string, backupNamespace 
 	return nil
 }
 
-func CreateSnapshotLocation(ctx context.Context, locationName, provider, region string) error {
+func CreateSnapshotLocation(ctx context.Context, locationName, provider, region string, backupNamespace string) error {
 	args := []string{
 		"snapshot-location", "create", locationName,
 		"--provider", provider,
 		"--config", "region=" + region,
+		"--namespace", backupNamespace,
 	}
 
 	locationCmd := exec.CommandContext(ctx, veleroCLI, args...)

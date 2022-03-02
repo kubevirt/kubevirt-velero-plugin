@@ -39,7 +39,7 @@ var _ = Describe("DV Backup", func() {
 		kvClient, err = util.GetKubeVirtclient()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = CreateSnapshotLocation(context.TODO(), snapshotLocation, "aws", "minio")
+		err = CreateSnapshotLocation(context.TODO(), snapshotLocation, "aws", r.Region, r.BackupNamespace)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
