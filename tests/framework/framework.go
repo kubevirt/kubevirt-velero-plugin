@@ -23,12 +23,16 @@ const (
 	veleroBackup            = "backups"
 	veleroRestore           = "restores"
 	backupNamespaceEnv      = "KVP_BACKUP_NS"
-	defaultBackupNamespace  = "velero"
+	regionEnv               = "KVP_REGION"
+
+	defaultRegionName      = "minio"
+	defaultBackupNamespace = "velero"
 )
 
 // KubernetesReporter is the struct that holds the report info.
 type KubernetesReporter struct {
 	BackupNamespace string
+	Region          string
 	FailureCount    int
 	artifactsDir    string
 	maxFails        int
@@ -43,6 +47,17 @@ func getBackupNamespaceFromEnv() string {
 
 	fmt.Fprintf(os.Stderr, "Backup Namespace [%s]\n", backupNamespace)
 	return backupNamespace
+}
+
+func getRegionFromEnv() string {
+	region := os.Getenv(regionEnv)
+	if region == "" {
+		fmt.Fprintf(os.Stderr, "defaulting to minio ns\n")
+		return defaultRegionName
+	}
+
+	fmt.Fprintf(os.Stderr, "Region Name [%s]\n", region)
+	return region
 }
 
 func getMaxFailsFromEnv() int {
@@ -66,6 +81,7 @@ func getMaxFailsFromEnv() int {
 func NewKubernetesReporter() *KubernetesReporter {
 	return &KubernetesReporter{
 		BackupNamespace: getBackupNamespaceFromEnv(),
+		Region:          getRegionFromEnv(),
 		FailureCount:    0,
 		artifactsDir:    os.Getenv("ARTIFACTS"),
 		maxFails:        getMaxFailsFromEnv(),
