@@ -42,6 +42,10 @@ function ensure_gh_cli_installed() {
     gh config set prompt disabled
 }
 
+function build_release_artifacts() {
+    make rebuild-functest
+}
+
 function update_github_release() {
     # note: for testing purposes we set the target repository, gh cli seems to always automatically choose the
     # upstream repository automatically, even when you are in a fork
@@ -54,7 +58,7 @@ function update_github_release() {
         set -e
     fi
 
-    gh release upload --repo "$GITHUB_REPOSITORY" --clobber "$DOCKER_TAG" \
+    gh release upload --repo "$GITHUB_REPOSITORY" --clobber "$TAG" \
         _output/tests/tests.test
 }
 
@@ -75,6 +79,7 @@ function main() {
 
     gh auth login --with-token <"$GITHUB_TOKEN_PATH"
 
+    build_release_artifacts
     update_github_release
 }
 
