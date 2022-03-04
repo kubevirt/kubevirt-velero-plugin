@@ -19,38 +19,5 @@
 set -ex
 
 KUBEVIRT_STORAGE=rook-ceph-default
-source ./hack/config.sh
 source ./cluster-up/up.sh
 
-# Deploy KubeVirt
-_kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-operator.yaml
-_kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-cr.yaml
-
-# Deploy CDI
-_kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml
-_kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-cr.yaml
-
-
-# pre fetch fedora test image
-${_ssh} node01 "sudo docker pull quay.io/kubevirt/fedora-with-test-tooling-container-disk"
-
-
-_kubectl wait -n kubevirt deployment/virt-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s
-
-# Ensure the KubeVirt CR is created
-count=0
-until _kubectl -n kubevirt get kv kubevirt; do
-    ((count++)) && ((count == 30)) && echo "KubeVirt CR not found" && exit 1
-    echo "waiting for KubeVirt CR"
-    sleep 1
-done
-
-# Wait until KubeVirt is ready
-count=0
-until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 5m; do
-    ((count++)) && ((count == 5)) && echo "KubeVirt not ready in time" && exit 1
-    echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
-    sleep 1m
-done
-
-_kubectl wait -n cdi deployment/cdi-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s

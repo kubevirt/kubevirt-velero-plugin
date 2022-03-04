@@ -215,6 +215,7 @@ local-undeploy-velero:
 
 cluster-up:
 	@hack/cluster-up.sh
+	@hack/cluster-deploy-prerequisites.sh
 
 cluster-down:
 	@cluster-up/down.sh
