@@ -15,9 +15,10 @@
 #limitations under the License.
 
 set -e
+readonly ARTIFACTS_PATH="${ARTIFACTS}"
 
 # Setup a cluster
 make cluster-up cluster-push-image cluster-sync CLUSTER_PREFIX='-p pull-kvp-functional-test'
 
 # Run the tests
-make test-functional CLUSTER_PREFIX='-p pull-kvp-functional-test'
+make test-functional CLUSTER_PREFIX='-p pull-kvp-functional-test' TEST_ARGS="--test-args=--junit-output=${ARTIFACTS_PATH}/junit.functest.xml"
