@@ -27,9 +27,10 @@ import (
 )
 
 const (
-	pollInterval = 3 * time.Second
-	waitTime     = 270 * time.Second
-	veleroCLI    = "velero"
+	pollInterval        = 3 * time.Second
+	waitTime            = 270 * time.Second
+	veleroCLI           = "velero"
+	forceBindAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 )
 
 func CreateVmWithGuestAgent(vmName string) *kvv1.VirtualMachine {
