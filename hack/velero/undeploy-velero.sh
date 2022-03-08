@@ -23,10 +23,10 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
     )"../../cluster-up/
 fi
 
-script_dir="$(cd "$(dirname "$0")" && pwd -P)"
+
 DOCKER_GUEST_SOCK=/var/run/docker.sock
-velero_dir=${script_dir}/../velero
-source "${script_dir}"/../config.sh
+velero_dir=./hack/velero
+source ./hack/config.sh
 
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 
