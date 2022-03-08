@@ -6,7 +6,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/hashicorp/go-plugin v1.0.1-0.20190610192547-a1bc61569a26 // indirect
 	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.17.0
+	github.com/onsi/gomega v1.18.1
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/pflag v1.0.5
