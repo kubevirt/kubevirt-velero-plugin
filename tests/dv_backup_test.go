@@ -66,6 +66,8 @@ var _ = Describe("DV Backup", func() {
 		BeforeEach(func() {
 			var err error
 			dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+			dvSpec.Annotations[forceBindAnnotation] = "true"
+
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 			dv, err = CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
