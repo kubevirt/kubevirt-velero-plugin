@@ -19,7 +19,7 @@ import (
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 )
 
-var _ = Describe("VM Backup", func() {
+var _ = Describe("[smoke] VM Backup", func() {
 	var client, _ = util.GetK8sClient()
 	var cdiClient *cdiclientset.Clientset
 	var kvClient *kubecli.KubevirtClient

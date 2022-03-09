@@ -1381,7 +1381,7 @@ var _ = Describe("Resource includes", func() {
 			})
 		})
 
-		Context("Standalone VMI", func() {
+		Context("[smoke] Standalone VMI", func() {
 			It("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
@@ -1723,7 +1723,7 @@ var _ = Describe("Resource includes", func() {
 			})
 		})
 
-		Context("Standalone VMI", func() {
+		Context("[smoke] Standalone VMI", func() {
 			It("Backup of VMIs selected by label should include its DVs, PVCs, and Pods", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
@@ -2693,7 +2693,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
+			It("[smoke] Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -3301,7 +3301,7 @@ var _ = Describe("Resource excludes", func() {
 			})
 		})
 
-		Context("Standalone VMI", func() {
+		Context("[smoke] Standalone VMI", func() {
 			It("VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
