@@ -513,11 +513,11 @@ func WaitVirtualMachineDeleted(client kubecli.KubevirtClient, namespace, name st
 	return result, err
 }
 
-func NewDataVolumeForFedoraWithGuestAgentImage(dataVolumeName string) *cdiv1.DataVolume {
+func NewDataVolumeForFedoraWithGuestAgentImage(dataVolumeName string, storageClass string) *cdiv1.DataVolume {
 	fedoraUrl := "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
 	nodePullMethod := cdiv1.RegistryPullNode
 
-	return &cdiv1.DataVolume{
+	dvSpec := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        dataVolumeName,
 			Annotations: map[string]string{},
@@ -539,10 +539,15 @@ func NewDataVolumeForFedoraWithGuestAgentImage(dataVolumeName string) *cdiv1.Dat
 			},
 		},
 	}
+	if storageClass != "" {
+		dvSpec.Spec.PVC.StorageClassName = &storageClass
+	}
+
+	return dvSpec
 }
 
-func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolume {
-	return &cdiv1.DataVolume{
+func NewDataVolumeForBlankRawImage(dataVolumeName, size string, storageClass string) *cdiv1.DataVolume {
+	dvSpec := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        dataVolumeName,
 			Annotations: map[string]string{},
@@ -561,6 +566,11 @@ func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolum
 			},
 		},
 	}
+	if storageClass != "" {
+		dvSpec.Spec.PVC.StorageClassName = &storageClass
+	}
+
+	return dvSpec
 }
 
 func CreateBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, backupNamespace string, wait bool) error {

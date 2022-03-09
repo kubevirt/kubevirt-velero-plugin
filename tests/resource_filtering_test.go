@@ -309,7 +309,7 @@ var _ = Describe("Resource includes", func() {
 
 		It("Should only backup and restore DV from included namespace", func() {
 			By("Creating DVs")
-			dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi")
+			dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 			dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, includedNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
@@ -318,7 +318,7 @@ var _ = Describe("Resource includes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi")
+			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
 			dvOther, err := CreateDataVolumeFromDefinition(clientSet, otherNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 			err = WaitForDataVolumePhase(clientSet, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
@@ -437,7 +437,7 @@ var _ = Describe("Resource includes", func() {
 		Context("Standalone DV", func() {
 			It("Selecting DV+PVC: Both DVs and PVCs should be backed up and restored, content of PVC re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -492,7 +492,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting DV+PVC+PV+VolumeSnapshot+VSContent: Both DVs and PVCs should be backed up and restored, content of PVC not re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -550,7 +550,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting only DVs: the restored DV should recreate its PVC", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -599,7 +599,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting only PVCs: PVC should be restored, ownership relation empty", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1201,7 +1201,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting VM+DV+PVC, VM stopped: VM, DV and PVC should be restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1259,7 +1259,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting VM + PVC, VM stopped: VM and PVC should be restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1314,7 +1314,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting VM + PVC, VM running: Backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1348,7 +1348,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting VM but not PVC: Backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1384,7 +1384,7 @@ var _ = Describe("Resource includes", func() {
 		Context("Standalone VMI", func() {
 			It("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1440,7 +1440,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting standalone VMI+Pod without DV: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1467,7 +1467,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting standalone VMI+Pod without PVC: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1494,7 +1494,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting standalone VMI without Pod: Backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1540,7 +1540,7 @@ var _ = Describe("Resource includes", func() {
 		Context("Standalone DV", func() {
 			It("Should only backup and restore DV selected by label", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
 				dvSpec.Labels = map[string]string{
 					"a.test.label": "include",
 				}
@@ -1550,7 +1550,7 @@ var _ = Describe("Resource includes", func() {
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "included-test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
-				dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi")
+				dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvOther, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1598,7 +1598,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Backup of DVs selected by label should include PVCs", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
 				dvSpec.Labels = map[string]string{
 					"a.test.label": "include",
 				}
@@ -1726,14 +1726,14 @@ var _ = Describe("Resource includes", func() {
 		Context("Standalone VMI", func() {
 			It("Backup of VMIs selected by label should include its DVs, PVCs, and Pods", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
-				dvSpec2 := NewDataVolumeForBlankRawImage("test-dv-2", "100Mi")
+				dvSpec2 := NewDataVolumeForBlankRawImage("test-dv-2", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec2.Name))
 				_, err = CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec2)
 				Expect(err).ToNot(HaveOccurred())
@@ -1863,7 +1863,7 @@ var _ = Describe("Resource excludes", func() {
 
 		It("Should not backup and restore DV from excluded namespace", func() {
 			By("Creating DVs")
-			dvSpec := NewDataVolumeForBlankRawImage("excluded-test-dv", "100Mi")
+			dvSpec := NewDataVolumeForBlankRawImage("excluded-test-dv", "100Mi", r.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 			dvExcluded, err := CreateDataVolumeFromDefinition(clientSet, excludedNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
@@ -1872,7 +1872,7 @@ var _ = Describe("Resource excludes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi")
+			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
 			dvOther, err := CreateDataVolumeFromDefinition(clientSet, otherNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 			err = WaitForDataVolumePhase(clientSet, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
@@ -1976,7 +1976,7 @@ var _ = Describe("Resource excludes", func() {
 		Context("Standalone DV", func() {
 			It("PVC excluded: DV restored, PVC be re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2017,7 +2017,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("DV excluded: PVC restored, ownership relation empty", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2490,7 +2490,7 @@ var _ = Describe("Resource excludes", func() {
 		Context("VM without DVTemplates", func() {
 			It("VM with DV Volume, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2519,7 +2519,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC recreated and re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2585,7 +2585,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VM with PVC Volume, PVC excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2616,7 +2616,7 @@ var _ = Describe("Resource excludes", func() {
 		Context("Standalone VMI", func() {
 			It("VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2640,7 +2640,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2695,7 +2695,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2749,7 +2749,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VMI+Pod included, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2844,7 +2844,7 @@ var _ = Describe("Resource excludes", func() {
 		Context("Standalone DV", func() {
 			It("DV included, PVC excluded: PVC should be re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2889,7 +2889,7 @@ var _ = Describe("Resource excludes", func() {
 			// TODO: BR: check what should happen with PVC here
 			XIt("PVC included, DV excluded: PVC should be restored, ownership relation empty", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3172,7 +3172,7 @@ var _ = Describe("Resource excludes", func() {
 		Context("VM without DVTemplates", func() {
 			It("VM with DV Volume, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3203,7 +3203,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC recreated and re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3271,7 +3271,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VM with PVC Volume, PVC excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3304,7 +3304,7 @@ var _ = Describe("Resource excludes", func() {
 		Context("Standalone VMI", func() {
 			It("VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3330,7 +3330,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3391,7 +3391,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv")
+				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3447,7 +3447,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VMI+Pod included, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi")
+				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())

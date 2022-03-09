@@ -66,7 +66,7 @@ func getStorageClassFromEnv() string {
 	storageClass := os.Getenv(storageClassEnv)
 	if storageClass == "" {
 		fmt.Fprintf(os.Stderr, "defaulting to (default) sc\n")
-		return defaultRegionName
+		return ""
 	}
 
 	fmt.Fprintf(os.Stderr, "StorageClass Name [%s]\n", storageClass)
