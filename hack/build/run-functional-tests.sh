@@ -51,8 +51,9 @@ parseTestOpts "${@}"
 test_args="${test_args} -ginkgo.v"
 
 test_command="${TESTS_OUT_DIR}/tests.test -test.timeout 360m ${test_args}"
+kubeconfig_arg=${KUBECONFIG:-${kubeconfig}}
 
 (
     cd ${TESTS_DIR}
-    KUBECONFIG=${kubeconfig} PATH=${PATH}:${VELERO_DIR} ${test_command}
+    KUBECONFIG=${kubeconfig_arg} PATH=${PATH}:${VELERO_DIR} ${test_command}
 )
