@@ -24,7 +24,7 @@ const snapshotLocation = "test-location"
 var clientSet *cdiclientset.Clientset
 var kvClient *kubecli.KubevirtClient
 
-var _ = Describe("DV Backup", func() {
+var _ = Describe("[smoke] DV Backup", func() {
 	var client, _ = util.GetK8sClient()
 	var namespace *v1.Namespace
 	var timeout context.Context
