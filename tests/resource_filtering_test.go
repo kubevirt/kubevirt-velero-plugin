@@ -1638,7 +1638,7 @@ var _ = Describe("Resource includes", func() {
 			It("Backup of a stopped VMs selected by label should include its DVs and PVCs", func() {
 				By("Creating VirtualMachines")
 
-				vmSpec := CreateVmWithGuestAgent("included-test-vm")
+				vmSpec := CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
 				vmSpec.Labels = map[string]string{
 					"a.test.label": "included",
 				}
@@ -1679,7 +1679,7 @@ var _ = Describe("Resource includes", func() {
 			It("Backup of a running VMs selected by label should include its DVs and PVCs, VMIs and Pods", func() {
 				By("Creating VirtualMachines")
 
-				vmSpec := CreateVmWithGuestAgent("included-test-vm")
+				vmSpec := CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
 				vmSpec.Labels = map[string]string{
 					"a.test.label": "included",
 				}
@@ -2208,7 +2208,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("Pods excluded, VM paused: VM+DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm")
+				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
@@ -2960,7 +2960,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VM+VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm")
+				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
@@ -2993,7 +2993,7 @@ var _ = Describe("Resource excludes", func() {
 			// is there a need to skip freeze when paused?
 			XIt("VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm")
+				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
