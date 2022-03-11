@@ -33,7 +33,7 @@ const (
 	forceBindAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 )
 
-func CreateVmWithGuestAgent(vmName string) *kvv1.VirtualMachine {
+func CreateVmWithGuestAgent(vmName string, storageClassName string) *kvv1.VirtualMachine {
 	no := false
 	var zero int64 = 0
 	dataVolumeName := vmName + "-dv"
@@ -123,7 +123,7 @@ version: 2`
 	fedoraUrl := "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
 	nodePullMethod := cdiv1.RegistryPullNode
 
-	return &kvv1.VirtualMachine{
+	vmSpec := &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vmName,
 		},
@@ -160,6 +160,10 @@ version: 2`
 			},
 		},
 	}
+	if storageClassName != "" {
+		vmSpec.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = &storageClassName
+	}
+	return vmSpec
 }
 
 func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {

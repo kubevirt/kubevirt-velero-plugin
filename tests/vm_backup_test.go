@@ -70,7 +70,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 		BeforeEach(func() {
 			var err error
-			vmSpec := CreateVmWithGuestAgent("test-vm")
+			vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 			vm, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
 
