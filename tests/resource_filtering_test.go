@@ -3,6 +3,9 @@ package tests
 import (
 	"context"
 	"fmt"
+	kubernetes "k8s.io/client-go/kubernetes"
+	"kubevirt.io/client-go/kubecli"
+	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 	"time"
 
@@ -2790,8 +2793,7 @@ var _ = Describe("Resource excludes", func() {
 
 			dv.SetLabels(addExcludeLabel(dv.GetLabels()))
 
-			_, err = clientSet.CdiV1beta1().DataVolumes(namespace.Name).Update(context.TODO(), dv, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(updateDataVolume(clientSet, namespace.Name, dv), time.Second*30, time.Second).Should(BeNil())
 		}
 
 		addExcludeLabelToPVC := func(name string) {
@@ -2800,8 +2802,7 @@ var _ = Describe("Resource excludes", func() {
 
 			pvc.SetLabels(addExcludeLabel(pvc.GetLabels()))
 
-			_, err = client.CoreV1().PersistentVolumeClaims(namespace.Name).Update(context.TODO(), pvc, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(updatePvc(client, namespace.Name, pvc), time.Second*30, time.Second).Should(BeNil())
 		}
 
 		addExcludeLabelToVMI := func(name string) {
@@ -2810,8 +2811,7 @@ var _ = Describe("Resource excludes", func() {
 
 			vmi.SetLabels(addExcludeLabel(vmi.GetLabels()))
 
-			_, err = (*kvClient).VirtualMachineInstance(namespace.Name).Update(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(updateVmi(kvClient, namespace.Name, vmi), time.Second*30, time.Second).Should(BeNil())
 		}
 
 		addExcludeLabelToVM := func(name string) {
@@ -2820,8 +2820,7 @@ var _ = Describe("Resource excludes", func() {
 
 			vm.SetLabels(addExcludeLabel(vm.GetLabels()))
 
-			_, err = (*kvClient).VirtualMachine(namespace.Name).Update(vm)
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(updateVm(kvClient, namespace.Name, vm), time.Second*30, time.Second).Should(BeNil())
 		}
 
 		addExcludeLabelToLauncherPodForVM := func(vmName string) {
@@ -2839,8 +2838,7 @@ var _ = Describe("Resource excludes", func() {
 
 			pod.SetLabels(addExcludeLabel(pod.GetLabels()))
 
-			_, err = client.CoreV1().Pods(namespace.Name).Update(context.TODO(), &pod, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(updatePod(client, namespace.Name, &pod), time.Second*30, time.Second).Should(BeNil())
 		}
 
 		Context("Standalone DV", func() {
@@ -3475,3 +3473,37 @@ var _ = Describe("Resource excludes", func() {
 		})
 	})
 })
+
+func updateVm(kvClient *kubecli.KubevirtClient, namespace string, vm *kvv1.VirtualMachine) func() error {
+	return func() error {
+		_, err := (*kvClient).VirtualMachine(namespace).Update(vm)
+		return err
+	}
+}
+
+func updateVmi(kvClient *kubecli.KubevirtClient, namespace string, vmi *kvv1.VirtualMachineInstance) func() error {
+	return func() error {
+		_, err := (*kvClient).VirtualMachineInstance(namespace).Update(vmi)
+		return err
+	}
+}
+
+func updatePod(client *kubernetes.Clientset, namespace string, pod *v1.Pod) func() error {
+	return func() error {
+		_, err := client.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+		return err
+	}
+}
+
+func updatePvc(client *kubernetes.Clientset, namespace string, pvc *v1.PersistentVolumeClaim) func() error {
+	return func() error {
+		_, err := client.CoreV1().PersistentVolumeClaims(namespace).Update(context.TODO(), pvc, metav1.UpdateOptions{})
+		return err
+	}
+}
+func updateDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataVolume *cdiv1.DataVolume) func() error {
+	return func() error {
+		_, err := clientSet.CdiV1beta1().DataVolumes(namespace).Update(context.TODO(), dataVolume, metav1.UpdateOptions{})
+		return err
+	}
+}
