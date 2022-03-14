@@ -260,6 +260,7 @@ func newVMISpecWithPVC(vmiName, pvcName string) *kvv1.VirtualMachineInstance {
 
 var _ = Describe("Resource includes", func() {
 	var client, _ = util.GetK8sClient()
+	var namespace *v1.Namespace
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
 	var backupName string
@@ -267,10 +268,14 @@ var _ = Describe("Resource includes", func() {
 	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
+		var err error
 		timeout, cancelFunc = context.WithTimeout(context.Background(), 10*time.Minute)
 		t := time.Now().UnixNano()
 		backupName = fmt.Sprintf("test-backup-%d", t)
 		restoreName = fmt.Sprintf("test-restore-%d", t)
+
+		namespace, err = CreateNamespace(client)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -281,7 +286,14 @@ var _ = Describe("Resource includes", func() {
 
 		// Deleting the backup also deletes all restores, volume snapshots etc.
 		err := DeleteBackup(timeout, backupName, r.BackupNamespace)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+		}
+
+		err = client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
+		if err != nil && !apierrs.IsNotFound(err) {
+			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+		}
 
 		cancelFunc()
 	})
@@ -422,20 +434,6 @@ var _ = Describe("Resource includes", func() {
 	})
 
 	Context("Include resources", func() {
-		var namespace *v1.Namespace
-
-		BeforeEach(func() {
-			var err error
-			namespace, err = CreateNamespace(client)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			err := client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
-			if err != nil && !apierrs.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-		})
 
 		Context("Standalone DV", func() {
 			It("Selecting DV+PVC: Both DVs and PVCs should be backed up and restored, content of PVC re-imported", func() {
@@ -1527,20 +1525,6 @@ var _ = Describe("Resource includes", func() {
 	})
 
 	Context("Selector includes", func() {
-		var namespace *v1.Namespace
-
-		BeforeEach(func() {
-			var err error
-			namespace, err = CreateNamespace(client)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			err := client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
-			if err != nil && !apierrs.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-		})
 
 		Context("Standalone DV", func() {
 			It("Should only backup and restore DV selected by label", func() {
@@ -1835,9 +1819,7 @@ var _ = Describe("Resource excludes", func() {
 		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
 		err = client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
 		if err != nil && !apierrs.IsNotFound(err) {
-			if err != nil {
-				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
-			}
+			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
 
 		cancelFunc()

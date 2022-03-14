@@ -59,7 +59,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
 		err := client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
 		if err != nil && !apierrs.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
 
 		cancelFunc()
