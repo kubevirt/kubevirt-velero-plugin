@@ -1382,7 +1382,9 @@ var _ = Describe("Resource includes", func() {
 		})
 
 		Context("[smoke] Standalone VMI", func() {
-			It("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
+			// This test tries to backup on all namespaces, on some clusters it always fails
+			// need to be improved
+			XIt("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
