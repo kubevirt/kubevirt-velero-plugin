@@ -47,7 +47,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 		namespace, err = CreateNamespace(client)
 		Expect(err).ToNot(HaveOccurred())
 
-		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
+		timeout, cancelFunc = context.WithTimeout(context.Background(), 10*time.Minute)
 	})
 
 	AfterEach(func() {

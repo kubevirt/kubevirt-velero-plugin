@@ -267,7 +267,7 @@ var _ = Describe("Resource includes", func() {
 	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
-		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
+		timeout, cancelFunc = context.WithTimeout(context.Background(), 10*time.Minute)
 		t := time.Now().UnixNano()
 		backupName = fmt.Sprintf("test-backup-%d", t)
 		restoreName = fmt.Sprintf("test-restore-%d", t)
@@ -1812,7 +1812,7 @@ var _ = Describe("Resource excludes", func() {
 
 	BeforeEach(func() {
 		var err error
-		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
+		timeout, cancelFunc = context.WithTimeout(context.Background(), 10*time.Minute)
 		namespace, err = CreateNamespace(client)
 		Expect(err).ToNot(HaveOccurred())
 		t := time.Now().UnixNano()
@@ -1832,6 +1832,7 @@ var _ = Describe("Resource excludes", func() {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
 
+		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
 		err = client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
 		if err != nil && !apierrs.IsNotFound(err) {
 			if err != nil {
