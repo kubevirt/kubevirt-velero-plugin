@@ -3372,7 +3372,8 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
+			// TODO: investigation in progress
+			XIt("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
