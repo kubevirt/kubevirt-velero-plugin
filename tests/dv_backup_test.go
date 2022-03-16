@@ -52,9 +52,10 @@ var _ = Describe("[smoke] DV Backup", func() {
 	})
 
 	AfterEach(func() {
+		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
 		err := client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
 		if err != nil && !apierrs.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
 
 		cancelFunc()
@@ -78,10 +79,20 @@ var _ = Describe("[smoke] DV Backup", func() {
 
 		AfterEach(func() {
 			err := DeleteDataVolume(clientSet, namespace.Name, dv.Name)
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
 
 			err = DeleteBackup(timeout, "test-backup", r.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
+
+			Eventually(func() bool {
+				_, err := GetBackup(timeout, "test-backup", r.BackupNamespace)
+				return apierrs.IsNotFound(err)
+			}).Should(BeTrue())
+
 		})
 
 		It("Backup should succeed", func() {

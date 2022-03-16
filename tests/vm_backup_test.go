@@ -86,10 +86,18 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 		AfterEach(func() {
 			err := DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
-			Expect(err).ToNot(HaveOccurred())
-
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
 			err = DeleteBackup(timeout, "test-backup", r.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
+			Eventually(func() bool {
+				_, err := GetBackup(timeout, "test-backup", r.BackupNamespace)
+				return apierrs.IsNotFound(err)
+			}).Should(BeTrue())
+
 		})
 
 		It("Backing up stopped VM should succeed", func() {

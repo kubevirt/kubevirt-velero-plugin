@@ -290,6 +290,12 @@ var _ = Describe("Resource includes", func() {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
 
+		Eventually(func() bool {
+			_, err := GetBackup(timeout, backupName, r.BackupNamespace)
+			return apierrs.IsNotFound(err)
+		}).Should(BeTrue())
+
+		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
 		err = client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
 		if err != nil && !apierrs.IsNotFound(err) {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
@@ -1815,6 +1821,11 @@ var _ = Describe("Resource excludes", func() {
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
+
+		Eventually(func() bool {
+			_, err := GetBackup(timeout, backupName, r.BackupNamespace)
+			return apierrs.IsNotFound(err)
+		}).Should(BeTrue())
 
 		By(fmt.Sprintf("Destroying namespace %q for this suite.", namespace.Name))
 		err = client.CoreV1().Namespaces().Delete(context.TODO(), namespace.Name, metav1.DeleteOptions{})
