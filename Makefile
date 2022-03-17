@@ -24,6 +24,9 @@
 	modules \
 	vendor \
 	gomod-update \
+	build-local \
+	tests-local \
+	test-functional-local \
 	local-deploy-velero \
 	add-plugin \
 	remove-plugin \
@@ -68,7 +71,7 @@ BUILD_IMAGE ?= golang:1.16-stretch
 
 all: build-image
 
-local: build-dirs
+build-local: build-dirs
 	GOOS=$(GOOS) \
 	GOARCH=$(GOARCH) \
 	PKG=$(PKG) \
@@ -78,7 +81,7 @@ local: build-dirs
 	OUTPUT_DIR=$$(pwd)/_output/bin/$(GOOS)/$(GOARCH) \
 	GO111MODULE=on \
 	GOFLAGS=-mod=readonly \
-	./hack/build.sh
+	./hack/build/build.sh
 
 build-all: build-dirs _output/bin/$(GOOS)/$(GOARCH)/$(BIN)
 
@@ -156,10 +159,28 @@ test-functional: ${TESTS_BINARY}
 	@echo -e "${GREEN}Running functional tests${WHITE}"
 	@hack/build/run-functional-tests.sh ${WHAT} "${TEST_ARGS}"
 
+test-functional-local: tests-local
+	@echo -e "${GREEN}Running functional tests${WHITE}"
+	@hack/build/run-functional-tests.sh ${WHAT} "${TEST_ARGS}"
+
 rebuild-functest: clean-test ${TESTS_BINARY}
 
 clean-test:
 	@rm -f ${TESTS_BINARY}
+
+tests-local: build-dirs ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
+		GOOS=$(GOOS) \
+		GOARCH=$(GOARCH) \
+		PKG=$(PKG) \
+        BIN=$(BIN) \
+        GIT_SHA=$(GIT_SHA) \
+        GIT_DIRTY="$(GIT_DIRTY)" \
+		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
+		GO111MODULE=on \
+ 		GOFLAGS=-mod=readonly \
+ 		TESTS_OUT_DIR=$(TESTS_OUT_DIR) \
+ 		JOB_TYPE="${JOB_TYPE:-}" \
+		./hack/build/build-functest.sh
 
 ${TESTS_BINARY}: ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
 	@echo -e "${GREEN}Building functional tests${WHITE}"
