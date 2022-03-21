@@ -19,11 +19,16 @@ set -euo pipefail
 export PATH=$PATH:$HOME/gopath/bin
 
 test_path="tests"
+GOBIN=$(go env GOBIN)
+if [ -d "$GOBIN" ]; then
+  ginkgo_path=$GOBIN/ginkgo
+else
+  ginkgo_path=$(go env GOPATH)/bin/ginkgo
+fi
 (cd $test_path; go install github.com/onsi/ginkgo/ginkgo@latest)
 (cd $test_path; GOFLAGS= go get github.com/onsi/gomega)
-(cd $test_path; go mod  tidy; go mod vendor)
+(cd $test_path; go mod tidy; go mod vendor)
 test_out_path=${test_path}/_out
 mkdir -p ${test_out_path}
-(cd $test_path; ginkgo build .)
+(cd $test_path; $ginkgo_path build .)
 mv ${test_path}/tests.test ${TESTS_OUT_DIR}
-
