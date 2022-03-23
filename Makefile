@@ -67,7 +67,7 @@ GOARCH = $(word 2, $(platform_temp))
 KUBEVIRTCI_REGISTRY_PREFIX=registry:5000/kubevirt
 PORT=$(shell ./cluster-up/cli.sh ports registry)
 
-BUILD_IMAGE ?= golang:1.16-stretch
+BUILD_IMAGE ?= quay.io/konveyor/builder
 
 all: build-image
 
