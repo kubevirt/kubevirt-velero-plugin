@@ -90,14 +90,14 @@ build-builder:
 
 _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 	@echo -e "${GREEN}Building...${WHITE}"
-	@echo "building: $@"
+	@echo "Building: $@"
 	$(MAKE) shell CMD="-c '\
 		GOOS=$(GOOS) \
 		GOARCH=$(GOARCH) \
 		PKG=$(PKG) \
-        BIN=$(BIN) \
-        GIT_SHA=$(GIT_SHA) \
-        GIT_DIRTY="$(GIT_DIRTY)" \
+		BIN=$(BIN) \
+		GIT_SHA=$(GIT_SHA) \
+		GIT_DIRTY="$(GIT_DIRTY)" \
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
  		GOFLAGS=-mod=readonly \
@@ -126,7 +126,7 @@ shell: build-dirs
 
 build-dirs:
 	@mkdir -p _output/bin/$(GOOS)/$(GOARCH)
-	@mkdir -p .go/src/$(PKG) .go/pkg .go/bin .go/std/$(GOOS)/$(GOARCH) .go/go-build
+	@mkdir -p .go/src/$(PKG) .go/pkg .go/bin .go/std/$(GOOS)_$(GOARCH) .go/go-build
 
 container-name:
 	@echo "container: ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}"
