@@ -90,7 +90,7 @@ build-builder:
 
 _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 	@echo -e "${GREEN}Building...${WHITE}"
-	@echo "building: $@"
+	@echo "Building: $@"
 	$(MAKE) shell CMD="-c '\
 		GOOS=$(GOOS) \
 		GOARCH=$(GOARCH) \
