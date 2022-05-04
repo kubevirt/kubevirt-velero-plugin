@@ -2772,57 +2772,46 @@ var _ = Describe("Resource excludes", func() {
 		}
 
 		addExcludeLabelToDV := func(name string) {
-			dv, err := FindDataVolume(clientSet, namespace.Name, name)
-			Expect(err).ToNot(HaveOccurred())
+			updateFunc := func(dataVolume *cdiv1.DataVolume) *cdiv1.DataVolume {
+				dataVolume.SetLabels(addExcludeLabel(dataVolume.GetLabels()))
+				return dataVolume
+			}
 
-			dv.SetLabels(addExcludeLabel(dv.GetLabels()))
-
-			Eventually(updateDataVolume(clientSet, namespace.Name, dv), time.Second*30, time.Second).Should(BeNil())
+			retryOnceOnErr(updateDataVolume(clientSet, namespace.Name, name, updateFunc)).Should(BeNil())
 		}
 
 		addExcludeLabelToPVC := func(name string) {
-			pvc, err := FindPVC(client, namespace.Name, name)
-			Expect(err).ToNot(HaveOccurred())
-
-			pvc.SetLabels(addExcludeLabel(pvc.GetLabels()))
-
-			Eventually(updatePvc(client, namespace.Name, pvc), time.Second*30, time.Second).Should(BeNil())
+			update := func(pvc *v1.PersistentVolumeClaim) *v1.PersistentVolumeClaim {
+				pvc.SetLabels(addExcludeLabel(pvc.GetLabels()))
+				return pvc
+			}
+			retryOnceOnErr(updatePvc(client, namespace.Name, name, update)).Should(BeNil())
 		}
 
 		addExcludeLabelToVMI := func(name string) {
-			vmi, err := (*kvClient).VirtualMachineInstance(namespace.Name).Get(name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vmi.SetLabels(addExcludeLabel(vmi.GetLabels()))
-
-			Eventually(updateVmi(kvClient, namespace.Name, vmi), time.Second*30, time.Second).Should(BeNil())
+			update := func(vmi *kvv1.VirtualMachineInstance) *kvv1.VirtualMachineInstance {
+				vmi.SetLabels(addExcludeLabel(vmi.GetLabels()))
+				return vmi
+			}
+			retryOnceOnErr(updateVmi(kvClient, namespace.Name, name, update)).Should(BeNil())
 		}
 
 		addExcludeLabelToVM := func(name string) {
-			vm, err := (*kvClient).VirtualMachine(namespace.Name).Get(name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm.SetLabels(addExcludeLabel(vm.GetLabels()))
-
-			Eventually(updateVm(kvClient, namespace.Name, vm), time.Second*30, time.Second).Should(BeNil())
+			update := func(vm *kvv1.VirtualMachine) *kvv1.VirtualMachine {
+				vm.SetLabels(addExcludeLabel(vm.GetLabels()))
+				return vm
+			}
+			retryOnceOnErr(updateVm(kvClient, namespace.Name, name, update)).Should(BeNil())
 		}
 
 		addExcludeLabelToLauncherPodForVM := func(vmName string) {
-			var pod v1.Pod
-			pods, err := client.CoreV1().Pods(namespace.Name).List(context.TODO(), metav1.ListOptions{
-				LabelSelector: "kubevirt.io=virt-launcher",
-			})
-			Expect(err).ToNot(HaveOccurred())
-			for _, item := range pods.Items {
-				if ann, ok := item.GetAnnotations()["kubevirt.io/domain"]; ok && ann == vmName {
-					pod = item
-				}
-			}
-			Expect(pod).ToNot(BeNil())
-
-			pod.SetLabels(addExcludeLabel(pod.GetLabels()))
-
-			Eventually(updatePod(client, namespace.Name, &pod), time.Second*30, time.Second).Should(BeNil())
+			retryOnceOnErr(
+				func() error {
+					pod := FindLauncherPod(client, namespace.Name, vmName)
+					pod.SetLabels(addExcludeLabel(pod.GetLabels()))
+					_, err := client.CoreV1().Pods(namespace.Name).Update(context.TODO(), &pod, metav1.UpdateOptions{})
+					return err
+				}).Should(BeNil())
 		}
 
 		Context("Standalone DV", func() {
@@ -3459,36 +3448,81 @@ var _ = Describe("Resource excludes", func() {
 	})
 })
 
-func updateVm(kvClient *kubecli.KubevirtClient, namespace string, vm *kvv1.VirtualMachine) func() error {
+func FindLauncherPod(client *kubernetes.Clientset, namespace string, vmName string) v1.Pod {
+	var pod v1.Pod
+	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "kubevirt.io=virt-launcher",
+	})
+	Expect(err).ToNot(HaveOccurred())
+	for _, item := range pods.Items {
+		if ann, ok := item.GetAnnotations()["kubevirt.io/domain"]; ok && ann == vmName {
+			pod = item
+		}
+	}
+	Expect(pod).ToNot(BeNil())
+	return pod
+}
+
+func updateVm(kvClient *kubecli.KubevirtClient, namespace string, name string,
+	update func(*kvv1.VirtualMachine) *kvv1.VirtualMachine) func() error {
 	return func() error {
-		_, err := (*kvClient).VirtualMachine(namespace).Update(vm)
+		vm, err := (*kvClient).VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		vm = update(vm)
+
+		_, err = (*kvClient).VirtualMachine(namespace).Update(vm)
 		return err
 	}
 }
 
-func updateVmi(kvClient *kubecli.KubevirtClient, namespace string, vmi *kvv1.VirtualMachineInstance) func() error {
+func updateVmi(kvClient *kubecli.KubevirtClient, namespace string, name string,
+	update func(*kvv1.VirtualMachineInstance) *kvv1.VirtualMachineInstance) func() error {
 	return func() error {
-		_, err := (*kvClient).VirtualMachineInstance(namespace).Update(vmi)
+		vmi, err := (*kvClient).VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		vmi = update(vmi)
+
+		_, err = (*kvClient).VirtualMachineInstance(namespace).Update(vmi)
 		return err
 	}
 }
 
-func updatePod(client *kubernetes.Clientset, namespace string, pod *v1.Pod) func() error {
+func updatePvc(client *kubernetes.Clientset, namespace string, name string,
+	update func(*v1.PersistentVolumeClaim) *v1.PersistentVolumeClaim) func() error {
 	return func() error {
-		_, err := client.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+		pvc, err := FindPVC(client, namespace, name)
+		if err != nil {
+			return err
+		}
+		pvc = update(pvc)
+
+		_, err = client.CoreV1().PersistentVolumeClaims(namespace).Update(context.TODO(), pvc, metav1.UpdateOptions{})
+		return err
+	}
+}
+func updateDataVolume(clientSet *cdiclientset.Clientset, namespace string, name string,
+	update func(dataVolume *cdiv1.DataVolume) *cdiv1.DataVolume) func() error {
+	return func() error {
+		dv, err := FindDataVolume(clientSet, namespace, name)
+		if err != nil {
+			return err
+		}
+		dv = update(dv)
+
+		_, err = clientSet.CdiV1beta1().DataVolumes(namespace).Update(context.TODO(), dv, metav1.UpdateOptions{})
 		return err
 	}
 }
 
-func updatePvc(client *kubernetes.Clientset, namespace string, pvc *v1.PersistentVolumeClaim) func() error {
-	return func() error {
-		_, err := client.CoreV1().PersistentVolumeClaims(namespace).Update(context.TODO(), pvc, metav1.UpdateOptions{})
-		return err
+func retryOnceOnErr(f func() error) Assertion {
+	err := f()
+	if err != nil {
+		err = f()
 	}
-}
-func updateDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataVolume *cdiv1.DataVolume) func() error {
-	return func() error {
-		_, err := clientSet.CdiV1beta1().DataVolumes(namespace).Update(context.TODO(), dataVolume, metav1.UpdateOptions{})
-		return err
-	}
+
+	return Expect(err)
 }
