@@ -436,7 +436,7 @@ var _ = Describe("Resource includes", func() {
 	Context("Include resources", func() {
 
 		Context("Standalone DV", func() {
-			It("Selecting DV+PVC: Both DVs and PVCs should be backed up and restored, content of PVC re-imported", func() {
+			It("[inprog] Selecting DV+PVC: Both DVs and PVCs should be backed up and restored, content of PVC re-imported", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -549,7 +549,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting only DVs: the restored DV should recreate its PVC", func() {
+			It("[inprog] Selecting only DVs: the restored DV should recreate its PVC", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1011,7 +1011,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+DV: VM, DV should be restored, PVC should be recreated", func() {
+			It("[inprog] Selecting VM+DV: VM, DV should be restored, PVC should be recreated", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -1385,7 +1385,7 @@ var _ = Describe("Resource includes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			// This test tries to backup on all namespaces, on some clusters it always fails
 			// need to be improved
-			XIt("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
+			It("[fixed-f1] Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1962,7 +1962,7 @@ var _ = Describe("Resource excludes", func() {
 
 	Context("Exclude resources", func() {
 		Context("Standalone DV", func() {
-			It("PVC excluded: DV restored, PVC be re-imported", func() {
+			It("[inprog] PVC excluded: DV restored, PVC be re-imported", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2103,7 +2103,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Pods+PVC excluded, VM running: VM+DV restored, PVC re-imported", func() {
+			It("[inprog] Pods+PVC excluded, VM running: VM+DV restored, PVC re-imported", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -2194,8 +2194,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// fix in progess
-			XIt("Pods excluded, VM paused: VM+DV+PVC should be restored", func() {
+			It("Pods excluded, VM paused: VM+DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -2277,7 +2276,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("PVC excluded: DV restored, PVC re-imported", func() {
+			It("[inprog] PVC excluded: DV restored, PVC re-imported", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -2506,7 +2505,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC recreated and re-imported", func() {
+			It("[inprog] VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC recreated and re-imported", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2815,7 +2814,7 @@ var _ = Describe("Resource excludes", func() {
 		}
 
 		Context("Standalone DV", func() {
-			It("DV included, PVC excluded: PVC should be re-imported", func() {
+			It("[inprog] DV included, PVC excluded: PVC should be re-imported", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2859,8 +2858,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// TODO: BR: check what should happen with PVC here
-			XIt("PVC included, DV excluded: PVC should be restored, ownership relation empty", func() {
+			It("[fixed] PVC included, DV excluded: PVC should be restored, ownership relation empty", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2962,9 +2960,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// TODO: BR: check what should happen with paused VM, does a freeze hook work there?
-			// is there a need to skip freeze when paused?
-			XIt("VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
+			It("[fixed] VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -3174,7 +3170,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC recreated and re-imported", func() {
+			It("[inprog] VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC recreated and re-imported", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -3362,8 +3358,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// TODO: investigation in progress
-			XIt("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
+			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
