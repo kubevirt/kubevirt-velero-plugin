@@ -21,16 +21,18 @@ package plugin
 
 import (
 	"fmt"
-
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	"k8s.io/apimachinery/pkg/runtime"
+	//kvcore "kubevirt.io/client-go/api/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -74,6 +76,61 @@ func (p *DVBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 
 	extra := []velero.ResourceIdentifier{}
 
+	kind := item.GetObjectKind().GroupVersionKind().Kind
+	switch kind {
+	case "PersistentVolumeClaim":
+		return p.handlePVC(item)
+	case "DataVolume":
+		return p.handleDataVolume(backup, item)
+	}
+
+	return item, extra, nil
+}
+
+func (p *DVBackupItemAction) handleDataVolume(backup *v1.Backup, item runtime.Unstructured) (runtime.Unstructured, []velero.ResourceIdentifier, error) {
+	var dv cdiv1.DataVolume
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), &dv); err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	p.log.Infof("handling DataVolume %v/%v", dv.GetNamespace(), dv.GetName())
+	dvSucceeded := dv.Status.Phase == cdiv1.Succeeded && util.IsResourceInBackup("persistentvolumeclaims", backup)
+	if !dvSucceeded {
+		// PVC not in backup, that means user only wants DV. PVC can be recreated on restore
+		// so - do not add the PrePopulated
+		extra := []velero.ResourceIdentifier{}
+		return item, extra, nil
+	}
+	annotations := dv.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// TODO: if DV name will ever be different that PVC name, this must be changed
+	annotations[AnnPrePopulated] = dv.GetName()
+	dv.SetAnnotations(annotations)
+
+	extra := []velero.ResourceIdentifier{{
+		GroupResource: kuberesource.PersistentVolumeClaims,
+		Namespace:     dv.GetNamespace(),
+		Name:          dv.GetName(),
+	}}
+
+	dvMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&dv)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	return &unstructured.Unstructured{Object: dvMap}, extra, nil
+}
+
+func (p *DVBackupItemAction) handlePVC(item runtime.Unstructured) (runtime.Unstructured, []velero.ResourceIdentifier, error) {
+	// TODO: handle not finished PVC
+	//var pvc corev1api.PersistentVolumeClaim
+	//if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), &pvc); err != nil {
+	//	return nil, nil, errors.WithStack(err)
+	//}
+
 	metadata, err := meta.Accessor(item)
 	if err != nil {
 		return nil, nil, err
@@ -84,41 +141,18 @@ func (p *DVBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		annotations = make(map[string]string)
 	}
 
-	kind := item.GetObjectKind().GroupVersionKind().Kind
-	switch kind {
-	case "PersistentVolumeClaim":
-		annotations = p.handlePVC(annotations, metadata)
-	case "DataVolume":
-		annotations, extra = p.handleDataVolume(annotations, metadata)
-	}
-
-	metadata.SetAnnotations(annotations)
-
-	return item, extra, nil
-}
-
-func (p *DVBackupItemAction) handleDataVolume(annotations map[string]string, metadata metav1.Object) (map[string]string, []velero.ResourceIdentifier) {
-	p.log.Infof("handling DataVolume %v/%v", metadata.GetNamespace(), metadata.GetName())
-	// TODO: if DV name will ever be different that PVC name, this must be changed
-	annotations[AnnPrePopulated] = metadata.GetName()
-
-	extra := []velero.ResourceIdentifier{{
-		GroupResource: kuberesource.PersistentVolumeClaims,
-		Namespace:     metadata.GetNamespace(),
-		Name:          metadata.GetName(),
-	}}
-
-	return annotations, extra
-}
-
-func (p *DVBackupItemAction) handlePVC(annotations map[string]string, metadata metav1.Object) map[string]string {
 	p.log.Infof("handling PVC %v/%v", metadata.GetNamespace(), metadata.GetName())
 	for _, or := range metadata.GetOwnerReferences() {
 		p.log.Infof("or %+v", or)
 		if or.Kind == "DataVolume" {
+			// get DV, if finished then ..., else annotate with some skip!...
 			annotations[AnnPopulatedFor] = or.Name
 			break
 		}
 	}
-	return annotations
+
+	metadata.SetAnnotations(annotations)
+
+	extra := []velero.ResourceIdentifier{}
+	return item, extra, nil
 }

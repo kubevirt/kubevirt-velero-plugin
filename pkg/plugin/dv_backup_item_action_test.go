@@ -19,25 +19,51 @@ func TestDV(t *testing.T) {
 				"name": "test-datavolume",
 			},
 			"spec": map[string]interface{}{},
+			"status": map[string]interface{}{
+				"phase": "Succeeded",
+			},
 		},
 	}
 
+	objectNotSucceeded := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cdi.kubevirt.io/v1beta1",
+			"kind":       "DataVolume",
+			"metadata": map[string]interface{}{
+				"name": "test-datavolume",
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
 	testCases := []struct {
-		name string
-		dv   *unstructured.Unstructured
+		name               string
+		dv                 *unstructured.Unstructured
+		backup             v1.Backup
+		hasAnnPrePopulated bool
 	}{
-		{"Adds AnnPrePopulated to DV", &object},
+		{"Should add AnnPrePopulated to succeeded DV", &object, v1.Backup{}, true},
+		{"Should not add AnnPrePopulated to unfinished DV", &objectNotSucceeded, v1.Backup{}, false},
+		{"Should not add AnnPrePopulated to DV without PVC",
+			&object,
+			v1.Backup{
+				Spec: v1.BackupSpec{
+					ExcludedResources: []string{"persistentvolumeclaims"},
+				},
+			},
+			false,
+		},
 	}
 
 	logrus.SetLevel(logrus.ErrorLevel)
 	action := NewDVBackupItemAction(logrus.StandardLogger())
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			item, _, _ := action.Execute(tc.dv, &v1.Backup{})
+			item, _, _ := action.Execute(tc.dv, &tc.backup)
 
 			metadata, _ := meta.Accessor(item)
 			annotations := metadata.GetAnnotations()
-			assert.Contains(t, annotations, AnnPrePopulated)
+			_, ok := annotations[AnnPrePopulated]
+			assert.Equal(t, tc.hasAnnPrePopulated, ok, "hasAnnPrePopulated")
 		})
 	}
 
