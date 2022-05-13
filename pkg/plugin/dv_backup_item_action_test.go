@@ -1,6 +1,9 @@
 package plugin
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -19,14 +22,30 @@ func TestDV(t *testing.T) {
 				"name": "test-datavolume",
 			},
 			"spec": map[string]interface{}{},
+			"status": map[string]interface{}{
+				"phase": "Succeeded",
+			},
+		},
+	}
+
+	objectNotSucceeded := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cdi.kubevirt.io/v1beta1",
+			"kind":       "DataVolume",
+			"metadata": map[string]interface{}{
+				"name": "test-datavolume",
+			},
+			"spec": map[string]interface{}{},
 		},
 	}
 
 	testCases := []struct {
-		name string
-		dv   *unstructured.Unstructured
+		name               string
+		dv                 *unstructured.Unstructured
+		hasAnnPrePopulated bool
 	}{
-		{"Adds AnnPrePopulated to DV", &object},
+		{"Should add AnnPrePopulated to succeeded DV", &object, true},
+		{"Should not add AnnPrePopulated to unfinished DV", &objectNotSucceeded, false},
 	}
 
 	logrus.SetLevel(logrus.ErrorLevel)
@@ -37,13 +56,15 @@ func TestDV(t *testing.T) {
 
 			metadata, _ := meta.Accessor(item)
 			annotations := metadata.GetAnnotations()
-			assert.Contains(t, annotations, AnnPrePopulated)
+			_, ok := annotations[AnnPrePopulated]
+			assert.Equal(t, tc.hasAnnPrePopulated, ok, "hasAnnPrePopulated")
 		})
 	}
 
 	t.Run("DV should request PVC to be backed up as well", func(t *testing.T) {
-		_, extra, _ := action.Execute(&object, &v1.Backup{})
+		_, extra, err := action.Execute(&object, &v1.Backup{})
 
+		assert.NoError(t, err)
 		assert.Equal(t, 1, len(extra))
 		assert.Equal(t, "persistentvolumeclaims", extra[0].Resource)
 		assert.Equal(t, "test-datavolume", extra[0].Name)
@@ -109,8 +130,20 @@ func TestPVC(t *testing.T) {
 	action := NewDVBackupItemAction(logrus.StandardLogger())
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			item, _, _ := action.Execute(tc.pvc, &v1.Backup{})
+			util.GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
+				return &cdiv1.DataVolume{
+						TypeMeta:   metav1.TypeMeta{},
+						ObjectMeta: metav1.ObjectMeta{},
+						Spec:       cdiv1.DataVolumeSpec{},
+						Status: cdiv1.DataVolumeStatus{
+							Phase: "Succeeded",
+						},
+					},
+					nil
+			}
+			item, _, err := action.Execute(tc.pvc, &v1.Backup{})
 
+			assert.NoError(t, err)
 			metadata, _ := meta.Accessor(item)
 			annotations := metadata.GetAnnotations()
 			if tc.shouldHaveAnn {

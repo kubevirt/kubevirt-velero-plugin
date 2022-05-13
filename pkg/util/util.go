@@ -2,14 +2,15 @@ package util
 
 import (
 	"context"
+
 	"os"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	corev1api "k8s.io/api/core/v1"
 	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	kvv1 "kubevirt.io/client-go/api/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
@@ -145,6 +147,36 @@ func IsVMIPaused(vmi *kvv1.VirtualMachineInstance) bool {
 }
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
+var GetPVC = func(ns, name string) (*corev1api.PersistentVolumeClaim, error) {
+	client, err := GetK8sClient()
+	if err != nil {
+		return nil, err
+	}
+
+	pvc, err := (*client).CoreV1().PersistentVolumeClaims(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get PVC %s/%s", ns, name)
+	}
+
+	return pvc, nil
+}
+
+// This is assigned to a variable so it can be replaced by a mock function in tests
+var GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
+	client, err := GetCDIclientset()
+	if err != nil {
+		return nil, err
+	}
+
+	dv, err := (*client).CdiV1beta1().DataVolumes(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get DV %s/%s", ns, name)
+	}
+
+	return dv, nil
+}
+
+// This is assigned to a variable so it can be replaced by a mock function in tests
 var IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) {
 	client, err := GetCDIclientset()
 	if err != nil {
@@ -187,7 +219,7 @@ var IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) {
 }
 
 // RestorePossible returns false in cases when restoring a VM would not be possible due to missing objects
-func RestorePossible(volumes []kvv1.Volume, backup *v1.Backup, namespace string, skipVolume func(volume kvv1.Volume) bool, log logrus.FieldLogger) (bool, error) {
+func RestorePossible(volumes []kvv1.Volume, backup *velerov1.Backup, namespace string, skipVolume func(volume kvv1.Volume) bool, log logrus.FieldLogger) (bool, error) {
 	// Restore will not be possible if a DV or PVC volume outside VM's DVTemplates is not backed up
 	for _, volume := range volumes {
 		if volume.VolumeSource.DataVolume != nil && !skipVolume(volume) {
