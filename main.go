@@ -33,6 +33,7 @@ func main() {
 		BindFlags(pflag.CommandLine).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-vm-action", newVMRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-vmi-action", newVMIRestoreItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-pvc-action", newPVCRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-pod-action", newPodRestoreItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datavolume-action", newDVBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-virtualmachine-action", newVMBackupItemAction).
@@ -68,6 +69,11 @@ func newVMRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
 func newVMIRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
 	logger.Debug("Creating VMIRestoreItemAction")
 	return plugin.NewVMIRestoreItemAction(logger), nil
+}
+
+func newPVCRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating PvcRestoreItemAction")
+	return plugin.NewPVCRestoreItemAction(logger), nil
 }
 
 func newPodRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {

@@ -39,6 +39,7 @@ import (
 const (
 	AnnPrePopulated = "cdi.kubevirt.io/storage.prePopulated"
 	AnnPopulatedFor = "cdi.kubevirt.io/storage.populatedFor"
+	AnnInProgress   = "kvp.kubevirt.io/storage.inprogress"
 )
 
 // DVBackupItemAction is a backup item action for backing up DataVolumes
@@ -99,13 +100,19 @@ func (p *DVBackupItemAction) handlePVC(item runtime.Unstructured) (runtime.Unstr
 	if err != nil {
 		return nil, nil, err
 	}
-	if dv != nil && dv.Status.Phase == cdiv1.Succeeded {
-		// make sure an object is marked as populated, so the operation will not be retried after restore
+	if dv != nil {
 		annotations := metadata.GetAnnotations()
 		if annotations == nil {
 			annotations = make(map[string]string)
 		}
-		annotations[AnnPopulatedFor] = dv.Name
+		if dv.Status.Phase == cdiv1.Succeeded {
+			// make sure an object is marked as populated, so the operation will not be retried after restore
+			annotations[AnnPopulatedFor] = dv.Name
+		} else {
+			// The PVC is not finished, we mark it as inprogress, so it can be skipped during restore
+			// so it does not conflict with CDI action
+			annotations[AnnInProgress] = dv.Name
+		}
 		metadata.SetAnnotations(annotations)
 	}
 
