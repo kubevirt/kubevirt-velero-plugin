@@ -31,13 +31,14 @@ const (
 	waitTime            = 600 * time.Second
 	veleroCLI           = "velero"
 	forceBindAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
+	alpineUrl           = "docker://quay.io/kubevirtci/alpine-with-test-tooling-container-disk:2205291325-d8fc489"
 )
 
 func CreateVmWithGuestAgent(vmName string, storageClassName string) *kvv1.VirtualMachine {
 	no := false
 	var zero int64 = 0
 	dataVolumeName := vmName + "-dv"
-	size := "5Gi"
+	size := "1Gi"
 
 	networkData := `ethernets:
   eth0:
@@ -120,8 +121,8 @@ version: 2`
 		TerminationGracePeriodSeconds: &zero,
 	}
 
-	fedoraUrl := "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
 	nodePullMethod := cdiv1.RegistryPullNode
+	containerDiskUrl := alpineUrl
 
 	vmSpec := &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +144,7 @@ version: 2`
 					Spec: cdiv1.DataVolumeSpec{
 						Source: &cdiv1.DataVolumeSource{
 							Registry: &cdiv1.DataVolumeSourceRegistry{
-								URL:        &fedoraUrl,
+								URL:        &containerDiskUrl,
 								PullMethod: &nodePullMethod,
 							},
 						},
@@ -517,9 +518,9 @@ func WaitVirtualMachineDeleted(client kubecli.KubevirtClient, namespace, name st
 	return result, err
 }
 
-func NewDataVolumeForFedoraWithGuestAgentImage(dataVolumeName string, storageClass string) *cdiv1.DataVolume {
-	fedoraUrl := "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
+func NewDataVolumeForVmWithGuestAgentImage(dataVolumeName string, storageClass string) *cdiv1.DataVolume {
 	nodePullMethod := cdiv1.RegistryPullNode
+	containerDiskUrl := alpineUrl
 
 	dvSpec := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -529,7 +530,7 @@ func NewDataVolumeForFedoraWithGuestAgentImage(dataVolumeName string, storageCla
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
 				Registry: &cdiv1.DataVolumeSourceRegistry{
-					URL:        &fedoraUrl,
+					URL:        &containerDiskUrl,
 					PullMethod: &nodePullMethod,
 				},
 			},
@@ -537,7 +538,7 @@ func NewDataVolumeForFedoraWithGuestAgentImage(dataVolumeName string, storageCla
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						v1.ResourceName(v1.ResourceStorage): resource.MustParse("5Gi"),
+						v1.ResourceName(v1.ResourceStorage): resource.MustParse("1Gi"),
 					},
 				},
 			},

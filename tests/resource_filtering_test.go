@@ -1391,7 +1391,7 @@ var _ = Describe("Resource includes", func() {
 			// need to be improved
 			XIt("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1447,7 +1447,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting standalone VMI+Pod without DV: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1474,7 +1474,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting standalone VMI+Pod without PVC: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1501,7 +1501,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting standalone VMI without Pod: Backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -1719,7 +1719,7 @@ var _ = Describe("Resource includes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			It("Backup of VMIs selected by label should include its DVs, PVCs, and Pods", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -2693,7 +2693,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("[smoke] Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3289,7 +3289,7 @@ var _ = Describe("Resource excludes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			It("VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3315,7 +3315,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -3377,7 +3377,7 @@ var _ = Describe("Resource excludes", func() {
 			// TODO: investigation in progress
 			XIt("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForFedoraWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
