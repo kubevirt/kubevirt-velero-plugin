@@ -2103,8 +2103,6 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// TODO: POPULATED: decide what to do with DVTemplates, do we need a special logic to
-			// handle DV+PVC ?, so when PVC is missing it can be reimported?
 			It("[negative] Pods+PVC excluded, VM running: VM+DV restored, PVC not re-imported", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
@@ -2138,17 +2136,14 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				// todo check no pvc!
-				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				By("Checking DataVolume Pending")
+				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
-				Expect(err).ToNot(HaveOccurred())
+				_, err = FindPVC(client, namespace.Name, "test-dv")
+				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusRunning)
+				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
@@ -2197,7 +2192,6 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// fix in progess
 			It("Pods excluded, VM paused: VM+DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
@@ -2308,13 +2302,11 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				By("Checking DataVolume does not reimport")
+				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
-				Expect(err).ToNot(HaveOccurred())
+				_, err = FindPVC(client, namespace.Name, "test-dv")
+				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
@@ -2558,13 +2550,11 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				By("Checking DataVolume does not reimport")
+				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Pending, source.DataVolume.Name)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
-				Expect(err).ToNot(HaveOccurred())
+				_, err = FindPVC(client, namespace.Name, "test-dv")
+				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
@@ -2850,13 +2840,11 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				By("Checking DataVolume does not reimport")
+				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Pending, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
-				Expect(err).ToNot(HaveOccurred())
+				_, err = FindPVC(client, namespace.Name, "test-dv")
+				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Cleanup")
 				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
@@ -2894,9 +2882,9 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking PVC exists")
-				err = WaitForPVCPhase(client, namespace.Name, "test-dv", v1.ClaimBound)
-				Expect(err).ToNot(HaveOccurred())
+				By("Checking PVC does not exists")
+				_, err = FindPVC(client, namespace.Name, "test-dv")
+				Expect(err).To(HaveOccurred())
 
 				By("Checking DataVolume does not exists")
 				_, err = FindDataVolume(clientSet, namespace.Name, "test-dv")
@@ -2965,7 +2953,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
+			It("xxx VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -3226,13 +3214,11 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				By("Checking DataVolume Pending and no PVC")
+				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Pending, source.DataVolume.Name)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
-				Expect(err).ToNot(HaveOccurred())
+				_, err = FindPVC(client, namespace.Name, "test-dv")
+				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
