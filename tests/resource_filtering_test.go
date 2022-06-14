@@ -24,6 +24,8 @@ import (
 var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
 	no := false
 	var zero int64 = 0
+	block := v1.PersistentVolumeBlock
+
 	return &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vmName,
@@ -81,6 +83,7 @@ var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
 						},
 						PVC: &v1.PersistentVolumeClaimSpec{
 							AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+							VolumeMode:  &block,
 							Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
 									v1.ResourceName(v1.ResourceStorage): resource.MustParse(size),

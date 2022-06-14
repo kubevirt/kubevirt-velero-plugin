@@ -585,6 +585,7 @@ func NewPod(podName, pvcName, cmd string) *v1.Pod {
 func NewDataVolumeForVmWithGuestAgentImage(dataVolumeName string, storageClass string) *cdiv1.DataVolume {
 	nodePullMethod := cdiv1.RegistryPullNode
 	containerDiskUrl := alpineUrl
+	block := v1.PersistentVolumeBlock
 
 	dvSpec := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -600,6 +601,7 @@ func NewDataVolumeForVmWithGuestAgentImage(dataVolumeName string, storageClass s
 			},
 			PVC: &v1.PersistentVolumeClaimSpec{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				VolumeMode:  &block,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceName(v1.ResourceStorage): resource.MustParse("1Gi"),
