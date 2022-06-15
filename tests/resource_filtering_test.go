@@ -753,7 +753,7 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting VM+VMI but not Pod+PVC: Backup should succeed, DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
-				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
+				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
@@ -2322,14 +2322,14 @@ var _ = Describe("Resource excludes", func() {
 
 			It("DV+PVC excluded: VM restored, DV+PVC recreated", func() {
 				By("Creating VirtualMachines")
-				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
+				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				resources := "datavolumes,persistentvolumeclaims"
+				resources := "datavolume,persistentvolumeclaim"
 				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
@@ -2365,16 +2365,20 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("DV excluded: VM+PVC restored, DV recreated and bound to the PVC", func() {
+			// FIXME: There is a bug in CDI in hadnling this situation
+			// when there is a PVC pending (with some old restored annotations about success import)
+			// the DV should show pending, and wait for PVC to be bound, but now it shows Succeeded based on annotations
+			XIt("DV excluded: VM+PVC restored, DV recreated and bound to the PVC", func() {
 				By("Creating VirtualMachines")
-				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
+				//vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
+				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				resources := "datavolumes"
+				resources := "datavolume"
 				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
@@ -2400,7 +2404,7 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
+				time.Sleep(60 * time.Second)
 				By("Cleanup")
 				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -3017,7 +3021,7 @@ var _ = Describe("Resource excludes", func() {
 
 			It("VM included, DV and PVC excluded: both DV and PVC recreated", func() {
 				By("Creating VirtualMachines")
-				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
+				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
