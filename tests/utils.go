@@ -60,7 +60,7 @@ version: 2`
 		Domain: kvv1.DomainSpec{
 			Resources: kvv1.ResourceRequirements{
 				Requests: v1.ResourceList{
-					v1.ResourceName(v1.ResourceMemory): resource.MustParse("256M"),
+					v1.ResourceName(v1.ResourceMemory): resource.MustParse("512M"),
 				},
 			},
 			Machine: &kvv1.Machine{
