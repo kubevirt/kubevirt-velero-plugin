@@ -116,6 +116,7 @@ shell: build-dirs
 		-v $$(pwd)/.go/pkg:/go/pkg \
 		-v $$(pwd)/.go/src:/go/src \
 		-v $$(pwd)/.go/std:/go/std \
+		-v $$(pwd)/.go/bin:/go/bin \
 		-v $$(pwd):/go/src/kubevirt-velero-plugin:z \
 		-v $$(pwd)/.go/std/$(GOOS)_$(GOARCH):/usr/local/go/pkg/$(GOOS)_$(GOARCH)_static \
 		-v "$$(pwd)/.go/go-build:/.cache/go-build:delegated" \
