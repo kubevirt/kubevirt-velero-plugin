@@ -68,6 +68,10 @@ KUBEVIRTCI_REGISTRY_PREFIX=registry:5000/kubevirt
 PORT=$(shell ./cluster-up/cli.sh ports registry)
 
 BUILD_IMAGE ?= quay.io/konveyor/builder
+OCI_BIN ?= $(shell if podman ps >/dev/null 2>&1; then echo podman; elif docker ps >/dev/null 2>&1; then echo docker; fi)
+TLS_SETTING := $(if $(filter $(OCI_BIN),podman),--tls-verify=false,)
+export OCI_BIN
+export TLS_SETTING
 
 all: build-image
 
@@ -104,15 +108,16 @@ _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 		./hack/build/build.sh'"
 
 TTY := $(shell tty -s && echo "-t")
+PODMAN_SPECIFIC_FLAG := $(if $(filter $(OCI_BIN),podman),--userns=keep-id,)
 
 shell: build-dirs
 	@echo "running docker: $@"
-	@podman run \
+	@${OCI_BIN} run \
 		-e GOFLAGS \
 		-i $(TTY) \
 		--rm \
 		-u $$(id -u):$$(id -g) \
-		--userns=keep-id \
+		$(PODMAN_SPECIFIC_FLAG) \
 		-v "$$(pwd)/_output/bin:/output:delegated" \
 		-v $$(pwd)/.go/pkg:/go/pkg \
 		-v $$(pwd)/.go/src:/go/src \
@@ -136,11 +141,11 @@ container-name:
 build-image: build-all
 	@echo -e "${GREEN}Building plugin image${WHITE}"
 	cp Dockerfile _output/bin/$(GOOS)/$(GOARCH)/Dockerfile
-	podman build -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} -f _output/bin/$(GOOS)/$(GOARCH)/Dockerfile _output/bin/$(GOOS)/$(GOARCH)
+	${OCI_BIN} build -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} -f _output/bin/$(GOOS)/$(GOARCH)/Dockerfile _output/bin/$(GOOS)/$(GOARCH)
 
 push: build-image
 	@echo -e "${GREEN}Pushing plugin image to local registry${WHITE}"
-	@podman push ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
+	@${OCI_BIN} push ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
 
 gomod-update: modules vendor
 
@@ -151,7 +156,7 @@ clean-dirs:
 
 clean: clean-dirs
 	@echo "cleaning"
-	podman rmi $(BUILD_IMAGE)
+	${OCI_BIN} rmi $(BUILD_IMAGE)
 
 test: build-dirs
 	@echo -e "${GREEN}Testing${WHITE}"
