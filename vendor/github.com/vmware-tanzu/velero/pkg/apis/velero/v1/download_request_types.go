@@ -1,5 +1,5 @@
 /*
-Copyright 2017 the Velero contributors.
+Copyright the Velero contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -77,8 +77,14 @@ type DownloadRequestStatus struct {
 	Expiration *metav1.Time `json:"expiration,omitempty"`
 }
 
+// TODO(2.0) After converting all resources to use the runtime-controller client,
+// the k8s:deepcopy marker will no longer be needed and should be removed.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:object:generate=true
+// +kubebuilder:storageversion
+// +kubebuilder:subresource:status
 
 // DownloadRequest is a request to download an artifact from backup object storage, such as a backup
 // log file.
@@ -95,7 +101,12 @@ type DownloadRequest struct {
 	Status DownloadRequestStatus `json:"status,omitempty"`
 }
 
+// TODO(2.0) After converting all resources to use the runtime-controller client,
+// the k8s:deepcopy marker will no longer be needed and should be removed.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:rbac:groups=velero.io,resources=downloadrequests,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=velero.io,resources=downloadrequests/status,verbs=get;update;patch
 
 // DownloadRequestList is a list of DownloadRequests.
 type DownloadRequestList struct {
