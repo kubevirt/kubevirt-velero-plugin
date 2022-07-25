@@ -24,7 +24,6 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
 fi
 
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
-DOCKER_GUEST_SOCK=/var/run/docker.sock
 velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
 

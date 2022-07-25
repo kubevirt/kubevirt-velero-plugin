@@ -14,10 +14,7 @@ GnuMake is used to drive a set of scripts that handle linting, testing, compilin
 
     NOTE: Standard builds require a running Docker daemon!
 
-The standard workflow is performed inside a helper container to normalize the build and test environment for all devs.  Building in the host environment is supported by the Makefile, but is not recommended.
-
-    Docker builds may be disabled by setting DOCKER=0; e.g.
-    $ make all DOCKER=0
+The standard workflow is performed inside a helper container to normalize the build and test environment for all devs.
 
 `$ make all` executes the full workflow.  For granular control of the workflow, several Make targets are defined:
 

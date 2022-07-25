@@ -27,7 +27,6 @@ else
 fi
 (cd $test_path; go install github.com/onsi/ginkgo/ginkgo@latest)
 (cd $test_path; GOFLAGS= go get github.com/onsi/gomega)
-(cd $test_path; go mod tidy; go mod vendor)
 test_out_path=${test_path}/_out
 mkdir -p ${test_out_path}
 (cd $test_path; $ginkgo_path build .)

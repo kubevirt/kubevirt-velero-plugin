@@ -27,10 +27,6 @@ TESTS_OUT_DIR=${OUT_DIR}/tests
 BUILD_DIR=${PLUGIN_DIR}/hack/build
 CACHE_DIR=${OUT_DIR}/gocache
 
-DOCKER_HOST_SOCK=${DOCKER_HOST_SOCK:-/run/docker.sock}
-DOCKER_GUEST_SOCK=${DOCKER_GUEST_SOCK:-/run/docker.sock}
-DOCKER_CMD=${DOCKER_CMD:-docker -H unix://${DOCKER_HOST_SOCK}}
-
 if [[ $(which go 2>/dev/null) ]]; then
   GOOS=$(go env GOOS)
   GOARCH=$(go env GOARCH)

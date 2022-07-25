@@ -30,11 +30,6 @@ _kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEV
 _kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml
 _kubectl apply -f https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-cr.yaml
 
-
-# pre fetch fedora test image
-${_ssh} node01 "sudo docker pull quay.io/kubevirt/fedora-with-test-tooling-container-disk"
-
-
 _kubectl wait -n kubevirt deployment/virt-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s
 
 # Ensure the KubeVirt CR is created
