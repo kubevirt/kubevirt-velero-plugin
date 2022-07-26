@@ -13,6 +13,8 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
+KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
+
 if [ -f cluster-up/hack/common.sh ]; then
     source cluster-up/hack/common.sh
 fi
@@ -49,7 +51,5 @@ KUBEVIRT_VERSION=${KUBEVIRT_VERSION:-v0.49.0}
 CDI_VERSION=${CDI_VERSION:-v1.48.0}
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.23}
 KUBEVIRT_DEPLOYMENT_TIMEOUT=${KUBEVIRT_DEPLOYMENT_TIMEOUT:-480}
-
-KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
 
 source cluster-up/hack/config.sh
