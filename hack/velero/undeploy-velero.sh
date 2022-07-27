@@ -24,7 +24,6 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
 fi
 
 
-DOCKER_GUEST_SOCK=/var/run/docker.sock
 velero_dir=./hack/velero
 source ./hack/config.sh
 

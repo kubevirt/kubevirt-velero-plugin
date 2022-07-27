@@ -13,6 +13,8 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
+KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
+
 if [ -f cluster-up/hack/common.sh ]; then
     source cluster-up/hack/common.sh
 fi
@@ -26,10 +28,6 @@ TESTS_DIR=${OUT_DIR}/tests
 TESTS_OUT_DIR=${OUT_DIR}/tests
 BUILD_DIR=${PLUGIN_DIR}/hack/build
 CACHE_DIR=${OUT_DIR}/gocache
-
-DOCKER_HOST_SOCK=${DOCKER_HOST_SOCK:-/run/docker.sock}
-DOCKER_GUEST_SOCK=${DOCKER_GUEST_SOCK:-/run/docker.sock}
-DOCKER_CMD=${DOCKER_CMD:-docker -H unix://${DOCKER_HOST_SOCK}}
 
 if [[ $(which go 2>/dev/null) ]]; then
   GOOS=$(go env GOOS)
@@ -53,7 +51,5 @@ KUBEVIRT_VERSION=${KUBEVIRT_VERSION:-v0.49.0}
 CDI_VERSION=${CDI_VERSION:-v1.48.0}
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.23}
 KUBEVIRT_DEPLOYMENT_TIMEOUT=${KUBEVIRT_DEPLOYMENT_TIMEOUT:-480}
-
-KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
 
 source cluster-up/hack/config.sh
