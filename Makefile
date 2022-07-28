@@ -105,6 +105,8 @@ _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
  		GOFLAGS=-mod=readonly \
+ 		GOCACHE=/.cache/go-build \
+ 		GOPATH=/go \
 		./hack/build/build.sh'"
 
 TTY := $(shell tty -s && echo "-t")
@@ -201,6 +203,8 @@ ${TESTS_BINARY}: ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
  		GOFLAGS=-mod=readonly \
+ 		GOCACHE=/.cache/go-build \
+        GOPATH=/go/pkg/mod \
  		TESTS_OUT_DIR=$(TESTS_OUT_DIR) \
  		JOB_TYPE="${JOB_TYPE:-}" \
 		./hack/build/build-functest.sh'"
