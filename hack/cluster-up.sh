@@ -19,5 +19,6 @@
 set -ex
 
 KUBEVIRT_STORAGE=rook-ceph-default
+source ./hack/config.sh
 source ./cluster-up/up.sh
 
