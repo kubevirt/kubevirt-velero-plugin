@@ -20,7 +20,6 @@ import (
 	kvv1 "kubevirt.io/client-go/api/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
 const VELERO_EXCLUDE_LABEL = "velero.io/exclude-from-backup"
@@ -44,19 +43,6 @@ func GetK8sClient() (*kubernetes.Clientset, error) {
 	}
 
 	return client, nil
-}
-
-func GetCDIclientset() (*cdiclientset.Clientset, error) {
-	kubeConfig := os.Getenv("KUBECONFIG")
-	cfg, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-	cdiClient, err := cdiclientset.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return cdiClient, nil
 }
 
 func GetKubeVirtclient() (*kubecli.KubevirtClient, error) {
@@ -163,12 +149,12 @@ var GetPVC = func(ns, name string) (*corev1api.PersistentVolumeClaim, error) {
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
 var GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
-	client, err := GetCDIclientset()
+	client, err := GetKubeVirtclient()
 	if err != nil {
 		return nil, err
 	}
 
-	dv, err := (*client).CdiV1beta1().DataVolumes(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	dv, err := (*client).CdiClient().CdiV1beta1().DataVolumes(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get DV %s/%s", ns, name)
 	}
@@ -178,12 +164,12 @@ var GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
 var IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) {
-	client, err := GetCDIclientset()
+	client, err := GetKubeVirtclient()
 	if err != nil {
 		return false, err
 	}
 
-	dv, err := (*client).CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+	dv, err := (*client).CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}

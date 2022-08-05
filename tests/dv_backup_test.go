@@ -13,15 +13,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 )
 
 const snapshotLocation = "test-location"
 
-var clientSet *cdiclientset.Clientset
 var kvClient *kubecli.KubevirtClient
 
 var _ = Describe("DV Backup", func() {
@@ -36,8 +33,6 @@ var _ = Describe("DV Backup", func() {
 
 	BeforeSuite(func() {
 		var err error
-		clientSet, err = util.GetCDIclientset()
-		Expect(err).ToNot(HaveOccurred())
 
 		kvClient, err = util.GetKubeVirtclient()
 		Expect(err).ToNot(HaveOccurred())
@@ -86,15 +81,15 @@ var _ = Describe("DV Backup", func() {
 			dvSpec.Annotations[forceBindAnnotation] = "true"
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dv, err = CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+			dv, err = CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+			err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			err := DeleteDataVolume(clientSet, namespace.Name, dv.Name)
+			err := DeleteDataVolume(*kvClient, namespace.Name, dv.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -117,10 +112,10 @@ var _ = Describe("DV Backup", func() {
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 
 			By("Deleting DataVolume")
-			err = DeleteDataVolume(clientSet, namespace.Name, dv.Name)
+			err = DeleteDataVolume(*kvClient, namespace.Name, dv.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			ok, err := WaitDataVolumeDeleted(clientSet, namespace.Name, dv.Name)
+			ok, err := WaitDataVolumeDeleted(*kvClient, namespace.Name, dv.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
@@ -132,7 +127,7 @@ var _ = Describe("DV Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking DataVolume exists")
-			err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+			err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -148,7 +143,7 @@ var _ = Describe("DV Backup", func() {
 		})
 
 		AfterEach(func() {
-			err := DeleteDataVolume(clientSet, namespace.Name, dv.Name)
+			err := DeleteDataVolume(*kvClient, namespace.Name, dv.Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = client.CoreV1().Namespaces().Delete(context.TODO(), sourceNamespace.Name, metav1.DeleteOptions{})
@@ -166,9 +161,9 @@ var _ = Describe("DV Backup", func() {
 			srcDvSpec.Annotations[forceBindAnnotation] = "true"
 
 			By(fmt.Sprintf("Creating DataVolume %s", srcDvSpec.Name))
-			srcDv, err := CreateDataVolumeFromDefinition(clientSet, sourceNamespace.Name, srcDvSpec)
+			srcDv, err := CreateDataVolumeFromDefinition(*kvClient, sourceNamespace.Name, srcDvSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(clientSet, srcDv.Namespace, cdiv1.Succeeded, srcDv.Name)
+			err = WaitForDataVolumePhase(*kvClient, srcDv.Namespace, cdiv1.Succeeded, srcDv.Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating source pod")
@@ -183,7 +178,7 @@ var _ = Describe("DV Backup", func() {
 
 			By("Creating clone DV - object under test")
 			dvSpec := NewCloneDataVolume("test-dv", "100Mi", srcDv.Namespace, srcDv.Name, r.StorageClass)
-			dv, err = CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+			dv, err = CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 
 			By("Creating backup test-backup")
 			err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
@@ -194,9 +189,9 @@ var _ = Describe("DV Backup", func() {
 			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 
 			By("Deleting DataVolume")
-			err = DeleteDataVolume(clientSet, namespace.Name, dv.Name)
+			err = DeleteDataVolume(*kvClient, namespace.Name, dv.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err := WaitDataVolumeDeleted(clientSet, namespace.Name, dv.Name)
+			ok, err := WaitDataVolumeDeleted(*kvClient, namespace.Name, dv.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
@@ -212,7 +207,7 @@ var _ = Describe("DV Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking DataVolume exists")
-			err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+			err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

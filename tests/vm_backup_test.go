@@ -14,14 +14,12 @@ import (
 	kvv1 "kubevirt.io/client-go/api/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 )
 
 var _ = Describe("[smoke] VM Backup", func() {
 	var client, _ = util.GetK8sClient()
-	var cdiClient *cdiclientset.Clientset
 	var kvClient *kubecli.KubevirtClient
 	var namespace *v1.Namespace
 	var timeout context.Context
@@ -30,20 +28,11 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 	const snapshotLocation = "test-location"
 
-	// BeforeSuite(func() {
 	BeforeEach(func() {
 		var err error
-		cdiClient, err = util.GetCDIclientset()
-		Expect(err).ToNot(HaveOccurred())
 		kvClient, err = util.GetKubeVirtclient()
 		Expect(err).ToNot(HaveOccurred())
 
-		// err = createSnapshotLocation(context.TODO(), snapshotLocation, "aws", "minio")
-		// Expect(err).ToNot(HaveOccurred())
-		// })
-
-		// BeforeEach(func() {
-		// var err error
 		namespace, err = CreateNamespace(client)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -78,7 +67,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = StartVirtualMachine(*kvClient, namespace.Name, vm.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForDataVolumePhase(cdiClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 			err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vm.Name, kvv1.Running)
 			Expect(err).ToNot(HaveOccurred())

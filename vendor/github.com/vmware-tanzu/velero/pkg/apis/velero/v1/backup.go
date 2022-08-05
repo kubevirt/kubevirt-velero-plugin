@@ -20,8 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type Metadata struct {
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
 // BackupSpec defines the specification for a Velero backup.
 type BackupSpec struct {
+	// +optional
+	Metadata `json:"metadata,omitempty"`
 	// IncludedNamespaces is a slice of namespace names to include objects
 	// from. If empty, all namespaces are included.
 	// +optional
@@ -90,7 +96,7 @@ type BackupSpec struct {
 	DefaultVolumesToRestic *bool `json:"defaultVolumesToRestic,omitempty"`
 
 	// OrderedResources specifies the backup order of resources of specific Kind.
-	// The map key is the Kind name and value is a list of resource names separeted by commas.
+	// The map key is the Kind name and value is a list of resource names separated by commas.
 	// Each resource name has format "namespace/resourcename".  For cluster resources, simply use "resourcename".
 	// +optional
 	// +nullable
@@ -207,6 +213,17 @@ const (
 	// BackupPhaseInProgress means the backup is currently executing.
 	BackupPhaseInProgress BackupPhase = "InProgress"
 
+	// BackupPhaseUploading means the backups of Kubernetes resources
+	// and creation of snapshots was successful and snapshot data
+	// is currently uploading.  The backup is not usable yet.
+	BackupPhaseUploading BackupPhase = "Uploading"
+
+	// BackupPhaseUploadingPartialFailure means the backup of Kubernetes
+	// resources and creation of snapshots partially failed (final phase
+	// will be PartiallyFailed) and snapshot data is currently uploading.
+	// The backup is not usable yet.
+	BackupPhaseUploadingPartialFailure BackupPhase = "UploadingPartialFailure"
+
 	// BackupPhaseCompleted means the backup has run successfully without
 	// errors.
 	BackupPhaseCompleted BackupPhase = "Completed"
@@ -313,7 +330,7 @@ type BackupProgress struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Backup is a Velero resource that respresents the capture of Kubernetes
+// Backup is a Velero resource that represents the capture of Kubernetes
 // cluster state at a point in time (API objects and associated volume state).
 type Backup struct {
 	metav1.TypeMeta `json:",inline"`

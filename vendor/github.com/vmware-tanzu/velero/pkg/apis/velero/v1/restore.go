@@ -77,6 +77,11 @@ type RestoreSpec struct {
 	// +nullable
 	RestorePVs *bool `json:"restorePVs,omitempty"`
 
+	// PreserveNodePorts specifies whether to restore old nodePorts from backup.
+	// +optional
+	// +nullable
+	PreserveNodePorts *bool `json:"preserveNodePorts,omitempty"`
+
 	// IncludeClusterResources specifies whether cluster-scoped resources
 	// should be included for consideration in the restore. If null, defaults
 	// to true.
@@ -247,6 +252,25 @@ type RestoreStatus struct {
 	// +optional
 	// +nullable
 	CompletionTimestamp *metav1.Time `json:"completionTimestamp,omitempty"`
+
+	// Progress contains information about the restore's execution progress. Note
+	// that this information is best-effort only -- if Velero fails to update it
+	// during a restore for any reason, it may be inaccurate/stale.
+	// +optional
+	// +nullable
+	Progress *RestoreProgress `json:"progress,omitempty"`
+}
+
+// RestoreProgress stores information about the restore's execution progress
+type RestoreProgress struct {
+	// TotalItems is the total number of items to be restored. This number may change
+	// throughout the execution of the restore due to plugins that return additional related
+	// items to restore
+	// +optional
+	TotalItems int `json:"totalItems,omitempty"`
+	// ItemsRestored is the number of items that have actually been restored so far
+	// +optional
+	ItemsRestored int `json:"itemsRestored,omitempty"`
 }
 
 // +genclient

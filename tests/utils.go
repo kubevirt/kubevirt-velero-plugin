@@ -23,7 +23,6 @@ import (
 	kvv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
 const (
@@ -167,11 +166,11 @@ version: 2`
 	return vmSpec
 }
 
-func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {
+func CreateDataVolumeFromDefinition(clientSet kubecli.KubevirtClient, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {
 	var dataVolume *cdiv1.DataVolume
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		var err error
-		dataVolume, err = clientSet.CdiV1beta1().DataVolumes(namespace).Create(context.TODO(), def, metav1.CreateOptions{})
+		dataVolume, err = clientSet.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.TODO(), def, metav1.CreateOptions{})
 		if err == nil || apierrs.IsAlreadyExists(err) {
 			return true, nil
 		}
@@ -287,17 +286,17 @@ func WaitForPVCPhase(clientSet *kubernetes.Clientset, namespace, name string, ph
 	return nil
 }
 
-func FindDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataVolumeName string) (*cdiv1.DataVolume, error) {
-	return clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
+func FindDataVolume(kvClient kubecli.KubevirtClient, namespace string, dataVolumeName string) (*cdiv1.DataVolume, error) {
+	return kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
 }
 
 // WaitForDataVolumePhase waits for DV's phase to be in a particular phase (Pending, Bound, or Lost)
-func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
+func WaitForDataVolumePhase(kvClient kubecli.KubevirtClient, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
 	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s\n", phase)
 	var lastPhase cdiv1.DataVolumePhase
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		dataVolume, err := clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
+		dataVolume, err := kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			return false, nil
 		}
@@ -325,9 +324,9 @@ func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string,
 }
 
 // WaitForDataVolumePhaseButNot waits for DV's phase to be in a particular phase without going through another phase
-func WaitForDataVolumePhaseButNot(clientSet *cdiclientset.Clientset, namespace string, phase cdiv1.DataVolumePhase, unwanted cdiv1.DataVolumePhase, dataVolumeName string) error {
+func WaitForDataVolumePhaseButNot(kvClient kubecli.KubevirtClient, namespace string, phase cdiv1.DataVolumePhase, unwanted cdiv1.DataVolumePhase, dataVolumeName string) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		dataVolume, err := clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
+		dataVolume, err := kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dataVolumeName, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			return false, nil
 		}
@@ -350,9 +349,9 @@ func WaitForDataVolumePhaseButNot(clientSet *cdiclientset.Clientset, namespace s
 }
 
 // DeleteDataVolume deletes the DataVolume with the given name
-func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace, name string) error {
+func DeleteDataVolume(kvClient kubecli.KubevirtClient, namespace, name string) error {
 	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		err := clientSet.CdiV1beta1().DataVolumes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+		err := kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 		if err == nil || apierrs.IsNotFound(err) {
 			return true, nil
 		}
@@ -391,10 +390,10 @@ func DeletePVC(clientSet *kubernetes.Clientset, namespace string, pvcName string
 	})
 }
 
-func WaitDataVolumeDeleted(clientSet *cdiclientset.Clientset, namespace, dvName string) (bool, error) {
+func WaitDataVolumeDeleted(kcClient kubecli.KubevirtClient, namespace, dvName string) (bool, error) {
 	var result bool
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		_, err := clientSet.CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+		_, err := kcClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
 		if err != nil {
 			if apierrs.IsNotFound(err) {
 				result = true

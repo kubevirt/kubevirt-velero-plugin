@@ -5,7 +5,6 @@ import (
 	"fmt"
 	kubernetes "k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/kubecli"
-	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 	"time"
 
@@ -326,17 +325,17 @@ var _ = Describe("Resource includes", func() {
 			By("Creating DVs")
 			dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, includedNamespace.Name, dvSpec)
+			dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, includedNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForDataVolumePhase(clientSet, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
+			err = WaitForDataVolumePhase(*kvClient, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
-			dvOther, err := CreateDataVolumeFromDefinition(clientSet, otherNamespace.Name, dvSpec)
+			dvOther, err := CreateDataVolumeFromDefinition(*kvClient, otherNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(clientSet, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
+			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Crating backup test-backup")
@@ -347,15 +346,15 @@ var _ = Describe("Resource includes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting DVs")
-			err = DeleteDataVolume(clientSet, includedNamespace.Name, dvIncluded.Name)
+			err = DeleteDataVolume(*kvClient, includedNamespace.Name, dvIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err := WaitDataVolumeDeleted(clientSet, includedNamespace.Name, dvIncluded.Name)
+			ok, err := WaitDataVolumeDeleted(*kvClient, includedNamespace.Name, dvIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
-			err = DeleteDataVolume(clientSet, otherNamespace.Name, dvOther.Name)
+			err = DeleteDataVolume(*kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err = WaitDataVolumeDeleted(clientSet, otherNamespace.Name, dvOther.Name)
+			ok, err = WaitDataVolumeDeleted(*kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
@@ -366,16 +365,16 @@ var _ = Describe("Resource includes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking included DataVolume exists")
-			err = WaitForDataVolumePhase(clientSet, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
+			err = WaitForDataVolumePhase(*kvClient, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking not included DataVolume does not exist")
-			ok, err = WaitDataVolumeDeleted(clientSet, otherNamespace.Name, dvOther.Name)
+			ok, err = WaitDataVolumeDeleted(*kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Cleanup")
-			err = DeleteDataVolume(clientSet, includedNamespace.Name, dvIncluded.Name)
+			err = DeleteDataVolume(*kvClient, includedNamespace.Name, dvIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -384,13 +383,13 @@ var _ = Describe("Resource includes", func() {
 			vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 			vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, includedNamespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(clientSet, includedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = WaitForDataVolumePhase(*kvClient, includedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmSpec = newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
 			vmOther, err := CreateVirtualMachineFromDefinition(*kvClient, otherNamespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(clientSet, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
@@ -441,10 +440,10 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
@@ -464,9 +463,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(2))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
@@ -480,15 +479,15 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -496,10 +495,10 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
@@ -524,9 +523,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(BeNumerically(">=", 5))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -542,11 +541,11 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -555,10 +554,10 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
@@ -576,9 +575,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(1))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
@@ -588,15 +587,15 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -604,10 +603,10 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
@@ -631,9 +630,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(BeNumerically(">=", 4))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -652,12 +651,12 @@ var _ = Describe("Resource includes", func() {
 
 				By("Checking DataVolume does not exist")
 				Consistently(func() bool {
-					_, err := FindDataVolume(clientSet, namespace.Name, "test-dv")
+					_, err := FindDataVolume(*kvClient, namespace.Name, "test-dv")
 					return apierrs.IsNotFound(err)
 				}, "1000ms", "100ms").Should(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -668,7 +667,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -692,7 +691,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "included-test-vm-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "included-test-vm-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -709,7 +708,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -734,7 +733,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -759,7 +758,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -783,9 +782,9 @@ var _ = Describe("Resource includes", func() {
 				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = DeleteDataVolume(clientSet, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -801,11 +800,11 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -822,7 +821,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -852,9 +851,9 @@ var _ = Describe("Resource includes", func() {
 				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = DeleteDataVolume(clientSet, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -870,11 +869,11 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -891,7 +890,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -916,7 +915,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -957,7 +956,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-vm-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-vm-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -974,7 +973,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -1001,7 +1000,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -1020,7 +1019,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -1044,11 +1043,11 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -1065,7 +1064,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -1092,7 +1091,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -1109,7 +1108,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -1133,11 +1132,11 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -1154,7 +1153,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VirtualMachine")
@@ -1180,7 +1179,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VirtualMachine")
@@ -1208,9 +1207,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1236,9 +1235,9 @@ var _ = Describe("Resource includes", func() {
 				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, "test-dv")
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -1250,7 +1249,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -1266,9 +1265,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1280,7 +1279,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -1296,7 +1295,7 @@ var _ = Describe("Resource includes", func() {
 				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				ok, err = WaitPVCDeleted(client, namespace.Name, "tet-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -1321,9 +1320,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1335,7 +1334,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -1355,9 +1354,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1369,7 +1368,7 @@ var _ = Describe("Resource includes", func() {
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -1393,9 +1392,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -1418,7 +1417,7 @@ var _ = Describe("Resource includes", func() {
 				By("Deleting VMI+DV")
 				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -1431,7 +1430,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI running")
@@ -1439,9 +1438,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv-2")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv-2")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1449,9 +1448,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -1476,9 +1475,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -1503,9 +1502,9 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -1538,16 +1537,16 @@ var _ = Describe("Resource includes", func() {
 					"a.test.label": "include",
 				}
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "included-test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "included-test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvOther, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvOther, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "other-test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "other-test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Crating backup test-backup")
@@ -1557,15 +1556,15 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				ok, err := WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
-				err = DeleteDataVolume(clientSet, namespace.Name, dvOther.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvOther.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvOther.Name)
+				ok, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvOther.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
@@ -1576,16 +1575,16 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking included DataVolume exists")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, dvIncluded.Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking not included DataVolume does not exist")
-				ok, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvOther.Name)
+				ok, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvOther.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1596,9 +1595,9 @@ var _ = Describe("Resource includes", func() {
 					"a.test.label": "include",
 				}
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "included-test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "included-test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Crating backup test-backup")
@@ -1622,7 +1621,7 @@ var _ = Describe("Resource includes", func() {
 				// - Datavolume resource definition
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(7))
 
-				err = DeleteDataVolume(clientSet, namespace.Name, dvSpec.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1637,13 +1636,13 @@ var _ = Describe("Resource includes", func() {
 				}
 				_, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmSpec = newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
 				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -1678,7 +1677,7 @@ var _ = Describe("Resource includes", func() {
 				}
 				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VM")
@@ -1721,16 +1720,16 @@ var _ = Describe("Resource includes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				dvSpec2 := NewDataVolumeForBlankRawImage("test-dv-2", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec2.Name))
-				_, err = CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec2)
+				_, err = CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec2)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv-2")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv-2")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -1780,9 +1779,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(13))
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv-2")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv-2")
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1857,17 +1856,17 @@ var _ = Describe("Resource excludes", func() {
 			By("Creating DVs")
 			dvSpec := NewDataVolumeForBlankRawImage("excluded-test-dv", "100Mi", r.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvExcluded, err := CreateDataVolumeFromDefinition(clientSet, excludedNamespace.Name, dvSpec)
+			dvExcluded, err := CreateDataVolumeFromDefinition(*kvClient, excludedNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForDataVolumePhase(clientSet, excludedNamespace.Name, cdiv1.Succeeded, "excluded-test-dv")
+			err = WaitForDataVolumePhase(*kvClient, excludedNamespace.Name, cdiv1.Succeeded, "excluded-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
-			dvOther, err := CreateDataVolumeFromDefinition(clientSet, otherNamespace.Name, dvSpec)
+			dvOther, err := CreateDataVolumeFromDefinition(*kvClient, otherNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(clientSet, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
+			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Crating backup test-backup")
@@ -1878,15 +1877,15 @@ var _ = Describe("Resource excludes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting DVs")
-			err = DeleteDataVolume(clientSet, excludedNamespace.Name, dvExcluded.Name)
+			err = DeleteDataVolume(*kvClient, excludedNamespace.Name, dvExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err := WaitDataVolumeDeleted(clientSet, excludedNamespace.Name, dvExcluded.Name)
+			ok, err := WaitDataVolumeDeleted(*kvClient, excludedNamespace.Name, dvExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
-			err = DeleteDataVolume(clientSet, otherNamespace.Name, dvOther.Name)
+			err = DeleteDataVolume(*kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err = WaitDataVolumeDeleted(clientSet, otherNamespace.Name, dvOther.Name)
+			ok, err = WaitDataVolumeDeleted(*kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
@@ -1897,16 +1896,16 @@ var _ = Describe("Resource excludes", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking included DataVolume exists")
-			err = WaitForDataVolumePhase(clientSet, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
+			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking not included DataVolume does not exist")
-			ok, err = WaitDataVolumeDeleted(clientSet, excludedNamespace.Name, dvOther.Name)
+			ok, err = WaitDataVolumeDeleted(*kvClient, excludedNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Cleanup")
-			err = DeleteDataVolume(clientSet, otherNamespace.Name, dvExcluded.Name)
+			err = DeleteDataVolume(*kvClient, otherNamespace.Name, dvExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -1915,13 +1914,13 @@ var _ = Describe("Resource excludes", func() {
 			vmSpec := newVMSpecBlankDVTemplate("excluded-test-vm", "100Mi")
 			vmExcluded, err := CreateVirtualMachineFromDefinition(*kvClient, excludedNamespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(clientSet, excludedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = WaitForDataVolumePhase(*kvClient, excludedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmSpec = newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
 			vmOther, err := CreateVirtualMachineFromDefinition(*kvClient, otherNamespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(clientSet, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
@@ -1971,10 +1970,10 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -1984,9 +1983,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
@@ -1996,15 +1995,15 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2012,10 +2011,10 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
@@ -2026,9 +2025,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -2048,12 +2047,12 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Checking DataVolume does not exist")
 				Consistently(func() bool {
-					_, err := FindDataVolume(clientSet, namespace.Name, "test-dv")
+					_, err := FindDataVolume(*kvClient, namespace.Name, "test-dv")
 					return apierrs.IsNotFound(err)
 				}, "1000ms", "100ms").Should(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -2064,7 +2063,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -2088,7 +2087,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -2115,7 +2114,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -2144,11 +2143,11 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -2165,7 +2164,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -2189,7 +2188,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -2207,7 +2206,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -2246,7 +2245,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -2263,7 +2262,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -2290,7 +2289,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -2314,11 +2313,11 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -2335,7 +2334,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -2359,11 +2358,11 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -2380,7 +2379,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -2404,7 +2403,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -2421,7 +2420,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
@@ -2446,7 +2445,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -2463,9 +2462,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
-				err = DeleteDataVolume(clientSet, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
@@ -2475,7 +2474,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM does not exists")
@@ -2489,9 +2488,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -2503,7 +2502,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -2519,9 +2518,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -2551,9 +2550,9 @@ var _ = Describe("Resource excludes", func() {
 				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, "test-dv")
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -2565,11 +2564,11 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -2585,9 +2584,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -2599,7 +2598,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
@@ -2616,9 +2615,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -2640,9 +2639,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -2666,7 +2665,7 @@ var _ = Describe("Resource excludes", func() {
 				By("Deleting VMI+DV")
 				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				ok, err := WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -2679,7 +2678,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI running")
@@ -2687,7 +2686,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2695,9 +2694,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -2720,7 +2719,7 @@ var _ = Describe("Resource excludes", func() {
 				By("Deleting VMI+DV")
 				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -2733,7 +2732,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI not present")
@@ -2741,7 +2740,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).To(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2749,9 +2748,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -2786,7 +2785,7 @@ var _ = Describe("Resource excludes", func() {
 				return dataVolume
 			}
 
-			retryOnceOnErr(updateDataVolume(clientSet, namespace.Name, name, updateFunc)).Should(BeNil())
+			retryOnceOnErr(updateDataVolume(*kvClient, namespace.Name, name, updateFunc)).Should(BeNil())
 		}
 
 		addExcludeLabelToPVC := func(name string) {
@@ -2829,10 +2828,10 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Add exlude label to PVC")
@@ -2845,9 +2844,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
@@ -2857,15 +2856,15 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2874,10 +2873,10 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Add exclude label to DV")
@@ -2890,9 +2889,9 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(clientSet, namespace.Name, dvIncluded.Name)
+				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, dvIncluded.Name)
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
@@ -2906,7 +2905,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not exists")
-				_, err = FindDataVolume(clientSet, namespace.Name, "test-dv")
+				_, err = FindDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).To(HaveOccurred())
 
 			})
@@ -2918,7 +2917,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -2946,7 +2945,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -2979,7 +2978,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -3020,7 +3019,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -3037,7 +3036,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude labels")
@@ -3064,11 +3063,11 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -3085,7 +3084,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label to DV")
@@ -3111,7 +3110,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -3128,7 +3127,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
@@ -3157,9 +3156,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -3171,7 +3170,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpec("test-vm", "100Mi", source)
 				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label")
@@ -3189,9 +3188,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -3223,9 +3222,9 @@ var _ = Describe("Resource excludes", func() {
 				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(clientSet, namespace.Name, "test-dv")
+				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				err = DeletePVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -3237,11 +3236,11 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
@@ -3258,9 +3257,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -3272,7 +3271,7 @@ var _ = Describe("Resource excludes", func() {
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude labels")
@@ -3291,9 +3290,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -3317,9 +3316,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -3349,7 +3348,7 @@ var _ = Describe("Resource excludes", func() {
 				By("Deleting VMI+DV")
 				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -3362,7 +3361,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI running")
@@ -3370,7 +3369,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -3379,9 +3378,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -3406,7 +3405,7 @@ var _ = Describe("Resource excludes", func() {
 				By("Deleting VMI+DV")
 				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
@@ -3419,7 +3418,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(clientSet, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI not present")
@@ -3427,7 +3426,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).To(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(clientSet, namespace.Name, "test-dv")
+				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -3435,9 +3434,9 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating DVs")
 				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(clientSet, namespace.Name, dvSpec)
+				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(clientSet, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -3516,16 +3515,16 @@ func updatePvc(client *kubernetes.Clientset, namespace string, name string,
 		return err
 	}
 }
-func updateDataVolume(clientSet *cdiclientset.Clientset, namespace string, name string,
+func updateDataVolume(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(dataVolume *cdiv1.DataVolume) *cdiv1.DataVolume) func() error {
 	return func() error {
-		dv, err := FindDataVolume(clientSet, namespace, name)
+		dv, err := FindDataVolume(kvClient, namespace, name)
 		if err != nil {
 			return err
 		}
 		dv = update(dv)
 
-		_, err = clientSet.CdiV1beta1().DataVolumes(namespace).Update(context.TODO(), dv, metav1.UpdateOptions{})
+		_, err = kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Update(context.TODO(), dv, metav1.UpdateOptions{})
 		return err
 	}
 }

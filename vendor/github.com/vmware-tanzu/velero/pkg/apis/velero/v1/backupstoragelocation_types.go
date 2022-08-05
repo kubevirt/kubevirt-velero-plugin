@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	corev1api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -30,7 +31,15 @@ type BackupStorageLocationSpec struct {
 	// +optional
 	Config map[string]string `json:"config,omitempty"`
 
+	// Credential contains the credential information intended to be used with this location
+	// +optional
+	Credential *corev1api.SecretKeySelector `json:"credential,omitempty"`
+
 	StorageType `json:",inline"`
+
+	// Default indicates this location is the default backup storage location.
+	// +optional
+	Default bool `json:"default,omitempty"`
 
 	// AccessMode defines the permissions for the backup storage location.
 	// +optional
@@ -81,7 +90,7 @@ type BackupStorageLocationStatus struct {
 	AccessMode BackupStorageLocationAccessMode `json:"accessMode,omitempty"`
 }
 
-// TODO(2.0) After converting all resources to use the runttime-controller client,
+// TODO(2.0) After converting all resources to use the runtime-controller client,
 // the genclient and k8s:deepcopy markers will no longer be needed and should be removed.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -93,6 +102,7 @@ type BackupStorageLocationStatus struct {
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="Backup Storage Location status such as Available/Unavailable"
 // +kubebuilder:printcolumn:name="Last Validated",type="date",JSONPath=".status.lastValidationTime",description="LastValidationTime is the last time the backup store location was validated"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Default",type="boolean",JSONPath=".spec.default",description="Default backup storage location"
 
 // BackupStorageLocation is a location where Velero stores backup objects
 type BackupStorageLocation struct {
@@ -103,7 +113,7 @@ type BackupStorageLocation struct {
 	Status BackupStorageLocationStatus `json:"status,omitempty"`
 }
 
-// TODO(2.0) After converting all resources to use the runttime-controller client,
+// TODO(2.0) After converting all resources to use the runtime-controller client,
 // the k8s:deepcopy marker will no longer be needed and should be removed.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
