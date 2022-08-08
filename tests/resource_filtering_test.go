@@ -2952,7 +2952,8 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
+			// found an issue https://github.com/kubevirt/kubevirt-velero-plugin/issues/68
+			XIt("[Quarantine] VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
