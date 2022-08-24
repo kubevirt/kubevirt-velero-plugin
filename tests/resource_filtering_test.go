@@ -2373,7 +2373,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// FIXME: There is a bug in CDI in hadnling this situation
+			// FIXME: There is a bug in CDI in handling this situation
 			// when there is a PVC pending (with some old restored annotations about success import)
 			// the DV should show pending, and wait for PVC to be bound, but now it shows Succeeded based on annotations
 			XIt("DV excluded: VM+PVC restored, DV recreated and bound to the PVC", func() {
@@ -2405,6 +2405,11 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
+				// TODO: FIXME: should write something to file, and verify it after restore
+				//By("Checking DataVolume does not re-import content")
+				//err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "included-test-vm-dv")
+				//Expect(err).ToNot(HaveOccurred())
+				// or change the source PVC
 				By("Checking DataVolume does not re-import content")
 				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -2412,7 +2417,7 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(60 * time.Second)
+
 				By("Cleanup")
 				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -3331,7 +3336,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Adding exclude label to pod")
 				addExcludeLabelToLauncherPodForVM("test-vmi")
 
-				// time.Sleep(300 * time.Second)
 				By("Creating backup")
 				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
