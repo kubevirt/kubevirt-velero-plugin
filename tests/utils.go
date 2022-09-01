@@ -361,7 +361,10 @@ func DeleteDataVolume(kvClient kubecli.KubevirtClient, namespace, name string) e
 
 func DeleteVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
 	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		err := client.VirtualMachine(namespace).Delete(name, &metav1.DeleteOptions{})
+		propagationForeground := metav1.DeletePropagationForeground
+		err := client.VirtualMachine(namespace).Delete(name, &metav1.DeleteOptions{
+			PropagationPolicy: &propagationForeground,
+		})
 		if err == nil || apierrs.IsNotFound(err) {
 			return true, nil
 		}
@@ -1033,5 +1036,43 @@ func PrintEvents(client kubecli.KubevirtClient, namespace, name string) {
 	for _, event := range events.Items {
 		fmt.Fprintf(ginkgo.GinkgoWriter, "  INFO: event for %s/%s: %s, %s, %s\n",
 			event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note)
+	}
+}
+
+func PodWithPvcSpec(podName, pvcName string, cmd, args []string) *v1.Pod {
+	image := "busybox"
+	volumeName := "pv1"
+
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: podName,
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Name:    podName,
+					Image:   image,
+					Command: cmd,
+					Args:    args,
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      volumeName,
+							MountPath: "/pvc",
+						},
+					},
+				},
+			},
+			Volumes: []v1.Volume{
+				{
+					Name: volumeName,
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			},
+		},
 	}
 }
