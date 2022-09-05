@@ -237,7 +237,7 @@ func CreateNamespace(client *kubernetes.Clientset) (*v1.Namespace, error) {
 		return nil, err
 	}
 
-	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Created new namespace %q\n", nsObj.Name)
+	ginkgo.By(fmt.Sprintf("INFO: Created new namespace %q\n", nsObj.Name))
 	return nsObj, nil
 }
 
@@ -292,7 +292,7 @@ func FindDataVolume(kvClient kubecli.KubevirtClient, namespace string, dataVolum
 
 // WaitForDataVolumePhase waits for DV's phase to be in a particular phase (Pending, Bound, or Lost)
 func WaitForDataVolumePhase(kvClient kubecli.KubevirtClient, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
-	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s\n", phase)
+	ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s\n", phase))
 	var lastPhase cdiv1.DataVolumePhase
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -307,14 +307,12 @@ func WaitForDataVolumePhase(kvClient kubecli.KubevirtClient, namespace string, p
 		if dataVolume.Status.Phase != phase {
 			if dataVolume.Status.Phase != lastPhase {
 				lastPhase = dataVolume.Status.Phase
-				fmt.Fprintf(ginkgo.GinkgoWriter, "\nINFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase)
-			} else {
-				fmt.Fprint(ginkgo.GinkgoWriter, ".")
+				ginkgo.By(fmt.Sprintf("\nINFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase))
 			}
 			return false, err
 		}
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "\nINFO: Waiting for status %s, got %s\n", phase, dataVolume.Status.Phase)
+		ginkgo.By(fmt.Sprintf("\nINFO: Waiting for status %s, got %s\n", phase, dataVolume.Status.Phase))
 		return true, nil
 	})
 	if err != nil {
@@ -423,7 +421,7 @@ func WaitPVCDeleted(clientSet *kubernetes.Clientset, namespace, pvcName string) 
 }
 
 func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, namespace, name string, conditionType kvv1.VirtualMachineInstanceConditionType) (bool, error) {
-	fmt.Fprintf(ginkgo.GinkgoWriter, "Waiting for %s condition\n", conditionType)
+	ginkgo.By(fmt.Sprintf("Waiting for %s condition\n", conditionType))
 	var result bool
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -435,12 +433,11 @@ func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, names
 			if condition.Type == conditionType && condition.Status == v1.ConditionTrue {
 				result = true
 
-				fmt.Fprintf(ginkgo.GinkgoWriter, " got %s\n", conditionType)
+				ginkgo.By(fmt.Sprintf(" got %s\n", conditionType))
 				return true, nil
 			}
 		}
 
-		fmt.Fprint(ginkgo.GinkgoWriter, ".")
 		return false, nil
 	})
 
@@ -457,7 +454,7 @@ func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace
 			return false, err
 		}
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Waiting for status %s, got %s\n", phase, vmi.Status.Phase)
+		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s\n", phase, vmi.Status.Phase))
 		return vmi.Status.Phase == phase, nil
 	})
 
@@ -465,6 +462,8 @@ func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace
 }
 
 func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name string, statuses ...kvv1.VirtualMachinePrintableStatus) error {
+	ginkgo.By(fmt.Sprintf("Waiting for any of %s statuses\n", statuses))
+
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
@@ -476,9 +475,12 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 
 		for _, status := range statuses {
 			if vm.Status.PrintableStatus == status {
+				ginkgo.By(fmt.Sprintf(" got %s\n", status))
+
 				return true, nil
 			}
 		}
+
 		return false, nil
 	})
 
@@ -689,7 +691,7 @@ func CreateBackupForNamespace(ctx context.Context, backupName string, namespace 
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
-	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
 	err := backupCmd.Run()
 	if err != nil {
 		return err
@@ -717,7 +719,7 @@ func CreateBackupForNamespaceExcludeNamespace(ctx context.Context, backupName, i
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
-	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
 	err := backupCmd.Run()
 	if err != nil {
 		return err
@@ -745,7 +747,7 @@ func CreateBackupForNamespaceExcludeResources(ctx context.Context, backupName, n
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
-	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
 	err := backupCmd.Run()
 	if err != nil {
 		return err
@@ -772,7 +774,7 @@ func CreateBackupForSelector(ctx context.Context, backupName, selector, snapshot
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
-	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
 	err := backupCmd.Run()
 	if err != nil {
 		return err
@@ -799,7 +801,7 @@ func CreateBackupForResources(ctx context.Context, backupName, resources, snapsh
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
-	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
 	err := backupCmd.Run()
 	if err != nil {
 		return err
@@ -818,7 +820,7 @@ func DeleteBackup(ctx context.Context, backupName string, backupNamespace string
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
-	fmt.Fprintf(ginkgo.GinkgoWriter, "backup cmd =%v\n", backupCmd)
+	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
 	err := backupCmd.Run()
 	if err != nil {
 		return err
@@ -905,7 +907,7 @@ func CreateSnapshotLocation(ctx context.Context, locationName, provider, region 
 	}
 
 	locationCmd := exec.CommandContext(ctx, veleroCLI, args...)
-	fmt.Fprintf(ginkgo.GinkgoWriter, "snapshot-location cmd =%v\n", locationCmd)
+	ginkgo.By(fmt.Sprintf("snapshot-location cmd =%v\n", locationCmd))
 
 	output, err := locationCmd.CombinedOutput()
 	if err != nil && !strings.Contains(string(output), "already exists") {
@@ -929,7 +931,7 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string,
 	restoreCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	restoreCmd.Stdout = os.Stdout
 	restoreCmd.Stderr = os.Stderr
-	fmt.Fprintf(ginkgo.GinkgoWriter, "restore cmd =%v\n", restoreCmd)
+	ginkgo.By(fmt.Sprintf("restore cmd =%v\n", restoreCmd))
 	err := restoreCmd.Run()
 	if err != nil {
 		return err
@@ -1022,8 +1024,8 @@ func PrintEventsForKind(client kubecli.KubevirtClient, kind, namespace, name str
 	events, _ := client.EventsV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
 	for _, event := range events.Items {
 		if event.Regarding.Kind == kind && event.Regarding.Name == name {
-			fmt.Fprintf(ginkgo.GinkgoWriter, "  INFO: event for %s/%s: %s, %s, %s\n",
-				event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note)
+			ginkgo.By(fmt.Sprintf("  INFO: event for %s/%s: %s, %s, %s\n",
+				event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note))
 		}
 	}
 }
@@ -1031,7 +1033,7 @@ func PrintEventsForKind(client kubecli.KubevirtClient, kind, namespace, name str
 func PrintEvents(client kubecli.KubevirtClient, namespace, name string) {
 	events, _ := client.EventsV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
 	for _, event := range events.Items {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "  INFO: event for %s/%s: %s, %s, %s\n",
-			event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note)
+		ginkgo.By(fmt.Sprintf("  INFO: event for %s/%s: %s, %s, %s\n",
+			event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note))
 	}
 }
