@@ -23,12 +23,9 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
     )"../../cluster-up/
 fi
 
-
-velero_dir=./hack/velero
 source ./hack/config.sh
 
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 
 _kubectl delete deployment minio -n velero --ignore-not-found=true
-
 _kubectl delete deployment velero -n velero --ignore-not-found=true

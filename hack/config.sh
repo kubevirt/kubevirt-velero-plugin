@@ -51,5 +51,19 @@ KUBEVIRT_VERSION=${KUBEVIRT_VERSION:-v0.49.0}
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.23}
 KUBEVIRT_DEPLOYMENT_TIMEOUT=${KUBEVIRT_DEPLOYMENT_TIMEOUT:-480}
 KUBEVIRT_DEPLOY_CDI=true
+VELERO_VERSION=${VELERO_VERSION:-v1.8.1}
+VELERO_DIR=_output/velero/bin
 
 source cluster-up/hack/config.sh
+
+function kvp::fetch_velero() {
+  if [[ ! -f "${VELERO_DIR}/velero" ]]; then
+    mkdir -p ${VELERO_DIR}
+    echo >&2 "Downloading velero version ${VELERO_VERSION}..."
+    curl -LO https://github.com/vmware-tanzu/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-amd64.tar.gz \
+      && tar -xzvf velero-${VELERO_VERSION}-linux-amd64.tar.gz \
+      && rm velero-${VELERO_VERSION}-linux-amd64.tar.gz \
+      && chmod u+x velero-${VELERO_VERSION}-linux-amd64/velero \
+      && mv velero-${VELERO_VERSION}-linux-amd64/velero ${VELERO_DIR}/velero
+  fi
+}

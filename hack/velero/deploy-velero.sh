@@ -22,10 +22,10 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
         echo "$(pwd)/"
     )"../../cluster-up/
 fi
-
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
-velero_dir=${script_dir}/../velero
 source "${script_dir}"/../config.sh
+
+velero_resources_dir=${script_dir}/../velero
 
 source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
 
@@ -33,6 +33,8 @@ if [[ ! $(_kubectl get deployments -n velero | grep minio) ]]; then
   _kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/main/examples/minio/00-minio-deployment.yaml
   _kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
 fi
+
+kvp::fetch_velero
 
 PLUGINS=velero/velero-plugin-for-aws:v1.3.0
 FEATURES=""
@@ -50,11 +52,11 @@ if [[ ! $(_kubectl get deployments -n velero | grep velero) ]]; then
   echo "Plugins: ${PLUGINS}"
   echo "Features: ${FEATURES}"
 
-  ${velero_dir}/velero install \
+  ${VELERO_DIR}/velero install \
     --provider aws \
     --plugins ${PLUGINS} \
     --bucket velero \
-    --secret-file ${velero_dir}/credentials-velero \
+    --secret-file ${velero_resources_dir}/credentials-velero \
     --use-volume-snapshots=true \
     --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
     --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
