@@ -1066,6 +1066,11 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
+				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
+
+				By("Writing to PVC filesystem")
+				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
+				deletePod(namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes"
@@ -1090,9 +1095,13 @@ var _ = Describe("Resource includes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				By("Checking DataVolume is ready")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying DataVolume is NOT re-imported - file exists")
+				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
+				deletePod(namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
@@ -2978,8 +2987,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// found an issue https://github.com/kubevirt/kubevirt-velero-plugin/issues/68
-			// fix in kubevirt 0.57
+			// This test is actually something different, it is for a PAUSED VM - and this still needs to be fixed!
 			XIt("[Quarantine] VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
@@ -3093,6 +3101,11 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
+				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
+
+				By("Writing to PVC filesystem")
+				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
+				deletePod(namespace.Name, writerPod.Name)
 
 				By("Adding exclude label to DV")
 				addExcludeLabelToDV(vmSpec.Spec.DataVolumeTemplates[0].Name)
@@ -3116,9 +3129,13 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				By("Checking DataVolume is ready")
+				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying DataVolume is re-imported - file does NOT exists")
+				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
+				deletePod(namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
@@ -3543,7 +3560,7 @@ func retryOnceOnErr(f func() error) Assertion {
 func runPodAndWaitSucceeded(namespace string, podSpec *v1.Pod) *v1.Pod {
 	By("creating a pod that writes to pvc")
 	pod, err := (*kvClient).CoreV1().Pods(namespace).Create(context.Background(), podSpec, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).WithOffset(1).ToNot(HaveOccurred())
 
 	By("Wait for pod to reach a completed phase")
 	Eventually(func() error {
@@ -3555,7 +3572,7 @@ func runPodAndWaitSucceeded(namespace string, podSpec *v1.Pod) *v1.Pod {
 			return fmt.Errorf("Pod in phase %s, expected Succeeded", updatedPod.Status.Phase)
 		}
 		return nil
-	}, 3*time.Minute, 5*time.Second).Should(Succeed(), "pod should reach Succeeded state")
+	}, 3*time.Minute, 5*time.Second).WithOffset(1).Should(Succeed(), "pod should reach Succeeded state")
 
 	return pod
 }
@@ -3567,13 +3584,13 @@ func deletePod(namespace, podName string) {
 		metav1.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).WithOffset(1).ToNot(HaveOccurred())
 
 	By("verify deleted")
 	Eventually(func() error {
 		_, err := (*kvClient).CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
 		return err
-	}, 3*time.Minute, 5*time.Second).Should(Satisfy(apierrs.IsNotFound), "pod should disappear")
+	}, 3*time.Minute, 5*time.Second).WithOffset(1).Should(Satisfy(apierrs.IsNotFound), "pod should disappear")
 }
 
 func verifyFileExists(volumeName string) *v1.Pod {
