@@ -1059,7 +1059,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+PVC: VM, PVC should be restored, DV should be recreated and bound to the PVC", func() {
+			It("Selecting VM+PVC: VM and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -1095,20 +1095,13 @@ var _ = Describe("Resource includes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume is ready")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying DataVolume is NOT re-imported - file exists")
+				// DV may not exist, so just check the PVC
+				By("Verifying PVC is NOT re-imported - file exists")
 				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
 				deletePod(namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -3094,7 +3087,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM+PVC included, DV excluded: VM and PVC should be restored, DV recreated and bound to the PVC", func() {
+			It("VM+PVC included, DV excluded: VM and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
@@ -3129,20 +3122,12 @@ var _ = Describe("Resource excludes", func() {
 				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume is ready")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying DataVolume is re-imported - file does NOT exists")
+				By("Verifying PVC is not re-imported - file exists")
 				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
 				deletePod(namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
