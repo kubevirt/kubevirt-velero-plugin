@@ -44,27 +44,18 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 		namespace, err = CreateNamespace(client)
 		Expect(err).ToNot(HaveOccurred())
-
-		vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-		vm, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Starting VM")
-		err = StartVirtualMachine(*kvClient, namespace.Name, vm.Name)
-		Expect(err).ToNot(HaveOccurred())
-
-		err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
-		Expect(err).ToNot(HaveOccurred())
-		err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vm.Name, kvv1.Running)
-		Expect(err).ToNot(HaveOccurred())
 	})
 
-	AfterEach(func() {
+	JustAfterEach(func() {
+		By("JustAfterEach")
+
 		if CurrentGinkgoTestDescription().Failed {
 			r.FailureCount++
 			r.Dump(CurrentGinkgoTestDescription().Duration)
 		}
+	})
 
+	AfterEach(func() {
 		// Deleting the backup also deletes all restores, volume snapshots etc.
 		err := DeleteBackup(timeout, backupName, r.BackupNamespace)
 		if err != nil {
@@ -86,6 +77,12 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	It("Stopped VM should be restored", func() {
+		// creating a started VM, so it works correctly also on WFFC storage
+		By("Starting a VM")
+		vm = createStartedVm(
+			namespace.Name,
+			CreateVmWithGuestAgent("test-vm", r.StorageClass))
+
 		By("Stopping a VM")
 		err := StopVirtualMachine(*kvClient, namespace.Name, vm.Name)
 		Expect(err).ToNot(HaveOccurred())
@@ -115,7 +112,13 @@ var _ = Describe("[smoke] VM Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("started VM should be restored", func() {
+	It("started VM should be restored - with guest agent", func() {
+		// creating a started VM, so it works correctly also on WFFC storage
+		By("Starting a VM")
+		vm = createStartedVm(
+			namespace.Name,
+			CreateVmWithGuestAgent("test-vm", r.StorageClass))
+
 		err := WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 		Expect(err).ToNot(HaveOccurred())
 		ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
@@ -152,4 +155,61 @@ var _ = Describe("[smoke] VM Backup", func() {
 		err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 		Expect(err).ToNot(HaveOccurred())
 	})
+
+	It("started VM should be restored - without guest agent", func() {
+		// creating a started VM, so it works correctly also on WFFC storage
+		By("Starting a VM")
+		vm = createStartedVm(
+			namespace.Name,
+			CreateVmWithoutGuestAgent("test-vm", r.StorageClass))
+
+		err := WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating backup")
+		err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+		Expect(err).ToNot(HaveOccurred())
+
+		phase, err := GetBackupPhase(timeout, backupName, r.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
+
+		By("Stopping VM")
+		err = StopVirtualMachine(*kvClient, namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+		err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Deleting VM")
+		err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating restore")
+		err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+		Expect(err).ToNot(HaveOccurred())
+
+		rPhase, err := GetRestorePhase(timeout, restoreName, r.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
+
+		By("Verifying VM")
+		err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+	})
 })
+
+func createStartedVm(namespace string, vmSpec *kvv1.VirtualMachine) *kvv1.VirtualMachine {
+	vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace, vmSpec)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Starting VM")
+	err = StartVirtualMachine(*kvClient, namespace, vmSpec.Name)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = WaitForDataVolumePhase(*kvClient, namespace, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+	Expect(err).ToNot(HaveOccurred())
+	err = WaitForVirtualMachineInstancePhase(*kvClient, namespace, vmSpec.Name, kvv1.Running)
+	Expect(err).ToNot(HaveOccurred())
+
+	return vm
+}
