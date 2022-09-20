@@ -26,14 +26,23 @@ import (
 )
 
 const (
-	pollInterval        = 3 * time.Second
-	waitTime            = 600 * time.Second
-	veleroCLI           = "velero"
-	forceBindAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
-	alpineUrl           = "docker://quay.io/kubevirtci/alpine-with-test-tooling-container-disk:2205291325-d8fc489"
+	pollInterval            = 3 * time.Second
+	waitTime                = 600 * time.Second
+	veleroCLI               = "velero"
+	forceBindAnnotation     = "cdi.kubevirt.io/storage.bind.immediate.requested"
+	alpineUrl               = "docker://quay.io/kubevirt/alpine-container-disk-demo:v0.57.1"
+	alpineWithGuestAgentUrl = "docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1"
 )
 
+func CreateVmWithoutGuestAgent(vmName string, storageClassName string) *kvv1.VirtualMachine {
+	return CreateVm(vmName, storageClassName, alpineUrl)
+}
+
 func CreateVmWithGuestAgent(vmName string, storageClassName string) *kvv1.VirtualMachine {
+	return CreateVm(vmName, storageClassName, alpineWithGuestAgentUrl)
+}
+
+func CreateVm(vmName string, storageClassName string, containerDiskUrl string) *kvv1.VirtualMachine {
 	no := false
 	var zero int64 = 0
 	dataVolumeName := vmName + "-dv"
@@ -121,7 +130,6 @@ version: 2`
 	}
 
 	nodePullMethod := cdiv1.RegistryPullNode
-	containerDiskUrl := alpineUrl
 
 	vmSpec := &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
@@ -292,7 +300,7 @@ func FindDataVolume(kvClient kubecli.KubevirtClient, namespace string, dataVolum
 
 // WaitForDataVolumePhase waits for DV's phase to be in a particular phase (Pending, Bound, or Lost)
 func WaitForDataVolumePhase(kvClient kubecli.KubevirtClient, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
-	ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s\n", phase))
+	ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s", phase))
 	var lastPhase cdiv1.DataVolumePhase
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -307,12 +315,12 @@ func WaitForDataVolumePhase(kvClient kubecli.KubevirtClient, namespace string, p
 		if dataVolume.Status.Phase != phase {
 			if dataVolume.Status.Phase != lastPhase {
 				lastPhase = dataVolume.Status.Phase
-				ginkgo.By(fmt.Sprintf("\nINFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase))
+				ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase))
 			}
 			return false, err
 		}
 
-		ginkgo.By(fmt.Sprintf("\nINFO: Waiting for status %s, got %s\n", phase, dataVolume.Status.Phase))
+		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase))
 		return true, nil
 	})
 	if err != nil {
@@ -457,7 +465,7 @@ func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace
 			return false, err
 		}
 
-		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s\n", phase, vmi.Status.Phase))
+		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s", phase, vmi.Status.Phase))
 		return vmi.Status.Phase == phase, nil
 	})
 
@@ -465,7 +473,7 @@ func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace
 }
 
 func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name string, statuses ...kvv1.VirtualMachinePrintableStatus) error {
-	ginkgo.By(fmt.Sprintf("Waiting for any of %s statuses\n", statuses))
+	ginkgo.By(fmt.Sprintf("Waiting for any of %s statuses", statuses))
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
@@ -478,7 +486,7 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 
 		for _, status := range statuses {
 			if vm.Status.PrintableStatus == status {
-				ginkgo.By(fmt.Sprintf(" got %s\n", status))
+				ginkgo.By(fmt.Sprintf(" got %s", status))
 
 				return true, nil
 			}
@@ -588,7 +596,7 @@ func NewPod(podName, pvcName, cmd string) *v1.Pod {
 
 func NewDataVolumeForVmWithGuestAgentImage(dataVolumeName string, storageClass string) *cdiv1.DataVolume {
 	nodePullMethod := cdiv1.RegistryPullNode
-	containerDiskUrl := alpineUrl
+	containerDiskUrl := alpineWithGuestAgentUrl
 
 	dvSpec := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -676,6 +684,7 @@ func NewCloneDataVolume(name, size, srcNamespace, srcPvcName string, storageClas
 	return dv
 }
 
+// TODO: change this to resource not a command!!!
 func CreateBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
@@ -703,6 +712,7 @@ func CreateBackupForNamespace(ctx context.Context, backupName string, namespace 
 	return nil
 }
 
+// TODO: change this to resource not a command!!!
 func CreateBackupForNamespaceExcludeNamespace(ctx context.Context, backupName, includedNamespace, excludedNamespace, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
