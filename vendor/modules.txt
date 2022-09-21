@@ -164,7 +164,7 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.20.0
+# github.com/onsi/gomega v1.20.2
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -219,7 +219,7 @@ github.com/vmware-tanzu/velero/pkg/util/logging
 # golang.org/x/crypto v0.0.0-20201012173705-84dcc777aaee
 ## explicit; go 1.11
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
+# golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -236,7 +236,7 @@ golang.org/x/net/trace
 ## explicit; go 1.11
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.0.0-20220422013727-9388b58f7150
+# golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
@@ -630,17 +630,9 @@ kubevirt.io/client-go/version
 # kubevirt.io/containerized-data-importer v1.40.0
 ## explicit; go 1.14
 kubevirt.io/containerized-data-importer/pkg/apis/core
-kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer/pkg/apis/upload
-kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1
-kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned
-kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme
-kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/core/v1alpha1
-kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/core/v1beta1
-kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/upload/v1alpha1
-kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/upload/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk v0.2.1-0.20210723143736-64585ea1d1bd
 ## explicit; go 1.14
 kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
