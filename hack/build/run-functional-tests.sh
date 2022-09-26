@@ -21,8 +21,9 @@ source hack/config.sh
 readonly MAX_CDI_WAIT_RETRY=30
 readonly CDI_WAIT_TIME=10
 
-
-VELERO_DIR=$(pwd)/hack/velero
+# when running on a cluster that was externally provided we might not have a velero command available,
+# so now is the time to install it
+kvp::fetch_velero
 
 # parsetTestOpts sets 'pkgs' and test_args
 function parseTestOpts() {
@@ -52,8 +53,9 @@ test_args="${test_args} -ginkgo.v"
 
 test_command="${TESTS_OUT_DIR}/tests.test -test.timeout 360m ${test_args}"
 kubeconfig_arg=${KUBECONFIG:-${kubeconfig}}
+velero_path=$(pwd)/${VELERO_DIR}
 
 (
     cd ${TESTS_DIR}
-    KUBECONFIG=${kubeconfig_arg} PATH=${PATH}:${VELERO_DIR} ${test_command}
+    KUBECONFIG=${kubeconfig_arg} PATH=${PATH}:${velero_path} ${test_command}
 )
