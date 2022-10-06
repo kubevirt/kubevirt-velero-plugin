@@ -110,7 +110,8 @@ _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 		./hack/build/build.sh'"
 
 TTY := $(shell tty -s && echo "-t")
-PODMAN_SPECIFIC_FLAG := $(if $(filter $(OCI_BIN),podman),--userns=keep-id,)
+PODMAN_AND_ROOTLESS := $(shell $(OCI_BIN) info -f '{{json .Host.Security.Rootless}}' 2>/dev/null ; true)
+PODMAN_SPECIFIC_FLAG := $(if $(filter $(PODMAN_AND_ROOTLESS),true),--userns=keep-id,)
 
 shell: build-dirs
 	@echo "running docker: $@"
