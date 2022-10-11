@@ -13,253 +13,15 @@ import (
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kvv1 "kubevirt.io/client-go/api/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
-var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
-	no := false
-	var zero int64 = 0
-	return &kvv1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: vmName,
-		},
-		Spec: kvv1.VirtualMachineSpec{
-			Running: &no,
-			Template: &kvv1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: vmName,
-				},
-				Spec: kvv1.VirtualMachineInstanceSpec{
-					Domain: kvv1.DomainSpec{
-						Resources: kvv1.ResourceRequirements{
-							Requests: v1.ResourceList{
-								v1.ResourceName(v1.ResourceMemory): resource.MustParse("256M"),
-							},
-						},
-						Machine: &kvv1.Machine{
-							Type: "",
-						},
-						Devices: kvv1.Devices{
-							Disks: []kvv1.Disk{
-								{
-									Name: "volume0",
-									DiskDevice: kvv1.DiskDevice{
-										Disk: &kvv1.DiskTarget{
-											Bus: "virtio",
-										},
-									},
-								},
-							},
-						},
-					},
-					Volumes: []kvv1.Volume{
-						{
-							Name: "volume0",
-							VolumeSource: kvv1.VolumeSource{
-								DataVolume: &kvv1.DataVolumeSource{
-									Name: vmName + "-dv",
-								},
-							},
-						},
-					},
-					TerminationGracePeriodSeconds: &zero,
-				},
-			},
-			DataVolumeTemplates: []kvv1.DataVolumeTemplateSpec{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: vmName + "-dv",
-					},
-					Spec: cdiv1.DataVolumeSpec{
-						Source: &cdiv1.DataVolumeSource{
-							Blank: &cdiv1.DataVolumeBlankImage{},
-						},
-						PVC: &v1.PersistentVolumeClaimSpec{
-							AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-							Resources: v1.ResourceRequirements{
-								Requests: v1.ResourceList{
-									v1.ResourceName(v1.ResourceStorage): resource.MustParse(size),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-var newVMSpec = func(vmName, size string, volumeSource kvv1.VolumeSource) *kvv1.VirtualMachine {
-	no := false
-	var zero int64 = 0
-	return &kvv1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: vmName,
-		},
-		Spec: kvv1.VirtualMachineSpec{
-			Running: &no,
-			Template: &kvv1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: vmName,
-				},
-				Spec: kvv1.VirtualMachineInstanceSpec{
-					Domain: kvv1.DomainSpec{
-						Resources: kvv1.ResourceRequirements{
-							Requests: v1.ResourceList{
-								v1.ResourceName(v1.ResourceMemory): resource.MustParse("256M"),
-							},
-						},
-						Machine: &kvv1.Machine{
-							Type: "",
-						},
-						Devices: kvv1.Devices{
-							Disks: []kvv1.Disk{
-								{
-									Name: "volume0",
-									DiskDevice: kvv1.DiskDevice{
-										Disk: &kvv1.DiskTarget{
-											Bus: "virtio",
-										},
-									},
-								},
-							},
-						},
-					},
-					Volumes: []kvv1.Volume{
-						{
-							Name:         "volume0",
-							VolumeSource: volumeSource,
-						},
-					},
-					TerminationGracePeriodSeconds: &zero,
-				},
-			},
-		},
-	}
-}
-
-func addVolumeToVMI(vmi *kvv1.VirtualMachineInstance, source kvv1.VolumeSource, volumeName string) *kvv1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, kvv1.Disk{
-		Name: volumeName,
-		DiskDevice: kvv1.DiskDevice{
-			Disk: &kvv1.DiskTarget{
-				Bus: "virtio",
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, kvv1.Volume{
-		Name:         volumeName,
-		VolumeSource: source,
-	})
-	return vmi
-}
-
-func newVMISpec(vmiName string) *kvv1.VirtualMachineInstance {
-	var zero int64 = 0
-
-	vmi := &kvv1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: vmiName,
-		},
-		Spec: kvv1.VirtualMachineInstanceSpec{
-			Domain: kvv1.DomainSpec{
-				Resources: kvv1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						v1.ResourceName(v1.ResourceMemory): resource.MustParse("512M"),
-					},
-				},
-				Machine: &kvv1.Machine{
-					Type: "q35",
-				},
-				Devices: kvv1.Devices{
-					Rng:   &kvv1.Rng{},
-					Disks: []kvv1.Disk{},
-					Interfaces: []kvv1.Interface{{
-						Name: "default",
-						InterfaceBindingMethod: kvv1.InterfaceBindingMethod{
-							Masquerade: &kvv1.InterfaceMasquerade{},
-						},
-					}},
-				},
-			},
-			Networks: []kvv1.Network{{
-				Name: "default",
-				NetworkSource: kvv1.NetworkSource{
-					Pod: &kvv1.PodNetwork{},
-				},
-			}},
-			Volumes:                       []kvv1.Volume{},
-			TerminationGracePeriodSeconds: &zero,
-		},
-	}
-
-	return vmi
-}
-
-func newBigVMISpecWithDV(vmiName, dvName string) *kvv1.VirtualMachineInstance {
-	networkData := `ethernets:
-  eth0:
-    addresses:
-    - fd10:0:2::2/120
-    dhcp4: true
-    gateway6: fd10:0:2::1
-    match: {}
-    nameservers:
-      addresses:
-      - 10.96.0.10
-      search:
-      - default.svc.cluster.local
-      - svc.cluster.local
-      - cluster.local
-version: 2`
-	vmi := newVMISpec(vmiName)
-
-	dvSource := kvv1.VolumeSource{
-		DataVolume: &kvv1.DataVolumeSource{
-			Name: dvName,
-		},
-	}
-	networkDataSource := kvv1.VolumeSource{
-		CloudInitNoCloud: &kvv1.CloudInitNoCloudSource{
-			NetworkData: networkData,
-		},
-	}
-	vmi = addVolumeToVMI(vmi, dvSource, "volume0")
-	vmi = addVolumeToVMI(vmi, networkDataSource, "volume1")
-	return vmi
-}
-
-func newVMISpecWithDV(vmiName, dvName string) *kvv1.VirtualMachineInstance {
-	vmi := newVMISpec(vmiName)
-
-	source := kvv1.VolumeSource{
-		DataVolume: &kvv1.DataVolumeSource{
-			Name: dvName,
-		},
-	}
-	vmi = addVolumeToVMI(vmi, source, "volume0")
-	return vmi
-}
-
-func newVMISpecWithPVC(vmiName, pvcName string) *kvv1.VirtualMachineInstance {
-	vmi := newVMISpec(vmiName)
-
-	source := kvv1.VolumeSource{
-		PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-			ClaimName: pvcName,
-		},
-	}
-	vmi = addVolumeToVMI(vmi, source, "volume0")
-	return vmi
-}
-
 var _ = Describe("Resource includes", func() {
 	var client, _ = util.GetK8sClient()
+	var kvClient kubecli.KubevirtClient
 	var namespace *v1.Namespace
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
@@ -268,7 +30,10 @@ var _ = Describe("Resource includes", func() {
 	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
-		var err error
+		kvClientRef, err := util.GetKubeVirtclient()
+		Expect(err).ToNot(HaveOccurred())
+		kvClient = *kvClientRef
+
 		timeout, cancelFunc = context.WithTimeout(context.Background(), 10*time.Minute)
 		t := time.Now().UnixNano()
 		backupName = fmt.Sprintf("test-backup-%d", t)
@@ -285,7 +50,7 @@ var _ = Describe("Resource includes", func() {
 		}
 
 		// Deleting the backup also deletes all restores, volume snapshots etc.
-		err := DeleteBackup(timeout, backupName, r.BackupNamespace)
+		err := framework.DeleteBackup(timeout, backupName, r.BackupNamespace)
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
@@ -324,111 +89,111 @@ var _ = Describe("Resource includes", func() {
 
 		It("Should only backup and restore DV from included namespace", func() {
 			By("Creating DVs")
-			dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
+			dvSpec := framework.NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, includedNamespace.Name, dvSpec)
+			dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, includedNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForDataVolumePhase(*kvClient, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
+			err = framework.WaitForDataVolumePhase(kvClient, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
-			dvOther, err := CreateDataVolumeFromDefinition(*kvClient, otherNamespace.Name, dvSpec)
+			dvSpec = framework.NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
+			dvOther, err := framework.CreateDataVolumeFromDefinition(kvClient, otherNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
+			err = framework.WaitForDataVolumePhase(kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Crating backup test-backup")
-			err = CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
+			err = framework.CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting DVs")
-			err = DeleteDataVolume(*kvClient, includedNamespace.Name, dvIncluded.Name)
+			err = framework.DeleteDataVolume(kvClient, includedNamespace.Name, dvIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err := WaitDataVolumeDeleted(*kvClient, includedNamespace.Name, dvIncluded.Name)
+			ok, err := framework.WaitDataVolumeDeleted(kvClient, includedNamespace.Name, dvIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
-			err = DeleteDataVolume(*kvClient, otherNamespace.Name, dvOther.Name)
+			err = framework.DeleteDataVolume(kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err = WaitDataVolumeDeleted(*kvClient, otherNamespace.Name, dvOther.Name)
+			ok, err = framework.WaitDataVolumeDeleted(kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore test-restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+			err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking included DataVolume exists")
-			err = WaitForDataVolumePhase(*kvClient, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
+			err = framework.WaitForDataVolumePhase(kvClient, includedNamespace.Name, cdiv1.Succeeded, "included-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking not included DataVolume does not exist")
-			ok, err = WaitDataVolumeDeleted(*kvClient, otherNamespace.Name, dvOther.Name)
+			ok, err = framework.WaitDataVolumeDeleted(kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Cleanup")
-			err = DeleteDataVolume(*kvClient, includedNamespace.Name, dvIncluded.Name)
+			err = framework.DeleteDataVolume(kvClient, includedNamespace.Name, dvIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should only backup and restore VM from included namespace", func() {
 			By("Creating VirtualMachines")
 			vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-			vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, includedNamespace.Name, vmSpec)
+			vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, includedNamespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(*kvClient, includedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = framework.WaitForDataVolumePhase(kvClient, includedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmSpec = newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
-			vmOther, err := CreateVirtualMachineFromDefinition(*kvClient, otherNamespace.Name, vmSpec)
+			vmOther, err := framework.CreateVirtualMachineFromDefinition(kvClient, otherNamespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = framework.WaitForDataVolumePhase(kvClient, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
+			err = framework.CreateBackupForNamespace(timeout, backupName, includedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VMs")
-			err = DeleteVirtualMachine(*kvClient, includedNamespace.Name, vmIncluded.Name)
+			err = framework.DeleteVirtualMachine(kvClient, includedNamespace.Name, vmIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err := WaitVirtualMachineDeleted(*kvClient, includedNamespace.Name, vmIncluded.Name)
+			ok, err := framework.WaitVirtualMachineDeleted(kvClient, includedNamespace.Name, vmIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
-			err = DeleteVirtualMachine(*kvClient, otherNamespace.Name, vmOther.Name)
+			err = framework.DeleteVirtualMachine(kvClient, otherNamespace.Name, vmOther.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err = WaitVirtualMachineDeleted(*kvClient, otherNamespace.Name, vmOther.Name)
+			ok, err = framework.WaitVirtualMachineDeleted(kvClient, otherNamespace.Name, vmOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+			err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying included VM exists")
-			err = WaitForVirtualMachineStatus(*kvClient, includedNamespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+			err = framework.WaitForVirtualMachineStatus(kvClient, includedNamespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying ignored VM does not exists")
-			ok, err = WaitVirtualMachineDeleted(*kvClient, otherNamespace.Name, vmOther.Name)
+			ok, err = framework.WaitVirtualMachineDeleted(kvClient, otherNamespace.Name, vmOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Cleanup")
-			err = DeleteVirtualMachine(*kvClient, includedNamespace.Name, vmIncluded.Name)
+			err = framework.DeleteVirtualMachine(kvClient, includedNamespace.Name, vmIncluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -438,23 +203,23 @@ var _ = Describe("Resource includes", func() {
 		Context("Standalone DV", func() {
 			It("Selecting DV+PVC: Both DVs and PVCs should be backed up and restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = CreateBackupForResources(timeout, backupName, "datavolumes,persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, "datavolumes,persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following 2 items:
@@ -463,52 +228,52 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(2))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitPVCDeleted(client, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitPVCDeleted(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
-				_, err = WaitForPVC(client, namespace.Name, "test-dv")
+				_, err = framework.WaitForPVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume exists and succeeds")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting DV+PVC+PV+VolumeSnapshot+VSContent: Both DVs and PVCs should be backed up and restored, content of PVC not re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
 				resources := "datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following items:
@@ -521,50 +286,50 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(BeNumerically(">=", 5))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeletePVC(client, namespace.Name, dvIncluded.Name)
+				err = framework.DeletePVC(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
-				err = WaitForPVCPhase(client, namespace.Name, "test-dv", v1.ClaimBound)
+				err = framework.WaitForPVCPhase(client, namespace.Name, "test-dv", v1.ClaimBound)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting only DVs: the restored DV should not recreate its PVC", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = CreateBackupForResources(timeout, backupName, "datavolumes", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, "datavolumes", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following item:
@@ -572,48 +337,48 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(1))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitPVCDeleted(client, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitPVCDeleted(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume Pending")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting only PVCs: PVC should be restored, ownership relation empty", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
 				resources := "persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 				// The backup should contains the following items:
@@ -625,33 +390,33 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(BeNumerically(">=", 4))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeletePVC(client, namespace.Name, dvIncluded.Name)
+				err = framework.DeletePVC(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
-				err = WaitForPVCPhase(client, namespace.Name, "test-dv", v1.ClaimBound)
+				err = framework.WaitForPVCPhase(client, namespace.Name, "test-dv", v1.ClaimBound)
 				Expect(err).ToNot(HaveOccurred())
-				pvc, err := FindPVC(client, namespace.Name, "test-dv")
+				pvc, err := framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(len(pvc.OwnerReferences)).To(Equal(0))
 
 				By("Checking DataVolume does not exist")
 				Consistently(func() bool {
-					_, err := FindDataVolume(*kvClient, namespace.Name, "test-dv")
+					_, err := framework.FindDataVolume(kvClient, namespace.Name, "test-dv")
 					return apierrs.IsNotFound(err)
 				}, "1000ms", "100ms").Should(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -659,551 +424,551 @@ var _ = Describe("Resource includes", func() {
 		Context("VM with DVTemplates", func() {
 			It("Selecting VM+DV+PVC: VM, DV and PVC should be restored", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Writing to PVC filesystem")
-				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
-				deletePod(namespace.Name, writerPod.Name)
+				writerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, writerPod(volumeName))
+				deletePod(kvClient, namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for DataVolume")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "included-test-vm-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "included-test-vm-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying DataVolume does not re-import content - file should exists")
-				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
-				deletePod(namespace.Name, readerPod.Name)
+				readerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, verifyFileExists(volumeName))
+				deletePod(kvClient, namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+DV+PVC: Backing up VM should fail if the VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+VMI but not Pod: Backing up should fail if the VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances,persistentvolumeclaims"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+VMI but not Pod+PVC: Backup should succeed, DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = StopVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StopVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
-
-				err = DeleteDataVolume(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
-				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
-				Expect(err).ToNot(HaveOccurred())
-				err = DeletePVC(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.DeletePVC(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+VMI but not Pod: Backing up should succeed if the VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Writing to PVC filesystem")
-				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
-				deletePod(namespace.Name, writerPod.Name)
+				writerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, writerPod(volumeName))
+				deletePod(kvClient, namespace.Name, writerPod.Name)
 
 				By("Pausing the virtual machine")
-				err = PauseVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.PauseVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = StopVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StopVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Testing for ImportScheduled is not reliable, because sometimes it might happen so fast,
 				// that DV switches to Succeeded before we even get here
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, volumeName)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying DataVolume is re-imported - file should not exists")
-				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyNoFile(volumeName))
-				deletePod(namespace.Name, readerPod.Name)
+				readerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, verifyNoFile(volumeName))
+				deletePod(kvClient, namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM but not VMI or Pod: Backing up should fail if the VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM but not VMI and Pod: Backing up should succeed if the VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
-				Expect(err).ToNot(HaveOccurred())
-
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
-				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = PauseVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = framework.PauseVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = StopVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StopVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				ok, err = WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-vm-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-vm-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+DV+PVC+VMI+Pod: All objects should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				ok, err = WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+DV: VM, DV should be restored, PVC should not be recreated", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				ok, err = WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume Pending")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+PVC: VM and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
 
 				By("Writing to PVC filesystem")
-				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
-				deletePod(namespace.Name, writerPod.Name)
+				writerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, writerPod(volumeName))
+				deletePod(kvClient, namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				ok, err = WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				// DV may not exist, so just check the PVC
 				By("Verifying PVC is NOT re-imported - file exists")
-				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
-				deletePod(namespace.Name, readerPod.Name)
+				readerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, verifyFileExists(volumeName))
+				deletePod(kvClient, namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM but not DV and PVC: VM should be restored, DV and PVC should be recreated", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Writing to PVC filesystem")
-				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
-				deletePod(namespace.Name, writerPod.Name)
+				writerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, writerPod(volumeName))
+				deletePod(kvClient, namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying DataVolume is re-imported - file should not exists")
-				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyNoFile(volumeName))
-				deletePod(namespace.Name, readerPod.Name)
+				readerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, verifyNoFile(volumeName))
+				deletePod(kvClient, namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VMI (with DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
 				By("Creating VirtualMachine")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VirtualMachine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup with DV+PVC+Pod")
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VMI (without DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
 				By("Creating VirtualMachine")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VirtualMachine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup without DV+PVC+Pod")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1212,11 +977,11 @@ var _ = Describe("Resource includes", func() {
 
 			It("Selecting VM+DV+PVC, VM stopped: VM, DV and PVC should be restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1226,55 +991,55 @@ var _ = Describe("Resource includes", func() {
 					},
 				}
 				vmSpec := newVMSpec("test-vm", "100Mi", source)
-				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, "test-dv")
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				err = DeletePVC(client, namespace.Name, "test-dv")
+				err = framework.DeletePVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM + PVC, VM stopped: VM and PVC should be restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1284,52 +1049,52 @@ var _ = Describe("Resource includes", func() {
 					},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
-				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitPVCDeleted(client, namespace.Name, "tet-dv")
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, "tet-dv")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM + PVC, VM running: Backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1339,31 +1104,31 @@ var _ = Describe("Resource includes", func() {
 					},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
-				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM but not PVC: Backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -1373,21 +1138,21 @@ var _ = Describe("Resource includes", func() {
 					},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
-				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1397,138 +1162,138 @@ var _ = Describe("Resource includes", func() {
 			// need to be improved
 			XIt("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				vm, err := CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
-				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
+				err = framework.DeleteVirtualMachineInstance(kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI running")
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, "test-vmi", kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, "test-vmi", kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv-2")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv-2")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting standalone VMI+Pod without DV: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				vm, err := CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
 				resources := "virtualmachineinstances,pods"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting standalone VMI+Pod without PVC: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				vm, err := CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
 				resources := "virtualmachineinstances,pods"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting standalone VMI without Pod: Backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				vm, err := CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1539,82 +1304,82 @@ var _ = Describe("Resource includes", func() {
 		Context("Standalone DV", func() {
 			It("Should only backup and restore DV selected by label", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
 				dvSpec.Labels = map[string]string{
 					"a.test.label": "include",
 				}
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "included-test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "included-test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
-				dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
+				dvSpec = framework.NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvOther, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvOther, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "other-test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "other-test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Crating backup test-backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				ok, err := framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvOther.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvOther.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvOther.Name)
+				ok, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvOther.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking included DataVolume exists")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, dvIncluded.Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking not included DataVolume does not exist")
-				ok, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvOther.Name)
+				ok, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvOther.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Backup of DVs selected by label should include PVCs", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("included-test-dv", "100Mi", r.StorageClass)
 				dvSpec.Labels = map[string]string{
 					"a.test.label": "include",
 				}
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "included-test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "included-test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Crating backup test-backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1628,7 +1393,7 @@ var _ = Describe("Resource includes", func() {
 				// - Datavolume resource definition
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(7))
 
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvSpec.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1637,29 +1402,29 @@ var _ = Describe("Resource includes", func() {
 			It("Backup of a stopped VMs selected by label should include its DVs and PVCs", func() {
 				By("Creating VirtualMachines")
 
-				vmSpec := CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
+				vmSpec := framework.CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
 				vmSpec.Labels = map[string]string{
 					"a.test.label": "included",
 				}
-				_, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmSpec = newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
-				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1678,32 +1443,32 @@ var _ = Describe("Resource includes", func() {
 			It("Backup of a running VMs selected by label should include its DVs and PVCs, VMIs and Pods", func() {
 				By("Creating VirtualMachines")
 
-				vmSpec := CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
+				vmSpec := framework.CreateVmWithGuestAgent("included-test-vm", r.StorageClass)
 				vmSpec.Labels = map[string]string{
 					"a.test.label": "included",
 				}
-				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VM")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1725,18 +1490,18 @@ var _ = Describe("Resource includes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			It("Backup of VMIs selected by label should include its DVs, PVCs, and Pods", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
-				dvSpec2 := NewDataVolumeForBlankRawImage("test-dv-2", "100Mi", r.StorageClass)
+				dvSpec2 := framework.NewDataVolumeForBlankRawImage("test-dv-2", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec2.Name))
-				_, err = CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec2)
+				_, err = framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec2)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv-2")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv-2")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
@@ -1750,22 +1515,22 @@ var _ = Describe("Resource includes", func() {
 				vmiSpec.Labels = map[string]string{
 					"a.test.label": "included",
 				}
-				vm, err := CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
-				err = CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
@@ -1786,9 +1551,9 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(13))
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv-2")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv-2")
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -1797,6 +1562,7 @@ var _ = Describe("Resource includes", func() {
 
 var _ = Describe("Resource excludes", func() {
 	var client, _ = util.GetK8sClient()
+	var kvClient kubecli.KubevirtClient
 	var timeout context.Context
 	var cancelFunc context.CancelFunc
 	var namespace *v1.Namespace
@@ -1805,7 +1571,10 @@ var _ = Describe("Resource excludes", func() {
 	var r = framework.NewKubernetesReporter()
 
 	BeforeEach(func() {
-		var err error
+		kvClientRef, err := util.GetKubeVirtclient()
+		Expect(err).ToNot(HaveOccurred())
+		kvClient = *kvClientRef
+
 		timeout, cancelFunc = context.WithTimeout(context.Background(), 10*time.Minute)
 		namespace, err = CreateNamespace(client)
 		Expect(err).ToNot(HaveOccurred())
@@ -1821,7 +1590,7 @@ var _ = Describe("Resource excludes", func() {
 		}
 
 		// Deleting the backup also deletes all restores, volume snapshots etc.
-		err := DeleteBackup(timeout, backupName, r.BackupNamespace)
+		err := framework.DeleteBackup(timeout, backupName, r.BackupNamespace)
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
@@ -1861,114 +1630,114 @@ var _ = Describe("Resource excludes", func() {
 
 		It("Should not backup and restore DV from excluded namespace", func() {
 			By("Creating DVs")
-			dvSpec := NewDataVolumeForBlankRawImage("excluded-test-dv", "100Mi", r.StorageClass)
+			dvSpec := framework.NewDataVolumeForBlankRawImage("excluded-test-dv", "100Mi", r.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvExcluded, err := CreateDataVolumeFromDefinition(*kvClient, excludedNamespace.Name, dvSpec)
+			dvExcluded, err := framework.CreateDataVolumeFromDefinition(kvClient, excludedNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForDataVolumePhase(*kvClient, excludedNamespace.Name, cdiv1.Succeeded, "excluded-test-dv")
+			err = framework.WaitForDataVolumePhase(kvClient, excludedNamespace.Name, cdiv1.Succeeded, "excluded-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-			dvSpec = NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
-			dvOther, err := CreateDataVolumeFromDefinition(*kvClient, otherNamespace.Name, dvSpec)
+			dvSpec = framework.NewDataVolumeForBlankRawImage("other-test-dv", "100Mi", r.StorageClass)
+			dvOther, err := framework.CreateDataVolumeFromDefinition(kvClient, otherNamespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
+			err = framework.WaitForDataVolumePhase(kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Crating backup test-backup")
-			err = CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
+			err = framework.CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting DVs")
-			err = DeleteDataVolume(*kvClient, excludedNamespace.Name, dvExcluded.Name)
+			err = framework.DeleteDataVolume(kvClient, excludedNamespace.Name, dvExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err := WaitDataVolumeDeleted(*kvClient, excludedNamespace.Name, dvExcluded.Name)
+			ok, err := framework.WaitDataVolumeDeleted(kvClient, excludedNamespace.Name, dvExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
-			err = DeleteDataVolume(*kvClient, otherNamespace.Name, dvOther.Name)
+			err = framework.DeleteDataVolume(kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err = WaitDataVolumeDeleted(*kvClient, otherNamespace.Name, dvOther.Name)
+			ok, err = framework.WaitDataVolumeDeleted(kvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore test-restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+			err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking included DataVolume exists")
-			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
+			err = framework.WaitForDataVolumePhase(kvClient, otherNamespace.Name, cdiv1.Succeeded, "other-test-dv")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking not included DataVolume does not exist")
-			ok, err = WaitDataVolumeDeleted(*kvClient, excludedNamespace.Name, dvOther.Name)
+			ok, err = framework.WaitDataVolumeDeleted(kvClient, excludedNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Cleanup")
-			err = DeleteDataVolume(*kvClient, otherNamespace.Name, dvExcluded.Name)
+			err = framework.DeleteDataVolume(kvClient, otherNamespace.Name, dvExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should not backup and restore VM from excluded namespace", func() {
 			By("Creating VirtualMachines")
 			//vmSpec := newVMSpecBlankDVTemplate("excluded-test-vm", "100Mi")
-			vmSpec := CreateVmWithGuestAgent("excluded-test-vm", r.StorageClass)
-			vmExcluded, err := CreateVirtualMachineFromDefinition(*kvClient, excludedNamespace.Name, vmSpec)
+			vmSpec := framework.CreateVmWithGuestAgent("excluded-test-vm", r.StorageClass)
+			vmExcluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, excludedNamespace.Name, vmSpec)
 
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(*kvClient, excludedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = framework.WaitForDataVolumePhase(kvClient, excludedNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			//vmSpec = newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
-			vmSpec = CreateVmWithGuestAgent("other-test-vm", r.StorageClass)
-			vmOther, err := CreateVirtualMachineFromDefinition(*kvClient, otherNamespace.Name, vmSpec)
+			vmSpec = framework.CreateVmWithGuestAgent("other-test-vm", r.StorageClass)
+			vmOther, err := framework.CreateVirtualMachineFromDefinition(kvClient, otherNamespace.Name, vmSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForDataVolumePhase(*kvClient, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+			err = framework.WaitForDataVolumePhase(kvClient, otherNamespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
+			err = framework.CreateBackupForNamespaceExcludeNamespace(timeout, backupName, otherNamespace.Name, excludedNamespace.Name, snapshotLocation, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VMs")
-			err = DeleteVirtualMachine(*kvClient, excludedNamespace.Name, vmExcluded.Name)
+			err = framework.DeleteVirtualMachine(kvClient, excludedNamespace.Name, vmExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err := WaitVirtualMachineDeleted(*kvClient, excludedNamespace.Name, vmExcluded.Name)
+			ok, err := framework.WaitVirtualMachineDeleted(kvClient, excludedNamespace.Name, vmExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
-			err = DeleteVirtualMachine(*kvClient, otherNamespace.Name, vmOther.Name)
+			err = framework.DeleteVirtualMachine(kvClient, otherNamespace.Name, vmOther.Name)
 			Expect(err).ToNot(HaveOccurred())
-			ok, err = WaitVirtualMachineDeleted(*kvClient, otherNamespace.Name, vmOther.Name)
+			ok, err = framework.WaitVirtualMachineDeleted(kvClient, otherNamespace.Name, vmOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore")
-			err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+			err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying included VM exists")
-			err = WaitForVirtualMachineStatus(*kvClient, otherNamespace.Name, vmOther.Name, kvv1.VirtualMachineStatusStopped)
+			err = framework.WaitForVirtualMachineStatus(kvClient, otherNamespace.Name, vmOther.Name, kvv1.VirtualMachineStatusStopped)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying ignored VM does not exists")
-			ok, err = WaitVirtualMachineDeleted(*kvClient, excludedNamespace.Name, vmExcluded.Name)
+			ok, err = framework.WaitVirtualMachineDeleted(kvClient, excludedNamespace.Name, vmExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
 			By("Cleanup")
-			err = DeleteVirtualMachine(*kvClient, otherNamespace.Name, vmExcluded.Name)
+			err = framework.DeleteVirtualMachine(kvClient, otherNamespace.Name, vmExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -1977,96 +1746,96 @@ var _ = Describe("Resource excludes", func() {
 		Context("Standalone DV", func() {
 			It("[negative] PVC excluded: DV restored, PVC will not be re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := GetBackup(timeout, backupName, r.BackupNamespace)
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitPVCDeleted(client, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitPVCDeleted(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume Pending")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = FindPVC(client, namespace.Name, "test-dv")
+				_, err = framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("DV excluded: PVC restored, ownership relation empty", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "datavolumes", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "datavolumes", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeletePVC(client, namespace.Name, dvIncluded.Name)
+				err = framework.DeletePVC(client, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC exists")
-				err = WaitForPVCPhase(client, namespace.Name, "test-dv", v1.ClaimBound)
+				err = framework.WaitForPVCPhase(client, namespace.Name, "test-dv", v1.ClaimBound)
 				Expect(err).ToNot(HaveOccurred())
-				pvc, err := FindPVC(client, namespace.Name, "test-dv")
+				pvc, err := framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pvc.OwnerReferences)).To(Equal(0))
 
 				By("Checking DataVolume does not exist")
 				Consistently(func() bool {
-					_, err := FindDataVolume(*kvClient, namespace.Name, "test-dv")
+					_, err := framework.FindDataVolume(kvClient, namespace.Name, "test-dv")
 					return apierrs.IsNotFound(err)
 				}, "1000ms", "100ms").Should(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -2075,425 +1844,425 @@ var _ = Describe("Resource excludes", func() {
 			It("Pods excluded, VM running: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "pods", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "pods", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Pods+DV excluded, VM running: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "pods,datavolumes"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[negative] Pods+PVC excluded, VM running: VM+DV restored, PVC not re-imported", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "pods,persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume Pending")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = FindPVC(client, namespace.Name, "test-dv")
+				_, err = framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Pods excluded, VM stopped: VM+DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "pods"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Pods excluded, VM paused: VM+DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Pausing the virtual machine")
-				err = PauseVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.PauseVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "pods"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err = framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				ok, err = WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI excluded, Pod not excluded: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("PVC excluded: DV restored, PVC not re-imported", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not reimport")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = FindPVC(client, namespace.Name, "test-dv")
+				_, err = framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("DV+PVC excluded: VM restored, DV+PVC recreated", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "datavolume,persistentvolumeclaim"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("DV excluded: VM+PVC restored, DV recreated and bound to the PVC", func() {
 				By("Creating VirtualMachines")
 				//vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Writing to PVC filesystem")
-				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
-				deletePod(namespace.Name, writerPod.Name)
+				writerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, writerPod(volumeName))
+				deletePod(kvClient, namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "datavolume"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying DataVolume does not re-import content - file should exists")
-				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
-				deletePod(namespace.Name, readerPod.Name)
+				readerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, verifyFileExists(volumeName))
+				deletePod(kvClient, namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Running VM excluded: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachine"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Stopped VM excluded: DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("included-test-vm", "100Mi")
-				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "virtualmachine"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Delete VM")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
-				err = DeleteDataVolume(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM does not exists")
-				_, err = GetVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				_, err = framework.GetVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -2501,11 +2270,11 @@ var _ = Describe("Resource excludes", func() {
 		Context("VM without DVTemplates", func() {
 			It("VM with DV Volume, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -2515,26 +2284,26 @@ var _ = Describe("Resource excludes", func() {
 					},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
-				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "datavolumes"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC not recreated and re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -2544,61 +2313,61 @@ var _ = Describe("Resource excludes", func() {
 					},
 				}
 				vmSpec := newVMSpec("test-vm", "100Mi", source)
-				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, "test-dv")
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				err = DeletePVC(client, namespace.Name, "test-dv")
+				err = framework.DeletePVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not reimport")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, source.DataVolume.Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, source.DataVolume.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = FindPVC(client, namespace.Name, "test-dv")
+				_, err = framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM with PVC Volume, PVC excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -2608,16 +2377,16 @@ var _ = Describe("Resource excludes", func() {
 					},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
-				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "persistentvolumeclaims"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -2625,158 +2394,158 @@ var _ = Describe("Resource excludes", func() {
 		Context("Standalone VMI", func() {
 			It("VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", "test-dv")
-				_, err = CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				_, err = framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "pods"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", "test-dv")
-				_, err = CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				_, err = framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Pause VMI")
-				err = PauseVirtualMachine(*kvClient, namespace.Name, vmiSpec.Name)
+				err = framework.PauseVirtualMachine(kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "pod"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
-				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
+				err = framework.DeleteVirtualMachineInstance(kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitPVCDeleted(client, namespace.Name, "test-dv")
+				ok, err := framework.WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI running")
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, "test-vmi", kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, "test-vmi", kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[smoke] Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				vm, err := CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
 				resources := "virtualmachineinstances"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
-				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
+				err = framework.DeleteVirtualMachineInstance(kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI not present")
-				_, err = GetVirtualMachineInstance(*kvClient, namespace.Name, "test-vmi")
+				_, err = framework.GetVirtualMachineInstance(kvClient, namespace.Name, "test-vmi")
 				Expect(err).To(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI+Pod included, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", "test-dv")
-				_, err = CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				_, err = framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
 				resources := "datavolumes"
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, resources, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -2797,7 +2566,7 @@ var _ = Describe("Resource excludes", func() {
 				return dataVolume
 			}
 
-			retryOnceOnErr(updateDataVolume(*kvClient, namespace.Name, name, updateFunc)).Should(BeNil())
+			retryOnceOnErr(updateDataVolume(kvClient, namespace.Name, name, updateFunc)).Should(BeNil())
 		}
 
 		addExcludeLabelToPVC := func(name string) {
@@ -2838,83 +2607,83 @@ var _ = Describe("Resource excludes", func() {
 
 			It("DV included, PVC excluded: PVC should not be re-imported", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Add exlude label to PVC")
 				addExcludeLabelToPVC("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not reimport")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = FindPVC(client, namespace.Name, "test-dv")
+				_, err = framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("PVC included, DV excluded: PVC should not be restored, ownership relation empty", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				dvIncluded, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				dvIncluded, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Add exclude label to DV")
 				addExcludeLabelToDV("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, namespace.Name, "persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting DVs")
-				err = DeleteDataVolume(*kvClient, namespace.Name, dvIncluded.Name)
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, dvIncluded.Name)
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore test-restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking PVC does not exists")
-				_, err = FindPVC(client, namespace.Name, "test-dv")
+				_, err = framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(err).To(HaveOccurred())
 
 				By("Checking DataVolume does not exists")
-				_, err = FindDataVolume(*kvClient, namespace.Name, "test-dv")
+				_, err = framework.FindDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).To(HaveOccurred())
 
 			})
@@ -2924,45 +2693,45 @@ var _ = Describe("Resource excludes", func() {
 			It("VM included, VMI excluded: should fail if VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label to VMI")
 				addExcludeLabelToVMI("test-vm")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM+VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
@@ -2970,81 +2739,81 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToLauncherPodForVM("test-vm")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			// This test is for a PAUSED VM - and this still needs to be fixed!
 			XIt("[Quarantine] VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Pausing the virtual machine")
-				err = PauseVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.PauseVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusPaused)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label to DV")
 				addExcludeLabelToDV(vmSpec.Spec.DataVolumeTemplates[0].Name)
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err = framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM included, DV and PVC excluded: both DV and PVC recreated", func() {
 				By("Creating VirtualMachines")
-				vmSpec := CreateVmWithGuestAgent("test-vm", r.StorageClass)
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude labels")
@@ -3052,110 +2821,110 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToPVC(vmSpec.Spec.DataVolumeTemplates[0].Name)
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume re-imports content")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.ImportScheduled, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume import succeeds")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM+PVC included, DV excluded: VM and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
 
 				By("Writing to PVC filesystem")
-				writerPod := runPodAndWaitSucceeded(namespace.Name, writerPod(volumeName))
-				deletePod(namespace.Name, writerPod.Name)
+				writerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, writerPod(volumeName))
+				deletePod(kvClient, namespace.Name, writerPod.Name)
 
 				By("Adding exclude label to DV")
 				addExcludeLabelToDV(vmSpec.Spec.DataVolumeTemplates[0].Name)
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vmIncluded.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying PVC is not re-imported - file exists")
-				readerPod := runPodAndWaitSucceeded(namespace.Name, verifyFileExists(volumeName))
-				deletePod(namespace.Name, readerPod.Name)
+				readerPod := runPodAndWaitSucceeded(kvClient, namespace.Name, verifyFileExists(volumeName))
+				deletePod(kvClient, namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI included, VM excluded: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
-				vmIncluded, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the virtual machine")
-				err = StartVirtualMachine(*kvClient, namespace.Name, vmSpec.Name)
+				err = framework.StartVirtualMachine(kvClient, namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label to VM")
 				addExcludeLabelToVM("test-vm")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vmIncluded.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -3163,11 +2932,11 @@ var _ = Describe("Resource excludes", func() {
 		Context("VM without DVTemplates", func() {
 			It("VM with DV Volume, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -3177,28 +2946,28 @@ var _ = Describe("Resource excludes", func() {
 					},
 				}
 				vmSpec := newVMSpec("test-vm", "100Mi", source)
-				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label")
 				addExcludeLabelToDV("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[negative] VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC not recreated", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -3208,64 +2977,64 @@ var _ = Describe("Resource excludes", func() {
 					},
 				}
 				vmSpec := newVMSpec("test-vm", "100Mi", source)
-				vm, err := CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude labels")
 				addExcludeLabelToPVC("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitVirtualMachineDeleted(*kvClient, namespace.Name, vm.Name)
+				ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				_, err = WaitDataVolumeDeleted(*kvClient, namespace.Name, "test-dv")
+				_, err = framework.WaitDataVolumeDeleted(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				err = DeletePVC(client, namespace.Name, "test-dv")
+				err = framework.DeletePVC(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume Pending and no PVC")
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Pending, source.DataVolume.Name)
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Pending, source.DataVolume.Name)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = FindPVC(client, namespace.Name, "test-dv")
+				_, err = framework.FindPVC(client, namespace.Name, "test-dv")
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
-				err = WaitForVirtualMachineStatus(*kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteVirtualMachine(*kvClient, namespace.Name, vm.Name)
+				err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			//TODO: verify if that is what we actualy want
 			It("VM with PVC Volume, PVC excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachines")
@@ -3275,18 +3044,18 @@ var _ = Describe("Resource excludes", func() {
 					},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
-				_, err = CreateVirtualMachineFromDefinition(*kvClient, namespace.Name, vmSpec)
+				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude labels")
 				addExcludeLabelToPVC("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -3294,106 +3063,106 @@ var _ = Describe("Resource excludes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			It("VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", "test-dv")
-				_, err = CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				_, err = framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label to pod")
 				addExcludeLabelToLauncherPodForVM("test-vmi")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				_, err = CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				_, err = framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vmiSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vmiSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Pause VMI")
-				err = PauseVirtualMachine(*kvClient, namespace.Name, vmiSpec.Name)
+				err = framework.PauseVirtualMachine(kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label to pod")
 				addExcludeLabelToLauncherPodForVM("test-vmi")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
-				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
+				err = framework.DeleteVirtualMachineInstance(kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI running")
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, "test-vmi", kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, "test-vmi", kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				_, err = CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				_, err = framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := WaitForVirtualMachineInstanceCondition(*kvClient, namespace.Name, vmiSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vmiSpec.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
@@ -3401,62 +3170,62 @@ var _ = Describe("Resource excludes", func() {
 				addExcludeLabelToVMI("test-vmi")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
-				err = DeleteVirtualMachineInstance(*kvClient, namespace.Name, vmiSpec.Name)
+				err = framework.DeleteVirtualMachineInstance(kvClient, namespace.Name, vmiSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
-				ok, err = WaitPVCDeleted(client, namespace.Name, "test-dv")
+				ok, err = framework.WaitPVCDeleted(client, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = framework.WaitForRestorePhase(timeout, restoreName, r.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking DataVolume does not re-import content")
-				err = WaitForDataVolumePhaseButNot(*kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
+				err = framework.WaitForDataVolumePhaseButNot(kvClient, namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying VMI not present")
-				_, err = GetVirtualMachineInstance(*kvClient, namespace.Name, "test-vmi")
+				_, err = framework.GetVirtualMachineInstance(kvClient, namespace.Name, "test-vmi")
 				Expect(err).To(HaveOccurred())
 
 				By("Cleanup")
-				err = DeleteDataVolume(*kvClient, namespace.Name, "test-dv")
+				err = framework.DeleteDataVolume(kvClient, namespace.Name, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI+Pod included, DV excluded: backup should fail", func() {
 				By("Creating DVs")
-				dvSpec := NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := CreateDataVolumeFromDefinition(*kvClient, namespace.Name, dvSpec)
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForDataVolumePhase(*kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, "test-dv")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				_, err = CreateVirtualMachineInstanceFromDefinition(*kvClient, namespace.Name, vmiSpec)
+				_, err = framework.CreateVirtualMachineInstanceFromDefinition(kvClient, namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForVirtualMachineInstancePhase(*kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace.Name, vmiSpec.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Adding exclude label to DV")
 				addExcludeLabelToDV("test-dv")
 
 				By("Creating backup")
-				err = CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForNamespace(timeout, backupName, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -3468,40 +3237,40 @@ func FindLauncherPod(client *kubernetes.Clientset, namespace string, vmName stri
 	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "kubevirt.io=virt-launcher",
 	})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).WithOffset(1).ToNot(HaveOccurred())
 	for _, item := range pods.Items {
 		if ann, ok := item.GetAnnotations()["kubevirt.io/domain"]; ok && ann == vmName {
 			pod = item
 		}
 	}
-	Expect(pod).ToNot(BeNil())
+	Expect(pod).WithOffset(1).ToNot(BeNil())
 	return pod
 }
 
-func updateVm(kvClient *kubecli.KubevirtClient, namespace string, name string,
+func updateVm(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(*kvv1.VirtualMachine) *kvv1.VirtualMachine) func() error {
 	return func() error {
-		vm, err := (*kvClient).VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		vm, err := kvClient.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		vm = update(vm)
 
-		_, err = (*kvClient).VirtualMachine(namespace).Update(vm)
+		_, err = kvClient.VirtualMachine(namespace).Update(vm)
 		return err
 	}
 }
 
-func updateVmi(kvClient *kubecli.KubevirtClient, namespace string, name string,
+func updateVmi(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(*kvv1.VirtualMachineInstance) *kvv1.VirtualMachineInstance) func() error {
 	return func() error {
-		vmi, err := (*kvClient).VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
+		vmi, err := kvClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		vmi = update(vmi)
 
-		_, err = (*kvClient).VirtualMachineInstance(namespace).Update(vmi)
+		_, err = kvClient.VirtualMachineInstance(namespace).Update(vmi)
 		return err
 	}
 }
@@ -3509,7 +3278,7 @@ func updateVmi(kvClient *kubecli.KubevirtClient, namespace string, name string,
 func updatePvc(client *kubernetes.Clientset, namespace string, name string,
 	update func(*v1.PersistentVolumeClaim) *v1.PersistentVolumeClaim) func() error {
 	return func() error {
-		pvc, err := FindPVC(client, namespace, name)
+		pvc, err := framework.FindPVC(client, namespace, name)
 		if err != nil {
 			return err
 		}
@@ -3522,7 +3291,7 @@ func updatePvc(client *kubernetes.Clientset, namespace string, name string,
 func updateDataVolume(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(dataVolume *cdiv1.DataVolume) *cdiv1.DataVolume) func() error {
 	return func() error {
-		dv, err := FindDataVolume(kvClient, namespace, name)
+		dv, err := framework.FindDataVolume(kvClient, namespace, name)
 		if err != nil {
 			return err
 		}
@@ -3542,14 +3311,14 @@ func retryOnceOnErr(f func() error) Assertion {
 	return Expect(err)
 }
 
-func runPodAndWaitSucceeded(namespace string, podSpec *v1.Pod) *v1.Pod {
+func runPodAndWaitSucceeded(kvClient kubecli.KubevirtClient, namespace string, podSpec *v1.Pod) *v1.Pod {
 	By("creating a pod that writes to pvc")
-	pod, err := (*kvClient).CoreV1().Pods(namespace).Create(context.Background(), podSpec, metav1.CreateOptions{})
+	pod, err := kvClient.CoreV1().Pods(namespace).Create(context.Background(), podSpec, metav1.CreateOptions{})
 	Expect(err).WithOffset(1).ToNot(HaveOccurred())
 
 	By("Wait for pod to reach a completed phase")
 	Eventually(func() error {
-		updatedPod, err := (*kvClient).CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+		updatedPod, err := kvClient.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -3562,10 +3331,10 @@ func runPodAndWaitSucceeded(namespace string, podSpec *v1.Pod) *v1.Pod {
 	return pod
 }
 
-func deletePod(namespace, podName string) {
+func deletePod(kvClient kubecli.KubevirtClient, namespace, podName string) {
 	By("Delete pod")
 	zero := int64(0)
-	err := (*kvClient).CoreV1().Pods(namespace).Delete(context.Background(), podName,
+	err := kvClient.CoreV1().Pods(namespace).Delete(context.Background(), podName,
 		metav1.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
@@ -3573,9 +3342,11 @@ func deletePod(namespace, podName string) {
 
 	By("verify deleted")
 	Eventually(func() error {
-		_, err := (*kvClient).CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+		_, err := kvClient.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
 		return err
-	}, 3*time.Minute, 5*time.Second).WithOffset(1).Should(Satisfy(apierrs.IsNotFound), "pod should disappear")
+	}, 3*time.Minute, 5*time.Second).
+		WithOffset(1).
+		Should(Satisfy(apierrs.IsNotFound), "pod should disappear")
 }
 
 func verifyFileExists(volumeName string) *v1.Pod {
