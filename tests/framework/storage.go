@@ -40,7 +40,7 @@ func CreateDataVolumeFromDefinition(clientSet kubecli.KubevirtClient, namespace 
 	return dataVolume, nil
 }
 
-// FindPVC Finds the passed in PVC
+// FindPVC Finds the PVC by name
 func FindPVC(clientSet *kubernetes.Clientset, namespace, pvcName string) (*v1.PersistentVolumeClaim, error) {
 	return clientSet.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
 }
@@ -156,7 +156,7 @@ func DeleteDataVolume(kvClient kubecli.KubevirtClient, namespace, name string) e
 	})
 }
 
-// DeletePVC deletes the passed in PVC
+// DeletePVC deletes the PVC by name
 func DeletePVC(clientSet *kubernetes.Clientset, namespace string, pvcName string) error {
 	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		err := clientSet.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), pvcName, metav1.DeleteOptions{})
