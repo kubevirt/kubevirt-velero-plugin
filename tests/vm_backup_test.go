@@ -30,8 +30,6 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 	var r = framework.NewKubernetesReporter()
 
-	const snapshotLocation = "test-location"
-
 	BeforeEach(func() {
 		var err error
 		kvClient, err = util.GetKubeVirtclient()
