@@ -17,8 +17,6 @@ import (
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 )
 
-const snapshotLocation = "test-location"
-
 var kvClient *kubecli.KubevirtClient
 
 var _ = Describe("DV Backup", func() {
@@ -35,9 +33,6 @@ var _ = Describe("DV Backup", func() {
 		var err error
 
 		kvClient, err = util.GetKubeVirtclient()
-		Expect(err).ToNot(HaveOccurred())
-
-		err = CreateSnapshotLocation(context.TODO(), snapshotLocation, "aws", r.Region, r.BackupNamespace)
 		Expect(err).ToNot(HaveOccurred())
 	})
 

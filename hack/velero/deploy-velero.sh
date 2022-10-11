@@ -60,7 +60,7 @@ if [[ ! $(_kubectl get deployments -n velero | grep velero) ]]; then
     --use-volume-snapshots=true \
     --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
     --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
-    --snapshot-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
+    --snapshot-location-config region=minio \
     ${FEATURES}
 
   _kubectl wait -n velero deployment/velero --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s

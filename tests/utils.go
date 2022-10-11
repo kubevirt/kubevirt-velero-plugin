@@ -32,6 +32,7 @@ const (
 	forceBindAnnotation     = "cdi.kubevirt.io/storage.bind.immediate.requested"
 	alpineUrl               = "docker://quay.io/kubevirt/alpine-container-disk-demo:v0.57.1"
 	alpineWithGuestAgentUrl = "docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1"
+	snapshotLocation        = ""
 )
 
 func CreateVmWithoutGuestAgent(vmName string, storageClassName string) *kvv1.VirtualMachine {
