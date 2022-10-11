@@ -17,8 +17,6 @@ import (
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 )
 
-const snapshotLocation = ""
-
 var kvClient *kubecli.KubevirtClient
 
 var _ = Describe("DV Backup", func() {
