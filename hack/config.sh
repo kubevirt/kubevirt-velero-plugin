@@ -13,7 +13,12 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
+# KUBEVIRT variables have to be set before common.sh is sourced
 KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.23}
+KUBEVIRT_DEPLOY_CDI=true
+KUBEVIRT_VERSION=${KUBEVIRT_VERSION:-v0.57.0}
+KUBEVIRT_DEPLOYMENT_TIMEOUT=${KUBEVIRT_DEPLOYMENT_TIMEOUT:-480}
 
 if [ -f cluster-up/hack/common.sh ]; then
     source cluster-up/hack/common.sh
@@ -46,11 +51,6 @@ DEPLOYMENT_TIMEOUT=600
 USE_CSI=${USE_CSI:-1}
 USE_RESTIC=${USE_RESTIC:-0}
 CSI_PLUGIN=${CSI_PLUGIN:-velero/velero-plugin-for-csi:v0.3.1}
-
-KUBEVIRT_VERSION=${KUBEVIRT_VERSION:-v0.57.0}
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.23}
-KUBEVIRT_DEPLOYMENT_TIMEOUT=${KUBEVIRT_DEPLOYMENT_TIMEOUT:-480}
-KUBEVIRT_DEPLOY_CDI=true
 VELERO_VERSION=${VELERO_VERSION:-v1.9.2}
 VELERO_DIR=_output/velero/bin
 
