@@ -5,26 +5,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
-	"os"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"time"
 )
 
 const (
-	veleroEntityUriTemplate = "apis/velero.io/v1/namespaces/%s/%s/"
-	veleroBackup            = "backups"
-	veleroRestore           = "restores"
-	backupNamespaceEnv      = "KVP_BACKUP_NS"
-	regionEnv               = "KVP_REGION"
-	storageClassEnv         = "KVP_STORAGE_CLASS"
+	veleroEntityUriTemplate                = "apis/velero.io/v1/namespaces/%s/%s/"
+	volumeSnapshotEntityUriTemplate        = "apis/snapshot.storage.k8s.io/v1/namespaces/%s/%s/"
+	volumeSnapshotEntityClusterUriTemplate = "apis/snapshot.storage.k8s.io/v1/%s/"
+	veleroBackup                           = "backups"
+	veleroRestore                          = "restores"
+	backupNamespaceEnv                     = "KVP_BACKUP_NS"
+	regionEnv                              = "KVP_REGION"
+	storageClassEnv                        = "KVP_STORAGE_CLASS"
 
 	defaultRegionName      = "minio"
 	defaultBackupNamespace = "velero"
@@ -142,6 +145,8 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 
 	r.logRestores(kubeCli)
 	r.logBackups(kubeCli)
+	r.logVolumeSnapshots(kubeCli)
+	r.logVolumeSnapshotContents(kubeCli)
 
 	r.logLogs(kubeCli, since)
 }
@@ -168,9 +173,7 @@ func (r *KubernetesReporter) logObjects(elements interface{}, name string) {
 	fmt.Fprintln(f, string(j))
 }
 
-func (r *KubernetesReporter) dumpK8sEntityToFile(kubeCli kubernetes.Interface, entityName string, namespace string, entityURITemplate string) {
-	requestURI := fmt.Sprintf(entityURITemplate, namespace, entityName)
-
+func (r *KubernetesReporter) dumpK8sEntityToFile(kubeCli kubernetes.Interface, entityName string, requestURI string) {
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_%s.log", r.FailureCount, entityName)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -341,9 +344,19 @@ func (r *KubernetesReporter) logVMs(kvClient kubecli.KubevirtClient) {
 }
 
 func (r *KubernetesReporter) logBackups(kubeCli kubernetes.Interface) {
-	r.dumpK8sEntityToFile(kubeCli, veleroBackup, v1.NamespaceAll, veleroEntityUriTemplate)
+	r.dumpK8sEntityToFile(kubeCli, veleroBackup, fmt.Sprintf(veleroEntityUriTemplate, v1.NamespaceAll, veleroBackup))
 }
 
 func (r *KubernetesReporter) logRestores(kubeCli kubernetes.Interface) {
-	r.dumpK8sEntityToFile(kubeCli, veleroRestore, v1.NamespaceAll, veleroEntityUriTemplate)
+	r.dumpK8sEntityToFile(kubeCli, veleroRestore, fmt.Sprintf(veleroEntityUriTemplate, v1.NamespaceAll, veleroBackup))
+}
+
+func (r *KubernetesReporter) logVolumeSnapshots(kubeCli kubernetes.Interface) {
+	entityName := "volumesnapshots"
+	r.dumpK8sEntityToFile(kubeCli, entityName, fmt.Sprintf(volumeSnapshotEntityUriTemplate, v1.NamespaceAll, entityName))
+}
+
+func (r *KubernetesReporter) logVolumeSnapshotContents(kubeCli kubernetes.Interface) {
+	entityName := "volumesnapshotcontents"
+	r.dumpK8sEntityToFile(kubeCli, entityName, fmt.Sprintf(volumeSnapshotEntityClusterUriTemplate, entityName))
 }
