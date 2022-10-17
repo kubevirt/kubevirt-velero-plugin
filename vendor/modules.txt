@@ -164,6 +164,12 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
+# github.com/onsi/ginkgo/v2 v2.3.0
+## explicit; go 1.18
+github.com/onsi/ginkgo/v2/config
+github.com/onsi/ginkgo/v2/formatter
+github.com/onsi/ginkgo/v2/reporters
+github.com/onsi/ginkgo/v2/types
 # github.com/onsi/gomega v1.22.1
 ## explicit; go 1.18
 github.com/onsi/gomega
@@ -641,8 +647,8 @@ kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk v0.2.1-0.20210723143736-64585ea1d1bd
 ## explicit; go 1.14
 kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
-# kubevirt.io/qe-tools v0.1.6
-## explicit
+# kubevirt.io/qe-tools v0.1.8
+## explicit; go 1.16
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
 # sigs.k8s.io/structured-merge-diff/v4 v4.1.2

@@ -16,7 +16,7 @@ require (
 	k8s.io/klog/v2 v2.80.1
 	kubevirt.io/client-go v0.43.0
 	kubevirt.io/containerized-data-importer v1.40.0
-	kubevirt.io/qe-tools v0.1.6
+	kubevirt.io/qe-tools v0.1.8
 )
 
 require (
@@ -60,6 +60,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/oklog/run v1.0.0 // indirect
+	github.com/onsi/ginkgo/v2 v2.3.0 // indirect
 	github.com/openshift/api v0.0.0 // indirect
 	github.com/openshift/client-go v0.0.0 // indirect
 	github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca // indirect
