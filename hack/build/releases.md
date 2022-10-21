@@ -31,7 +31,7 @@ Release branches are used to isolate a stable version of kubevirt-velero-plugin.
 release branches to track incrementing of Minor and Patch versions.  When a Major version is incremented, a new 
 stable branch should be created corresponding to the release.
 
-- Release branches should adhere to the `release-v#.#.#` pattern.
+- Release branches should adhere to the `release-v#.#` pattern.
 
 - Tags should adhere to the `v#.#.#(-alpha.#)` pattern.
 
