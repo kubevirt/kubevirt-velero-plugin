@@ -21,4 +21,4 @@ readonly ARTIFACTS_PATH="${ARTIFACTS}"
 make cluster-up cluster-push-image cluster-sync
 
 # Run the tests
-make test-functional TEST_ARGS="--test-args=--junit-output=${ARTIFACTS_PATH}/junit.functest.xml"
+make test-functional TEST_ARGS="--test-args=--ginkgo.junit-report=${ARTIFACTS_PATH}/junit.functest.xml --ginkgo.timeout=2h"
