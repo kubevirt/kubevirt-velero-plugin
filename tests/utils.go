@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/onsi/ginkgo"
+	ginkgo "github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,7 +21,7 @@ import (
 const (
 	waitTime            = 600 * time.Second
 	forceBindAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
-	snapshotLocation        = ""
+	snapshotLocation    = ""
 )
 
 func CreateNamespace(client *kubernetes.Clientset) (*v1.Namespace, error) {
