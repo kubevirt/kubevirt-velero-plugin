@@ -91,7 +91,7 @@ func FindDataVolume(kvClient kubecli.KubevirtClient, namespace string, dataVolum
 
 // WaitForDataVolumePhase waits for DV's phase to be in a particular phase (Pending, Bound, or Lost)
 func WaitForDataVolumePhase(kvClient kubecli.KubevirtClient, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
-	ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s\n", phase))
+	ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s", phase))
 	var lastPhase cdiv1.DataVolumePhase
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -106,12 +106,12 @@ func WaitForDataVolumePhase(kvClient kubecli.KubevirtClient, namespace string, p
 		if dataVolume.Status.Phase != phase {
 			if dataVolume.Status.Phase != lastPhase {
 				lastPhase = dataVolume.Status.Phase
-				ginkgo.By(fmt.Sprintf("\nINFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase))
+				ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase))
 			}
 			return false, err
 		}
 
-		ginkgo.By(fmt.Sprintf("\nINFO: Waiting for status %s, got %s\n", phase, dataVolume.Status.Phase))
+		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s", phase, dataVolume.Status.Phase))
 		return true, nil
 	})
 	if err != nil {

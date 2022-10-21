@@ -131,9 +131,10 @@ func CreateBackupForSelector(ctx context.Context, backupName, selector, snapshot
 	return nil
 }
 
-func CreateBackupForResources(ctx context.Context, backupName, resources, snapshotLocation string, backupNamespace string, wait bool) error {
+func CreateBackupForResources(ctx context.Context, backupName, resources, includedNamespace, snapshotLocation string, backupNamespace string, wait bool) error {
 	args := []string{
 		"create", "backup", backupName,
+		"--include-namespaces", includedNamespace,
 		"--include-resources", resources,
 		"--namespace", backupNamespace,
 	}

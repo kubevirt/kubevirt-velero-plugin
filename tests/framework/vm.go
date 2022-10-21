@@ -278,7 +278,7 @@ func DeleteVirtualMachineInstance(client kubecli.KubevirtClient, namespace, name
 }
 
 func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, namespace, name string, conditionType v1.VirtualMachineInstanceConditionType) (bool, error) {
-	ginkgo.By(fmt.Sprintf("Waiting for %s condition\n", conditionType))
+	ginkgo.By(fmt.Sprintf("Waiting for %s condition", conditionType))
 	var result bool
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
@@ -290,7 +290,7 @@ func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, names
 			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
 				result = true
 
-				ginkgo.By(fmt.Sprintf(" got %s\n", conditionType))
+				ginkgo.By(fmt.Sprintf(" got %s", conditionType))
 				return true, nil
 			}
 		}
@@ -311,7 +311,7 @@ func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace
 			return false, err
 		}
 
-		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s\n", phase, vmi.Status.Phase))
+		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s", phase, vmi.Status.Phase))
 		return vmi.Status.Phase == phase, nil
 	})
 
@@ -319,7 +319,7 @@ func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace
 }
 
 func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name string, statuses ...v1.VirtualMachinePrintableStatus) error {
-	ginkgo.By(fmt.Sprintf("Waiting for any of %s statuses\n", statuses))
+	ginkgo.By(fmt.Sprintf("Waiting for any of %s statuses", statuses))
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		vm, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
@@ -332,7 +332,7 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 
 		for _, status := range statuses {
 			if vm.Status.PrintableStatus == status {
-				ginkgo.By(fmt.Sprintf(" got %s\n", status))
+				ginkgo.By(fmt.Sprintf(" got %s", status))
 
 				return true, nil
 			}

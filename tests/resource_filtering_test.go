@@ -212,7 +212,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = framework.CreateBackupForResources(timeout, backupName, "datavolumes,persistentvolumeclaims", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, "datavolumes,persistentvolumeclaims", namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
@@ -266,7 +266,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup test-backup")
 				resources := "datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
@@ -323,7 +323,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup test-backup")
-				err = framework.CreateBackupForResources(timeout, backupName, "datavolumes", snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, "datavolumes", namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -371,7 +371,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup test-backup")
 				resources := "persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
@@ -437,7 +437,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -487,7 +487,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -512,7 +512,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances,persistentvolumeclaims"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -538,7 +538,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -612,7 +612,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,virtualmachineinstances"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -668,7 +668,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -698,7 +698,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -746,7 +746,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -790,7 +790,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -839,7 +839,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -885,7 +885,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -936,7 +936,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup with DV+PVC+Pod")
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -962,7 +962,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup without DV+PVC+Pod")
 				resources := "virtualmachineinstances"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -996,7 +996,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1056,7 +1056,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1116,7 +1116,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -1150,7 +1150,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachines"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -1181,7 +1181,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1237,7 +1237,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances,pods"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -1264,7 +1264,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances,pods"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
@@ -1291,7 +1291,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "virtualmachineinstances"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, snapshotLocation, r.BackupNamespace, true)
+				err = framework.CreateBackupForResources(timeout, backupName, resources, namespace.Name, snapshotLocation, r.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
