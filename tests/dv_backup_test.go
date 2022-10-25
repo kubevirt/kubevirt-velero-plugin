@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
@@ -30,14 +30,11 @@ var _ = Describe("DV Backup", func() {
 
 	var r = framework.NewKubernetesReporter()
 
-	BeforeSuite(func() {
+	BeforeEach(func() {
 		kvClientRef, err := util.GetKubeVirtclient()
 		Expect(err).ToNot(HaveOccurred())
 		kvClient = *kvClientRef
-	})
 
-	BeforeEach(func() {
-		var err error
 		timeout, cancelFunc = context.WithTimeout(context.Background(), 5*time.Minute)
 		t := time.Now().UnixNano()
 		backupName = fmt.Sprintf("test-backup-%d", t)
