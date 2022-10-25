@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KubeVirt Authors.
+Copyright 2022 The KubeVirt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,13 +22,15 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	"kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 type CdiV1beta1Interface interface {
 	RESTClient() rest.Interface
 	CDIsGetter
 	CDIConfigsGetter
+	DataImportCronsGetter
+	DataSourcesGetter
 	DataVolumesGetter
 	ObjectTransfersGetter
 	StorageProfilesGetter
@@ -45,6 +47,14 @@ func (c *CdiV1beta1Client) CDIs() CDIInterface {
 
 func (c *CdiV1beta1Client) CDIConfigs() CDIConfigInterface {
 	return newCDIConfigs(c)
+}
+
+func (c *CdiV1beta1Client) DataImportCrons(namespace string) DataImportCronInterface {
+	return newDataImportCrons(c, namespace)
+}
+
+func (c *CdiV1beta1Client) DataSources(namespace string) DataSourceInterface {
+	return newDataSources(c, namespace)
 }
 
 func (c *CdiV1beta1Client) DataVolumes(namespace string) DataVolumeInterface {

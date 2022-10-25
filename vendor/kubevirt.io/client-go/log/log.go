@@ -43,6 +43,7 @@ import (
 
 const (
 	libvirtTimestampFormat = "2006-01-02 15:04:05.999-0700"
+	logTimestampFormat     = "2006-01-02T15:04:05.000000Z"
 )
 
 type LogLevel int32
@@ -69,7 +70,7 @@ type LoggableObject interface {
 }
 
 type FilteredLogger struct {
-	logContext            *log.Context
+	logger                log.Logger
 	component             string
 	filterLevel           LogLevel
 	currentLogLevel       LogLevel
@@ -108,7 +109,7 @@ func MakeLogger(logger log.Logger) *FilteredLogger {
 	defaultCurrentVerbosity := 2
 
 	return &FilteredLogger{
-		logContext:            log.NewContext(logger),
+		logger:                logger,
 		component:             defaultComponent,
 		filterLevel:           defaultLogLevel,
 		currentLogLevel:       defaultLogLevel,
@@ -152,12 +153,12 @@ func DefaultLogger() *FilteredLogger {
 // SetIOWriter is meant to be used for testing. "log" and "glog" logs are sent to /dev/nil.
 // KubeVirt related log messages will be sent to this writer
 func (l *FilteredLogger) SetIOWriter(w io.Writer) {
-	l.logContext = log.NewContext(log.NewJSONLogger(w))
+	l.logger = log.NewJSONLogger(w)
 	goflag.CommandLine.Set("logtostderr", "false")
 }
 
 func (l *FilteredLogger) SetLogger(logger log.Logger) *FilteredLogger {
-	l.logContext = log.NewContext(logger)
+	l.logger = logger
 	return l
 }
 
@@ -194,14 +195,14 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 
 		logParams = append(logParams,
 			"level", LogLevelNames[l.currentLogLevel],
-			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", now.Format(logTimestampFormat),
 			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 			"component", l.component,
 		)
 		if l.err != nil {
-			l.logContext = l.logContext.With("reason", l.err)
+			l.logger = log.With(l.logger, "reason", l.err)
 		}
-		return l.logContext.WithPrefix(logParams...).Log(params...)
+		return log.WithPrefix(l.logger, logParams...).Log(params...)
 	}
 	return nil
 }
@@ -263,12 +264,12 @@ func (l FilteredLogger) ObjectRef(obj *v1.ObjectReference) *FilteredLogger {
 }
 
 func (l FilteredLogger) With(obj ...interface{}) *FilteredLogger {
-	l.logContext = l.logContext.With(obj...)
+	l.logger = log.With(l.logger, obj...)
 	return &l
 }
 
 func (l *FilteredLogger) with(obj ...interface{}) *FilteredLogger {
-	l.logContext = l.logContext.With(obj...)
+	l.logger = log.With(l.logger, obj...)
 	return l
 }
 
@@ -350,9 +351,9 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	fragments := strings.SplitN(line, ": ", 5)
 	if len(fragments) < 4 {
 		now := time.Now()
-		logger.logContext.Log(
+		logger.logger.Log(
 			"level", "info",
-			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", now.Format(logTimestampFormat),
 			"component", logger.component,
 			"subcomponent", "libvirt",
 			"msg", line,
@@ -374,6 +375,17 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	pos := strings.TrimSpace(fragments[3])
 	msg := strings.TrimSpace(fragments[4])
 
+	//TODO: implement proper behavior for unsupported GA commands
+	// by either considering the GA version as unsupported or just don't
+	// send commands which not supported
+	if strings.Contains(msg, "unable to execute QEMU agent command") {
+		if logger.verbosityLevel < 4 {
+			return
+		}
+
+		severity = LogLevelNames[WARNING]
+	}
+
 	// check if we really got a position
 	isPos := false
 	if split := strings.Split(pos, ":"); len(split) == 2 {
@@ -384,18 +396,18 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 
 	if !isPos {
 		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
-		logger.logContext.Log(
+		logger.logger.Log(
 			"level", severity,
-			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", t.Format(logTimestampFormat),
 			"component", logger.component,
 			"subcomponent", "libvirt",
 			"thread", thread,
 			"msg", msg,
 		)
 	} else {
-		logger.logContext.Log(
+		logger.logger.Log(
 			"level", severity,
-			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", t.Format(logTimestampFormat),
 			"pos", pos,
 			"component", logger.component,
 			"subcomponent", "libvirt",
@@ -425,9 +437,9 @@ func LogQemuLogLine(logger *FilteredLogger, line string) {
 	}
 
 	now := time.Now()
-	logger.logContext.Log(
+	logger.logger.Log(
 		"level", "info",
-		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+		"timestamp", now.Format(logTimestampFormat),
 		"component", logger.component,
 		"subcomponent", "qemu",
 		"msg", line,
