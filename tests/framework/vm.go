@@ -10,9 +10,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"kubevirt.io/client-go/api/v1"
+	"kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -381,11 +381,11 @@ func StartVirtualMachine(client kubecli.KubevirtClient, namespace, name string) 
 }
 
 func PauseVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
-	return client.VirtualMachineInstance(namespace).Pause(name)
+	return client.VirtualMachineInstance(namespace).Pause(name, &v1.PauseOptions{})
 }
 
 func StopVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
-	return client.VirtualMachine(namespace).Stop(name)
+	return client.VirtualMachine(namespace).Stop(name, &v1.StopOptions{})
 }
 
 func GetVirtualMachine(client kubecli.KubevirtClient, namespace, name string) (*v1.VirtualMachine, error) {

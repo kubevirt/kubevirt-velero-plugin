@@ -9,7 +9,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kvcore "kubevirt.io/client-go/api/v1"
+	kvcore "kubevirt.io/api/core/v1"
 )
 
 func returnTrue(vm *kvcore.VirtualMachine) (bool, error)  { return true, nil }

@@ -27,7 +27,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	kvcore "kubevirt.io/client-go/api/v1"
+	kvcore "kubevirt.io/api/core/v1"
 )
 
 // VMIRestorePlugin is a VMI restore item action plugin for Velero (duh!)

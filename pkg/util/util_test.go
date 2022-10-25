@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
-	kvcore "kubevirt.io/client-go/api/v1"
+	kvcore "kubevirt.io/api/core/v1"
 )
 
 func TestIsResourceIncluded(t *testing.T) {
@@ -190,7 +190,8 @@ func TestRestorePossible(t *testing.T) {
 	pvcVolumes := []kvcore.Volume{
 		{
 			VolumeSource: kvcore.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
+				PersistentVolumeClaim: &kvcore.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{}},
 			},
 		},
 	}

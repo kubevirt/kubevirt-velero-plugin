@@ -17,9 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	kvv1 "kubevirt.io/client-go/api/v1"
+	kvv1 "kubevirt.io/api/core/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const VELERO_EXCLUDE_LABEL = "velero.io/exclude-from-backup"

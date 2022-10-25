@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kvcore "kubevirt.io/client-go/api/v1"
+	kvcore "kubevirt.io/api/core/v1"
 )
 
 // VIMRestorePlugin is a VMI restore item action plugin for Velero (duh!)

@@ -14,8 +14,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kvv1 "kubevirt.io/client-go/api/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	kvv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
@@ -1044,9 +1044,10 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating VirtualMachines")
 				source := kvv1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
-					},
+					PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv",
+						}},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
@@ -1507,9 +1508,10 @@ var _ = Describe("Resource includes", func() {
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
 				pvcVolume := kvv1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv-2",
-					},
+					PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv-2",
+						}},
 				}
 				addVolumeToVMI(vmiSpec, pvcVolume, "pvc-volume")
 				vmiSpec.Labels = map[string]string{
@@ -2372,9 +2374,10 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachines")
 				source := kvv1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
-					},
+					PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv",
+						}},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
@@ -3093,9 +3096,10 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachines")
 				source := kvv1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
-					},
+					PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv",
+						}},
 				}
 				vmSpec := newVMSpec("included-test-vm", "100Mi", source)
 				_, err = framework.CreateVirtualMachineFromDefinition(kvClient, namespace.Name, vmSpec)
