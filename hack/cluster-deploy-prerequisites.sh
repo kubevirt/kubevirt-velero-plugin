@@ -19,6 +19,7 @@
 set -ex
 
 KUBEVIRT_STORAGE=rook-ceph-default
+CDI_DV_GC=${CDI_DV_GC:--1}
 source ./hack/config.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 
@@ -47,3 +48,7 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
     sleep 1m
 done
+
+if [[ "$KUBEVIRT_DEPLOY_CDI" != "false" ]] && [[ $CDI_DV_GC != "0" ]]; then
+    _kubectl patch cdi cdi --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
+fi
