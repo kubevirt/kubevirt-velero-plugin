@@ -13,9 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	kvv1 "kubevirt.io/client-go/api/v1"
+	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -336,9 +336,10 @@ func newVMISpecWithPVC(vmiName, pvcName string) *kvv1.VirtualMachineInstance {
 	vmi := newVMISpec(vmiName)
 
 	source := kvv1.VolumeSource{
-		PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-			ClaimName: pvcName,
-		},
+		PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvcName,
+			}},
 	}
 	vmi = addVolumeToVMI(vmi, source, "volume0")
 	return vmi

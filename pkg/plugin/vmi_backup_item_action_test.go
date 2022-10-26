@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
-	kvcore "kubevirt.io/client-go/api/v1"
+	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
@@ -632,9 +632,10 @@ func TestAddVolumes(t *testing.T) {
 					Volumes: []kvcore.Volume{
 						{
 							VolumeSource: kvcore.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "test-pvc",
-								},
+								PersistentVolumeClaim: &kvcore.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "test-pvc",
+									}},
 							},
 						},
 						{
