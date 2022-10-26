@@ -36,7 +36,7 @@ fi
 
 kvp::fetch_velero
 
-PLUGINS=velero/velero-plugin-for-aws:v1.3.0
+PLUGINS=velero/velero-plugin-for-aws:v1.4.1
 FEATURES=""
 
 if [[ "${USE_CSI}" == "1" ]]; then
