@@ -25,7 +25,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	veleroflag "github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
 	"github.com/vmware-tanzu/velero/pkg/util/logging"
 )
 
@@ -74,6 +73,11 @@ type Server interface {
 	// RegisterDeleteItemActions registers multiple Delete item actions.
 	RegisterDeleteItemActions(map[string]HandlerInitializer) Server
 
+	RegisterItemSnapshotter(pluginName string, initializer HandlerInitializer) Server
+
+	// RegisterItemSnapshotters registers multiple Item Snapshotters
+	RegisterItemSnapshotters(map[string]HandlerInitializer) Server
+
 	// Server runs the plugin server.
 	Serve()
 }
@@ -83,34 +87,32 @@ type server struct {
 	log               *logrus.Logger
 	logLevelFlag      *logging.LevelFlag
 	flagSet           *pflag.FlagSet
-	featureSet        *veleroflag.StringArray
 	backupItemAction  *BackupItemActionPlugin
 	volumeSnapshotter *VolumeSnapshotterPlugin
 	objectStore       *ObjectStorePlugin
 	restoreItemAction *RestoreItemActionPlugin
 	deleteItemAction  *DeleteItemActionPlugin
+	itemSnapshotter   *ItemSnapshotterPlugin
 }
 
 // NewServer returns a new Server
 func NewServer() Server {
 	log := newLogger()
-	features := veleroflag.NewStringArray()
 
 	return &server{
 		log:               log,
 		logLevelFlag:      logging.LogLevelFlag(log.Level),
-		featureSet:        &features,
 		backupItemAction:  NewBackupItemActionPlugin(serverLogger(log)),
 		volumeSnapshotter: NewVolumeSnapshotterPlugin(serverLogger(log)),
 		objectStore:       NewObjectStorePlugin(serverLogger(log)),
 		restoreItemAction: NewRestoreItemActionPlugin(serverLogger(log)),
 		deleteItemAction:  NewDeleteItemActionPlugin(serverLogger(log)),
+		itemSnapshotter:   NewItemSnapshotterPlugin(serverLogger(log)),
 	}
 }
 
 func (s *server) BindFlags(flags *pflag.FlagSet) Server {
 	flags.Var(s.logLevelFlag, "log-level", fmt.Sprintf("The level at which to log. Valid values are %s.", strings.Join(s.logLevelFlag.AllowedValues(), ", ")))
-	flags.Var(s.featureSet, "features", "List of feature flags for this plugin")
 	s.flagSet = flags
 	s.flagSet.ParseErrorsWhitelist.UnknownFlags = true
 
@@ -177,6 +179,17 @@ func (s *server) RegisterDeleteItemActions(m map[string]HandlerInitializer) Serv
 	return s
 }
 
+func (s *server) RegisterItemSnapshotter(name string, initializer HandlerInitializer) Server {
+	s.itemSnapshotter.register(name, initializer)
+	return s
+}
+func (s *server) RegisterItemSnapshotters(m map[string]HandlerInitializer) Server {
+	for name := range m {
+		s.RegisterItemSnapshotter(name, m[name])
+	}
+	return s
+}
+
 // getNames returns a list of PluginIdentifiers registered with plugin.
 func getNames(command string, kind PluginKind, plugin Interface) []PluginIdentifier {
 	var pluginIdentifiers []PluginIdentifier
@@ -206,6 +219,7 @@ func (s *server) Serve() {
 	pluginIdentifiers = append(pluginIdentifiers, getNames(command, PluginKindObjectStore, s.objectStore)...)
 	pluginIdentifiers = append(pluginIdentifiers, getNames(command, PluginKindRestoreItemAction, s.restoreItemAction)...)
 	pluginIdentifiers = append(pluginIdentifiers, getNames(command, PluginKindDeleteItemAction, s.deleteItemAction)...)
+	pluginIdentifiers = append(pluginIdentifiers, getNames(command, PluginKindItemSnapshotter, s.itemSnapshotter)...)
 
 	pluginLister := NewPluginLister(pluginIdentifiers...)
 
@@ -218,6 +232,7 @@ func (s *server) Serve() {
 			string(PluginKindPluginLister):      NewPluginListerPlugin(pluginLister),
 			string(PluginKindRestoreItemAction): s.restoreItemAction,
 			string(PluginKindDeleteItemAction):  s.deleteItemAction,
+			string(PluginKindItemSnapshotter):   s.itemSnapshotter,
 		},
 		GRPCServer: plugin.DefaultGRPCServer,
 	})
