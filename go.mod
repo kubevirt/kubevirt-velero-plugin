@@ -14,8 +14,8 @@ require (
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog/v2 v2.80.1
-	kubevirt.io/api v0.55.0
-	kubevirt.io/client-go v0.55.0
+	kubevirt.io/api v0.58.0
+	kubevirt.io/client-go v0.58.0
 	kubevirt.io/containerized-data-importer-api v1.55.0
 )
 
@@ -24,7 +24,7 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
+	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-kit/kit v0.9.0 // indirect

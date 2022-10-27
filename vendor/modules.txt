@@ -11,7 +11,7 @@ github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/emicklei/go-restful v2.15.0+incompatible
+# github.com/emicklei/go-restful v2.16.0+incompatible
 ## explicit
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
@@ -682,7 +682,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# kubevirt.io/api v0.55.0
+# kubevirt.io/api v0.58.0
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -690,15 +690,16 @@ kubevirt.io/api/core
 kubevirt.io/api/core/v1
 kubevirt.io/api/export
 kubevirt.io/api/export/v1alpha1
-kubevirt.io/api/flavor
-kubevirt.io/api/flavor/v1alpha1
+kubevirt.io/api/instancetype
+kubevirt.io/api/instancetype/v1alpha1
+kubevirt.io/api/instancetype/v1alpha2
 kubevirt.io/api/migrations
 kubevirt.io/api/migrations/v1alpha1
 kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v0.55.0
+# kubevirt.io/client-go v0.58.0
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -711,7 +712,8 @@ kubevirt.io/client-go/generated/kubevirt/clientset/versioned
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1
-kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1

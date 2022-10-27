@@ -100,7 +100,15 @@ type VirtualMachineInstanceSpec struct {
 	SchedulerName string `json:"schedulerName,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
-
+	// TopologySpreadConstraints describes how a group of VMIs will be spread across a given topology
+	// domains. K8s scheduler will schedule VMI pods in a way which abides by the constraints.
+	// +optional
+	// +patchMergeKey=topologyKey
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=topologyKey
+	// +listMapKey=whenUnsatisfiable
+	TopologySpreadConstraints []k8sv1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey"`
 	// EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be
 	// migrated instead of shut-off in case of a node drain.
 	//
@@ -465,6 +473,8 @@ const (
 	VirtualMachineInstanceReasonHostDeviceNotMigratable = "HostDeviceNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses Secure Encrypted Virtualization (SEV)
 	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
+	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 )
 
 const (
@@ -552,6 +562,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	InterfaceName string `json:"interfaceName,omitempty"`
 	// Specifies the origin of the interface data collected. values: domain, guest-agent, or both
 	InfoSource string `json:"infoSource,omitempty"`
+	// Specifies how many queues are allocated by MultiQueue
+	QueueCount int32 `json:"queueCount,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
@@ -850,16 +862,16 @@ const (
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
 
-	// FlavorAnnotation is the name of a VirtualMachineFlavor
-	FlavorAnnotation string = "kubevirt.io/flavor-name"
+	// InstancetypeAnnotation is the name of a VirtualMachineInstancetype
+	InstancetypeAnnotation string = "kubevirt.io/instancetype-name"
 
-	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
-	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
+	// ClusterInstancetypeAnnotation is the name of a VirtualMachineClusterInstancetype
+	ClusterInstancetypeAnnotation string = "kubevirt.io/cluster-instancetype-name"
 
-	// FlavorAnnotation is the name of a VirtualMachinePreference
+	// InstancetypeAnnotation is the name of a VirtualMachinePreference
 	PreferenceAnnotation string = "kubevirt.io/preference-name"
 
-	// ClusterFlavorAnnotation is the name of a VirtualMachinePreferenceFlavor
+	// ClusterInstancetypeAnnotation is the name of a VirtualMachinePreferenceInstancetype
 	ClusterPreferenceAnnotation string = "kubevirt.io/cluster-preference-name"
 
 	// VirtualMachinePoolRevisionName is used to store the vmpool revision's name this object
@@ -1175,6 +1187,8 @@ const (
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
 )
 
+// Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.
+//
 // VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector
 // More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides
 //
@@ -1299,8 +1313,8 @@ type VirtualMachineSpec struct {
 	// mutually exclusive with Running
 	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 
-	// FlavorMatcher references a flavor that is used to fill fields in Template
-	Flavor *FlavorMatcher `json:"flavor,omitempty" optional:"true"`
+	// InstancetypeMatcher references a instancetype that is used to fill fields in Template
+	Instancetype *InstancetypeMatcher `json:"instancetype,omitempty" optional:"true"`
 
 	// PreferenceMatcher references a set of preference that is used to fill fields in Template
 	Preference *PreferenceMatcher `json:"preference,omitempty" optional:"true"`
@@ -1362,8 +1376,6 @@ const (
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
 	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
-	// VirtualMachineStatusDataVolumeNotFound indicates that the virtual machine references a DataVolume volume which doesn't exist.
-	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "ErrorDataVolumeNotFound"
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
 	// referenced by the virtual machines.
 	VirtualMachineStatusDataVolumeError VirtualMachinePrintableStatus = "DataVolumeError"
@@ -1494,6 +1506,8 @@ const (
 	SlirpInterface NetworkInterfaceType = "slirp"
 	// Virtual machine instance masquerade interface
 	MasqueradeInterface NetworkInterfaceType = "masquerade"
+	// Virtual machine instance passt interface
+	PasstInterface NetworkInterfaceType = "passt"
 )
 
 type DriverCache string
@@ -2049,13 +2063,20 @@ type VirtualMachineMemoryDumpRequest struct {
 	ClaimName string `json:"claimName"`
 	// Phase represents the memory dump phase
 	Phase MemoryDumpPhase `json:"phase"`
+	// Remove represents request of dissociating the memory dump pvc
+	// +optional
+	Remove bool `json:"remove,omitempty"`
 	// StartTimestamp represents the time the memory dump started
+	// +optional
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// EndTimestamp represents the time the memory dump was completed
+	// +optional
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// FileName represents the name of the output file
+	// +optional
 	FileName *string `json:"fileName,omitempty"`
 	// Message is a detailed message about failure of the memory dump
+	// +optional
 	Message string `json:"message,omitempty"`
 }
 
@@ -2094,6 +2115,10 @@ type AddVolumeOptions struct {
 	// +optional
 	// +listType=atomic
 	DryRun []string `json:"dryRun,omitempty"`
+}
+
+type ScreenshotOptions struct {
+	MoveCursor bool `json:"moveCursor"`
 }
 
 // RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
@@ -2170,6 +2195,7 @@ type KubeVirtConfiguration struct {
 	WebhookConfiguration           *ReloadableComponentConfiguration `json:"webhookConfiguration,omitempty"`
 	ControllerConfiguration        *ReloadableComponentConfiguration `json:"controllerConfiguration,omitempty"`
 	HandlerConfiguration           *ReloadableComponentConfiguration `json:"handlerConfiguration,omitempty"`
+	TLSConfiguration               *TLSConfiguration                 `json:"tlsConfiguration,omitempty"`
 }
 
 type SMBiosConfiguration struct {
@@ -2180,19 +2206,75 @@ type SMBiosConfiguration struct {
 	Family       string `json:"family,omitempty"`
 }
 
-// MigrationConfiguration holds migration options
+type TLSProtocolVersion string
+
+const (
+	// VersionTLS10 is version 1.0 of the TLS security protocol.
+	VersionTLS10 TLSProtocolVersion = "VersionTLS10"
+	// VersionTLS11 is version 1.1 of the TLS security protocol.
+	VersionTLS11 TLSProtocolVersion = "VersionTLS11"
+	// VersionTLS12 is version 1.2 of the TLS security protocol.
+	VersionTLS12 TLSProtocolVersion = "VersionTLS12"
+	// VersionTLS13 is version 1.3 of the TLS security protocol.
+	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
+)
+
+// TLSConfiguration holds TLS options
+type TLSConfiguration struct {
+	// MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
+	// Protocol versions are based on the following most common TLS configurations:
+	//
+	//   https://ssl-config.mozilla.org/
+	//
+	// Note that SSLv3.0 is not a supported protocol version due to well known
+	// vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE
+	// +kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13
+	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
+	// +listType=set
+	Ciphers []string `json:"ciphers,omitempty"`
+}
+
+// MigrationConfiguration holds migration options.
+// Can be overridden for specific groups of VMs though migration policies.
+// Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
 type MigrationConfiguration struct {
-	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
-	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,omitempty"`
-	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
-	AllowAutoConverge                 *bool              `json:"allowAutoConverge,omitempty"`
-	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
-	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
-	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,omitempty"`
-	AllowPostCopy                     *bool              `json:"allowPostCopy,omitempty"`
-	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
-	Network                           *string            `json:"network,omitempty"`
+	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
+	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
+	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
+	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
+	// allowed per node. Defaults to 2
+	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
+	// allowed cluster-wide. Defaults to 5
+	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
+	// AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
+	// guarantee successful VMI live migrations. Defaults to false
+	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
+	// BandwidthPerMigration limits the amount of network bandwith live migrations are allowed to use.
+	// The value is in quantity per second. Defaults to 0 (no limit)
+	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	// CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
+	// If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
+	// the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
+	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
+	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
+	// then considered stuck and therefore cancelled. Defaults to 150
+	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
+	// UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
+	// indicates the migration will be unsafe to the guest. Defaults to false
+	UnsafeMigrationOverride *bool `json:"unsafeMigrationOverride,omitempty"`
+	// AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
+	// to successfully live-migrate. However, events like a network failure can cause a VMI crash.
+	// If set to true, migrations will still start in pre-copy, but switch to post-copy when
+	// CompletionTimeoutPerGiB triggers. Defaults to false
+	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
+	// When set to true, DisableTLS will disable the additional layer of live migration encryption
+	// provided by KubeVirt. This is usually a bad idea. Defaults to false
+	DisableTLS *bool `json:"disableTLS,omitempty"`
+	// Network is the name of the CNI network to use for live migrations. By default, migrations go
+	// through the pod network.
+	Network *string `json:"network,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits
@@ -2202,15 +2284,35 @@ type DiskVerification struct {
 
 // DeveloperConfiguration holds developer options
 type DeveloperConfiguration struct {
-	FeatureGates           []string          `json:"featureGates,omitempty"`
-	LessPVCSpaceToleration int               `json:"pvcTolerateLessSpaceUpToPercent,omitempty"`
-	MinimumReservePVCBytes uint64            `json:"minimumReservePVCBytes,omitempty"`
-	MemoryOvercommit       int               `json:"memoryOvercommit,omitempty"`
-	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
+	// FeatureGates is the list of experimental features to enable. Defaults to none
+	FeatureGates []string `json:"featureGates,omitempty"`
+	// LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are
+	// allowed to be compared to the requested size (to account for various overheads).
+	// Defaults to 10
+	LessPVCSpaceToleration int `json:"pvcTolerateLessSpaceUpToPercent,omitempty"`
+	// MinimumReservePVCBytes is the amount of space, in bytes, to leave unused on disks.
+	// Defaults to 131072 (128KiB)
+	MinimumReservePVCBytes uint64 `json:"minimumReservePVCBytes,omitempty"`
+	// MemoryOvercommit is the percentage of memory we want to give VMIs compared to the amount
+	// given to its parent pod (virt-launcher). For example, a value of 102 means the VMI will
+	// "see" 2% more memory than its parent pod. Values under 100 are effectively "undercommits".
+	// Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
+	// Defaults to 100
+	MemoryOvercommit int `json:"memoryOvercommit,omitempty"`
+	// NodeSelectors allows restricting VMI creation to nodes that match a set of labels.
+	// Defaults to none
+	NodeSelectors map[string]string `json:"nodeSelectors,omitempty"`
 	// UseEmulation can be set to true to allow fallback to software emulation
-	// in case hardware-assisted emulation is not available.
-	UseEmulation       bool `json:"useEmulation,omitempty"`
-	CPUAllocationRatio int  `json:"cpuAllocationRatio,omitempty"`
+	// in case hardware-assisted emulation is not available. Defaults to false
+	UseEmulation bool `json:"useEmulation,omitempty"`
+	// For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI
+	// from the hosting node. The value is in fraction of a CPU thread (or core on non-hyperthreaded nodes).
+	// For example, a value of 1 means 1 physical CPU thread per VMI CPU thread.
+	// A value of 100 would be 1% of a physical thread allocated for each requested VMI thread.
+	// This option has no effect on VMIs that request dedicated CPUs. More information at:
+	// https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
+	// Defaults to 10
+	CPUAllocationRatio int `json:"cpuAllocationRatio,omitempty"`
 	// Allow overriding the automatically determined minimum TSC frequency of the cluster
 	// and fixate the minimum to this frequency.
 	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
@@ -2310,21 +2412,21 @@ type ClusterProfilerRequest struct {
 	PageSize      int64  `json:"pageSize"`
 }
 
-// FlavorMatcher references a flavor that is used to fill fields in the VMI template.
-type FlavorMatcher struct {
-	// Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+// InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.
+type InstancetypeMatcher struct {
+	// Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
 	Name string `json:"name"`
 
-	// Kind specifies which flavor resource is referenced.
-	// Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
-	// If not specified, "VirtualMachineClusterFlavor" is used by default.
+	// Kind specifies which instancetype resource is referenced.
+	// Allowed values are: "VirtualMachineInstancetype" and "VirtualMachineClusterInstancetype".
+	// If not specified, "VirtualMachineClusterInstancetype" is used by default.
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
 
 	// RevisionName specifies a ControllerRevision containing a specific copy of the
-	// VirtualMachineFlavor or VirtualMachineClusterFlavor to be used. This is initially
-	// captured the first time the flavor is applied to the VirtualMachineInstance.
+	// VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially
+	// captured the first time the instancetype is applied to the VirtualMachineInstance.
 	//
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
@@ -2344,7 +2446,7 @@ type PreferenceMatcher struct {
 
 	// RevisionName specifies a ControllerRevision containing a specific copy of the
 	// VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is
-	// initially captured the first time the flavor is applied to the VirtualMachineInstance.
+	// initially captured the first time the instancetype is applied to the VirtualMachineInstance.
 	//
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
