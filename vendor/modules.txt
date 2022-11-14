@@ -11,10 +11,10 @@ github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/emicklei/go-restful v2.16.0+incompatible
-## explicit
-github.com/emicklei/go-restful
-github.com/emicklei/go-restful/log
+# github.com/emicklei/go-restful/v3 v3.8.0
+## explicit; go 1.13
+github.com/emicklei/go-restful/v3
+github.com/emicklei/go-restful/v3/log
 # github.com/evanphx/json-patch v4.12.0+incompatible
 ## explicit
 github.com/evanphx/json-patch
@@ -435,8 +435,8 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.24.2
-## explicit; go 1.16
+# k8s.io/apimachinery v0.25.4
+## explicit; go 1.19
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
@@ -659,8 +659,8 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42
-## explicit; go 1.16
+# k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1
+## explicit; go 1.18
 k8s.io/kube-openapi/pkg/builder3/util
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/handler3
@@ -671,7 +671,7 @@ k8s.io/kube-openapi/pkg/schemamutation
 k8s.io/kube-openapi/pkg/spec3
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/validation/spec
-# k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
+# k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
 ## explicit; go 1.12
 k8s.io/utils/buffer
 k8s.io/utils/clock
@@ -739,11 +739,11 @@ kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1
 kubevirt.io/controller-lifecycle-operator-sdk/api
 # sigs.k8s.io/controller-runtime v0.11.1
 ## explicit; go 1.17
-# sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2
-## explicit; go 1.17
+# sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2
+## explicit; go 1.18
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/structured-merge-diff/v4 v4.2.1
+# sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/schema
