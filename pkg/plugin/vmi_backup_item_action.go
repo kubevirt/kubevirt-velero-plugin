@@ -27,7 +27,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
@@ -128,7 +127,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, err
 	}
 
-	extra = addVolumes(vmi, extra)
+	extra = util.AddVolumes(vmi.Spec.Volumes, vmi.GetNamespace(), extra, p.log)
 
 	return item, extra, nil
 }
@@ -202,26 +201,4 @@ func (p *VMIBackupItemAction) addLauncherPod(vmi *kvcore.VirtualMachineInstance,
 	}
 
 	return extra, nil
-}
-
-func addVolumes(vmi *kvcore.VirtualMachineInstance, extra []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.DataVolume != nil {
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-				Namespace:     vmi.GetNamespace(),
-				Name:          volume.DataVolume.Name,
-			})
-		}
-		if volume.PersistentVolumeClaim != nil {
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: kuberesource.PersistentVolumeClaims,
-				Namespace:     vmi.GetNamespace(),
-				Name:          volume.PersistentVolumeClaim.ClaimName,
-			})
-		}
-		// TODO what about other types of volumes?
-	}
-
-	return extra
 }

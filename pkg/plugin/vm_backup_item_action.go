@@ -93,18 +93,7 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, fmt.Errorf("VM would not be restored correctly")
 	}
 
-	for _, template := range vm.Spec.DataVolumeTemplates {
-		namespace := template.GetNamespace()
-		if namespace == "" {
-			namespace = vm.GetNamespace()
-		}
-		p.log.Infof("Adding DV to backup: %s/%s", namespace, template.GetName())
-		extra = append(extra, velero.ResourceIdentifier{
-			GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-			Namespace:     namespace,
-			Name:          template.GetName(),
-		})
-	}
+	extra = util.AddVolumes(vm.Spec.Template.Spec.Volumes, vm.GetNamespace(), extra, p.log)
 
 	if vm.Status.Created {
 		extra = append(extra, velero.ResourceIdentifier{

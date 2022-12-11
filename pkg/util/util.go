@@ -10,11 +10,14 @@ import (
 	"github.com/sirupsen/logrus"
 
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/kuberesource"
+	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	corev1api "k8s.io/api/core/v1"
 	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	kvv1 "kubevirt.io/api/core/v1"
@@ -243,4 +246,36 @@ func RestorePossible(volumes []kvv1.Volume, backup *velerov1.Backup, namespace s
 	}
 
 	return true, nil
+}
+
+func AddVolumes(volumes []kvv1.Volume, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
+	for _, volume := range volumes {
+		if volume.DataVolume != nil {
+			log.Infof("Adding dataVolume %s to the backup", volume.DataVolume.Name)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+				Namespace:     namespace,
+				Name:          volume.DataVolume.Name,
+			})
+		}
+		if volume.PersistentVolumeClaim != nil {
+			log.Infof("Adding PVC %s to the backup", volume.PersistentVolumeClaim.ClaimName)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: kuberesource.PersistentVolumeClaims,
+				Namespace:     namespace,
+				Name:          volume.PersistentVolumeClaim.ClaimName,
+			})
+		}
+		if volume.MemoryDump != nil {
+			log.Infof("Adding MemoryDump %s to the backup", volume.MemoryDump.ClaimName)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: kuberesource.PersistentVolumeClaims,
+				Namespace:     namespace,
+				Name:          volume.MemoryDump.ClaimName,
+			})
+		}
+		// TODO what about other types of volumes?
+	}
+
+	return extra
 }
