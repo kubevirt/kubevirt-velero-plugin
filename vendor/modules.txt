@@ -722,7 +722,7 @@ kubevirt.io/client-go/log
 kubevirt.io/client-go/subresources
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer-api v1.55.1
+# kubevirt.io/containerized-data-importer-api v1.55.2
 ## explicit; go 1.18
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
