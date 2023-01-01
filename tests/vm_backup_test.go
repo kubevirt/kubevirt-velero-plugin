@@ -75,13 +75,41 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	It("Stopped VM should be restored", func() {
+		dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+		dvSpec.Annotations[forceBindAnnotation] = "true"
+
+		By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
+		dv, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, dvSpec.Name)
+		Expect(err).ToNot(HaveOccurred())
 		// creating a started VM, so it works correctly also on WFFC storage
 		By("Starting a VM")
-		vm, err = framework.CreateStartedVirtualMachine(kvClient, namespace.Name, framework.CreateVmWithGuestAgent("test-vm", r.StorageClass))
+		vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+		vmSpec.Spec.Template.Spec.Domain.Devices.Disks = append(vmSpec.Spec.Template.Spec.Domain.Devices.Disks, kvv1.Disk{
+			Name: "volume2",
+			DiskDevice: kvv1.DiskDevice{
+				Disk: &kvv1.DiskTarget{
+					Bus: "virtio",
+				},
+			},
+		})
+		vmSpec.Spec.Template.Spec.Volumes = append(vmSpec.Spec.Template.Spec.Volumes, kvv1.Volume{
+			Name: "volume2",
+			VolumeSource: kvv1.VolumeSource{
+				DataVolume: &kvv1.DataVolumeSource{
+					Name: dvSpec.Name,
+				},
+			},
+		})
+		vm, err = framework.CreateStartedVirtualMachine(kvClient, namespace.Name, vmSpec)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Stopping a VM")
 		err = framework.StopVirtualMachine(kvClient, namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+		err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating backup")
@@ -96,6 +124,14 @@ var _ = Describe("[smoke] VM Backup", func() {
 		err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
 		Expect(err).ToNot(HaveOccurred())
 
+		By("Deleting DataVolume")
+		err = framework.DeleteDataVolume(kvClient, namespace.Name, dv.Name)
+		Expect(err).ToNot(HaveOccurred())
+
+		ok, err := framework.WaitDataVolumeDeleted(kvClient, namespace.Name, dv.Name)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+
 		By("Creating restore")
 		err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, r.BackupNamespace, true)
 		Expect(err).ToNot(HaveOccurred())
@@ -106,6 +142,12 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 		By("Verifying VM")
 		err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Checking DataVolume exists")
+		err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, dvSpec.Name)
+		Expect(err).ToNot(HaveOccurred())
+		err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, vm.Spec.DataVolumeTemplates[0].Name)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
