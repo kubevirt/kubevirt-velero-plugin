@@ -30,22 +30,6 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 	var r = framework.NewKubernetesReporter()
 
-	createStartedVm := func(namespace string, vmSpec *kvv1.VirtualMachine) *kvv1.VirtualMachine {
-		vm, err := framework.CreateVirtualMachineFromDefinition(kvClient, namespace, vmSpec)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Starting VM")
-		err = framework.StartVirtualMachine(kvClient, namespace, vmSpec.Name)
-		Expect(err).ToNot(HaveOccurred())
-
-		err = framework.WaitForDataVolumePhase(kvClient, namespace, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
-		Expect(err).ToNot(HaveOccurred())
-		err = framework.WaitForVirtualMachineInstancePhase(kvClient, namespace, vmSpec.Name, kvv1.Running)
-		Expect(err).ToNot(HaveOccurred())
-
-		return vm
-	}
-
 	BeforeEach(func() {
 		kvClientRef, err := util.GetKubeVirtclient()
 		Expect(err).ToNot(HaveOccurred())
@@ -93,12 +77,11 @@ var _ = Describe("[smoke] VM Backup", func() {
 	It("Stopped VM should be restored", func() {
 		// creating a started VM, so it works correctly also on WFFC storage
 		By("Starting a VM")
-		vm = createStartedVm(
-			namespace.Name,
-			framework.CreateVmWithGuestAgent("test-vm", r.StorageClass))
+		vm, err = framework.CreateStartedVirtualMachine(kvClient, namespace.Name, framework.CreateVmWithGuestAgent("test-vm", r.StorageClass))
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Stopping a VM")
-		err := framework.StopVirtualMachine(kvClient, namespace.Name, vm.Name)
+		err = framework.StopVirtualMachine(kvClient, namespace.Name, vm.Name)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating backup")
@@ -129,11 +112,10 @@ var _ = Describe("[smoke] VM Backup", func() {
 	It("started VM should be restored - with guest agent", func() {
 		// creating a started VM, so it works correctly also on WFFC storage
 		By("Starting a VM")
-		vm = createStartedVm(
-			namespace.Name,
-			framework.CreateVmWithGuestAgent("test-vm", r.StorageClass))
+		vm, err := framework.CreateStartedVirtualMachine(kvClient, namespace.Name, framework.CreateVmWithGuestAgent("test-vm", r.StorageClass))
+		Expect(err).ToNot(HaveOccurred())
 
-		err := framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 		Expect(err).ToNot(HaveOccurred())
 		ok, err := framework.WaitForVirtualMachineInstanceCondition(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
 		Expect(err).ToNot(HaveOccurred())
@@ -173,11 +155,10 @@ var _ = Describe("[smoke] VM Backup", func() {
 	It("started VM should be restored - without guest agent", func() {
 		// creating a started VM, so it works correctly also on WFFC storage
 		By("Starting a VM")
-		vm = createStartedVm(
-			namespace.Name,
-			framework.CreateVmWithoutGuestAgent("test-vm", r.StorageClass))
+		vm, err := framework.CreateStartedVirtualMachine(kvClient, namespace.Name, framework.CreateVmWithGuestAgent("test-vm", r.StorageClass))
+		Expect(err).ToNot(HaveOccurred())
 
-		err := framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating backup")

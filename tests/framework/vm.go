@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -236,6 +236,30 @@ func CreateVirtualMachineFromDefinition(client kubecli.KubevirtClient, namespace
 		return nil, err
 	}
 	return virtualMachine, nil
+}
+
+func CreateStartedVirtualMachine(client kubecli.KubevirtClient, namespace string, vmSpec *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+	vm, err := CreateVirtualMachineFromDefinition(client, namespace, vmSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	ginkgo.By("Starting VM")
+	err = StartVirtualMachine(client, namespace, vmSpec.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	err = WaitForDataVolumePhase(client, namespace, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+	if err != nil {
+		return nil, err
+	}
+	err = WaitForVirtualMachineInstancePhase(client, namespace, vmSpec.Name, v1.Running)
+	if err != nil {
+		return nil, err
+	}
+
+	return vm, nil
 }
 
 func CreateVirtualMachineInstanceFromDefinition(client kubecli.KubevirtClient, namespace string, def *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
