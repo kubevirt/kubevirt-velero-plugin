@@ -93,7 +93,9 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, fmt.Errorf("VM would not be restored correctly")
 	}
 
-	extra = util.AddVolumes(vm.Spec.Template.Spec.Volumes, vm.GetNamespace(), extra, p.log)
+	extra = p.addVMObjectGraph(vm, extra)
+
+	extra = util.AddVMIObjectGraph(vm.Spec.Template.Spec, vm.GetNamespace(), extra, p.log)
 
 	if vm.Status.Created {
 		extra = append(extra, velero.ResourceIdentifier{
@@ -134,6 +136,46 @@ func (p *VMBackupItemAction) canBeSafelyBackedUp(vm *kvcore.VirtualMachine, back
 	}
 
 	return true, nil
+}
+
+func (p *VMBackupItemAction) addVMObjectGraph(vm *kvcore.VirtualMachine, extra []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	if vm.Spec.Instancetype != nil {
+		switch vm.Spec.Instancetype.Kind {
+		//TODO handle VirtualMachineClusterInstancetype
+		case "virtualmachineinstancetype":
+			p.log.Infof("Adding instance type %s to the backup", vm.Spec.Instancetype.Name)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
+				Namespace:     vm.Namespace,
+				Name:          vm.Spec.Instancetype.Name,
+			})
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+				Namespace:     vm.Namespace,
+				Name:          vm.Spec.Instancetype.RevisionName,
+			})
+		}
+	}
+
+	if vm.Spec.Preference != nil {
+		//TODO handle VirtualMachineClusterPreference
+		switch vm.Spec.Preference.Kind {
+		case "virtualmachinepreference":
+			p.log.Infof("Adding preference %s to the backup", vm.Spec.Preference.Name)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
+				Namespace:     vm.Namespace,
+				Name:          vm.Spec.Preference.Name,
+			})
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+				Namespace:     vm.Namespace,
+				Name:          vm.Spec.Preference.RevisionName,
+			})
+		}
+	}
+
+	return extra
 }
 
 // This is assigned to a variable so it can be replaced by a mock function in tests

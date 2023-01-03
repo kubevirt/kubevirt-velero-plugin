@@ -127,7 +127,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, err
 	}
 
-	extra = util.AddVolumes(vmi.Spec.Volumes, vmi.GetNamespace(), extra, p.log)
+	extra = util.AddVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), extra, p.log)
 
 	return item, extra, nil
 }

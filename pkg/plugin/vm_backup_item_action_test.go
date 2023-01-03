@@ -6,10 +6,16 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+)
+
+const (
+	testNamespace = "test-namespace"
 )
 
 func returnTrue(vm *kvcore.VirtualMachine) (bool, error)  { return true, nil }
@@ -260,7 +266,7 @@ func TestVMBackupAction(t *testing.T) {
 					"kind":       "VirtualMachine",
 					"metadata": map[string]interface{}{
 						"name":      "test-vm",
-						"namespace": "test-namespace",
+						"namespace": testNamespace,
 					},
 					"spec": map[string]interface{}{},
 					"status": map[string]interface{}{
@@ -284,7 +290,7 @@ func TestVMBackupAction(t *testing.T) {
 					"kind":       "VirtualMachine",
 					"metadata": map[string]interface{}{
 						"name":      "test-vm",
-						"namespace": "test-namespace",
+						"namespace": testNamespace,
 					},
 					"spec": map[string]interface{}{
 						"template": map[string]interface{}{
@@ -318,7 +324,7 @@ func TestVMBackupAction(t *testing.T) {
 					"kind":       "VirtualMachine",
 					"metadata": map[string]interface{}{
 						"name":      "test-vm",
-						"namespace": "test-namespace",
+						"namespace": testNamespace,
 					},
 					"spec": map[string]interface{}{
 						"template": map[string]interface{}{
@@ -336,39 +342,59 @@ func TestVMBackupAction(t *testing.T) {
 			false,
 			[]velero.ResourceIdentifier{{
 				GroupResource: schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-				Namespace:     "test-namespace",
+				Namespace:     testNamespace,
 				Name:          "test-vm",
 			}},
 		},
-		{"All DVs from DataVolumeTemplates needs to be included",
+		{"All volumes needs to be included",
 			unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "kubevirt.io",
 					"kind":       "VirtualMachine",
 					"metadata": map[string]interface{}{
 						"name":      "test-vm",
-						"namespace": "test-namespace",
+						"namespace": testNamespace,
 					},
 					"spec": map[string]interface{}{
 						"template": map[string]interface{}{
 							"spec": map[string]interface{}{
-								"volumes": []map[string]interface{}{},
-							},
-						},
-						"dataVolumeTemplates": []interface{}{
-							map[string]interface{}{
-								"apiVersion": "cdi.kubevirt.io/v1beta1",
-								"kind":       "DataVolume",
-								"metadata": map[string]interface{}{
-									"name": "test-dv",
-								},
-							},
-							map[string]interface{}{
-								"apiVersion": "cdi.kubevirt.io/v1beta1",
-								"kind":       "DataVolume",
-								"metadata": map[string]interface{}{
-									"name":      "test-dv",
-									"namespace": "another-namespace",
+								"volumes": []interface{}{
+									map[string]interface{}{
+										"name": "vol0",
+										"dataVolume": map[string]interface{}{
+											"name": "test-dv",
+										},
+									},
+									map[string]interface{}{
+										"name": "vol1",
+										"persistentVolumeClaim": map[string]interface{}{
+											"claimName": "test-pvc",
+										},
+									},
+									map[string]interface{}{
+										"name": "vol2",
+										"memoryDump": map[string]interface{}{
+											"claimName": "test-memory-dump",
+										},
+									},
+									map[string]interface{}{
+										"name": "vol3",
+										"configMap": map[string]interface{}{
+											"name": "test-config-map",
+										},
+									},
+									map[string]interface{}{
+										"name": "vol4",
+										"secret": map[string]interface{}{
+											"secretName": "test-secret",
+										},
+									},
+									map[string]interface{}{
+										"name": "vol5",
+										"serviceAccount": map[string]interface{}{
+											"serviceAccountName": "test-service-account",
+										},
+									},
 								},
 							},
 						},
@@ -380,13 +406,86 @@ func TestVMBackupAction(t *testing.T) {
 			[]velero.ResourceIdentifier{
 				{
 					GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-					Namespace:     "test-namespace",
+					Namespace:     testNamespace,
 					Name:          "test-dv",
 				},
 				{
-					GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-					Namespace:     "another-namespace",
-					Name:          "test-dv",
+					GroupResource: kuberesource.PersistentVolumeClaims,
+					Namespace:     testNamespace,
+					Name:          "test-pvc",
+				},
+				{
+					GroupResource: kuberesource.PersistentVolumeClaims,
+					Namespace:     testNamespace,
+					Name:          "test-memory-dump",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "", Resource: "configmaps"},
+					Namespace:     testNamespace,
+					Name:          "test-config-map",
+				},
+				{
+					GroupResource: kuberesource.Secrets,
+					Namespace:     testNamespace,
+					Name:          "test-secret",
+				},
+				{
+					GroupResource: kuberesource.ServiceAccounts,
+					Namespace:     testNamespace,
+					Name:          "test-service-account",
+				},
+			},
+		},
+		{"Created VM needs to include instancetype and preference",
+			unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "kubevirt.io",
+					"kind":       "VirtualMachine",
+					"metadata": map[string]interface{}{
+						"name":      "test-vm",
+						"namespace": testNamespace,
+					},
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"volumes": []map[string]interface{}{},
+							},
+						},
+						"instancetype": map[string]interface{}{
+							"kind":         "virtualmachineinstancetype",
+							"name":         "test-instancetype",
+							"revisionName": "test-revision1",
+						},
+						"preference": map[string]interface{}{
+							"kind":         "virtualmachinepreference",
+							"name":         "test-preference",
+							"revisionName": "test-revision2",
+						},
+					},
+				},
+			},
+			v1.Backup{},
+			false,
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
+					Namespace:     testNamespace,
+					Name:          "test-instancetype",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+					Namespace:     testNamespace,
+					Name:          "test-revision1",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
+					Namespace:     testNamespace,
+					Name:          "test-preference",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+					Namespace:     testNamespace,
+					Name:          "test-revision2",
 				},
 			},
 		},
@@ -396,6 +495,8 @@ func TestVMBackupAction(t *testing.T) {
 	action := NewVMBackupItemAction(logrus.StandardLogger())
 	isVMIExcludedByLabel = returnFalse
 	for _, tc := range testCases {
+		util.IsDVExcludedByLabel = func(namespace, pvcName string) (bool, error) { return false, nil }
+		util.IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) { return false, nil }
 		t.Run(tc.name, func(t *testing.T) {
 			_, extra, err := action.Execute(&tc.vm, &tc.backup)
 
@@ -404,8 +505,12 @@ func TestVMBackupAction(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+			// make sure the resulted extra and the expected 1 are equal
 			for _, item := range tc.expectedExtra {
 				assert.Contains(t, extra, item)
+			}
+			for _, item := range extra {
+				assert.Contains(t, tc.expectedExtra, item)
 			}
 		})
 	}

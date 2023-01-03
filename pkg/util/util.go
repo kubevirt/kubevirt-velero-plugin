@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	kvv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -248,7 +249,7 @@ func RestorePossible(volumes []kvv1.Volume, backup *velerov1.Backup, namespace s
 	return true, nil
 }
 
-func AddVolumes(volumes []kvv1.Volume, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
+func addVolumes(volumes []kvv1.Volume, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
 	for _, volume := range volumes {
 		if volume.DataVolume != nil {
 			log.Infof("Adding dataVolume %s to the backup", volume.DataVolume.Name)
@@ -257,25 +258,81 @@ func AddVolumes(volumes []kvv1.Volume, namespace string, extra []velero.Resource
 				Namespace:     namespace,
 				Name:          volume.DataVolume.Name,
 			})
-		}
-		if volume.PersistentVolumeClaim != nil {
+		} else if volume.PersistentVolumeClaim != nil {
 			log.Infof("Adding PVC %s to the backup", volume.PersistentVolumeClaim.ClaimName)
 			extra = append(extra, velero.ResourceIdentifier{
 				GroupResource: kuberesource.PersistentVolumeClaims,
 				Namespace:     namespace,
 				Name:          volume.PersistentVolumeClaim.ClaimName,
 			})
-		}
-		if volume.MemoryDump != nil {
+		} else if volume.MemoryDump != nil {
 			log.Infof("Adding MemoryDump %s to the backup", volume.MemoryDump.ClaimName)
 			extra = append(extra, velero.ResourceIdentifier{
 				GroupResource: kuberesource.PersistentVolumeClaims,
 				Namespace:     namespace,
 				Name:          volume.MemoryDump.ClaimName,
 			})
+		} else if volume.ConfigMap != nil {
+			log.Infof("Adding config map %s to the backup", volume.ConfigMap.Name)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "", Resource: "configmaps"},
+				Namespace:     namespace,
+				Name:          volume.ConfigMap.Name,
+			})
+		} else if volume.Secret != nil {
+			log.Infof("Adding secret %s to the backup", volume.Secret.SecretName)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: kuberesource.Secrets,
+				Namespace:     namespace,
+				Name:          volume.Secret.SecretName,
+			})
+		} else if volume.ServiceAccount != nil {
+			log.Infof("Adding service account %s to the backup", volume.ServiceAccount.ServiceAccountName)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: kuberesource.ServiceAccounts,
+				Namespace:     namespace,
+				Name:          volume.ServiceAccount.ServiceAccountName,
+			})
 		}
-		// TODO what about other types of volumes?
 	}
 
 	return extra
+}
+
+func getNamespaceAndNetworkName(vmiNamespace, fullNetworkName string) (string, string) {
+	if strings.Contains(fullNetworkName, "/") {
+		res := strings.SplitN(fullNetworkName, "/", 2)
+		return res[0], res[1]
+	}
+	return vmiNamespace, fullNetworkName
+}
+
+func addAccessCredentials(acs []kvv1.AccessCredential, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
+	for _, ac := range acs {
+		if ac.SSHPublicKey != nil && ac.SSHPublicKey.Source.Secret != nil {
+			log.Infof("Adding sshPublicKey secret %s to the backup", ac.SSHPublicKey.Source.Secret.SecretName)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: kuberesource.Secrets,
+				Namespace:     namespace,
+				Name:          ac.SSHPublicKey.Source.Secret.SecretName,
+			})
+		} else if ac.UserPassword != nil && ac.UserPassword.Source.Secret != nil {
+			log.Infof("Adding userpassword secret %s to the backup", ac.UserPassword.Source.Secret.SecretName)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: kuberesource.Secrets,
+				Namespace:     namespace,
+				Name:          ac.UserPassword.Source.Secret.SecretName,
+			})
+		}
+	}
+	return extra
+}
+
+func AddVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
+	extra = addVolumes(spec.Volumes, namespace, extra, log)
+
+	extra = addAccessCredentials(spec.AccessCredentials, namespace, extra, log)
+
+	return extra
+
 }
