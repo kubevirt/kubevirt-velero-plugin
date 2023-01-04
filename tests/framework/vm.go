@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -18,6 +19,7 @@ import (
 const (
 	alpineUrl               = "docker://quay.io/kubevirt/alpine-container-disk-demo:v0.57.1"
 	alpineWithGuestAgentUrl = "docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1"
+	fedoraWithGuestAgentUrl = "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
 )
 
 // DISKS for VMS
@@ -83,18 +85,39 @@ func NewDataVolumeForBlankRawImage(dataVolumeName, size string, storageClass str
 
 // VMs
 func CreateVmWithoutGuestAgent(vmName string, storageClassName string) *v1.VirtualMachine {
-	return CreateVm(vmName, storageClassName, alpineUrl)
+	return CreateVm(vmName, storageClassName, alpineUrl, "1Gi")
 }
 
 func CreateVmWithGuestAgent(vmName string, storageClassName string) *v1.VirtualMachine {
-	return CreateVm(vmName, storageClassName, alpineWithGuestAgentUrl)
+	return CreateVm(vmName, storageClassName, alpineWithGuestAgentUrl, "1Gi")
 }
 
-func CreateVm(vmName string, storageClassName string, containerDiskUrl string) *v1.VirtualMachine {
+func CreateFedoraVmWithGuestAgent(vmName string, storageClassName string) *v1.VirtualMachine {
+	return CreateVm(vmName, storageClassName, fedoraWithGuestAgentUrl, "5Gi")
+}
+
+func CreateVmWithInstancetypeAndPreference(vmName, storageClassName, instancetypeName, preferenceName string) *v1.VirtualMachine {
+	vm := CreateVm(vmName, storageClassName, alpineWithGuestAgentUrl, "1Gi")
+	// Add the instancetype and preference matchers to the VM spec
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		Name: instancetypeName,
+		Kind: instancetypeapi.SingularResourceName,
+	}
+	vm.Spec.Preference = &v1.PreferenceMatcher{
+		Name: preferenceName,
+		Kind: instancetypeapi.SingularPreferenceResourceName,
+	}
+	// remove resources and preferences
+	vm.Spec.Template.Spec.Domain.CPU = nil
+	vm.Spec.Template.Spec.Domain.Memory = nil
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+	return vm
+}
+
+func CreateVm(vmName string, storageClassName string, containerDiskUrl string, size string) *v1.VirtualMachine {
 	no := false
 	var zero int64 = 0
 	dataVolumeName := vmName + "-dv"
-	size := "1Gi"
 
 	networkData := `ethernets:
   eth0:
@@ -276,6 +299,26 @@ func CreateVirtualMachineInstanceFromDefinition(client kubecli.KubevirtClient, n
 		return nil, err
 	}
 	return virtualMachineInstance, nil
+}
+
+func DeleteVirtualMachineAndWait(client kubecli.KubevirtClient, namespace, name string) (bool, error) {
+	var result bool
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		err := client.VirtualMachine(namespace).Delete(name, &metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return false, err
+		}
+		_, err = client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				result = true
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	})
+	return result, err
 }
 
 func DeleteVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
