@@ -12,7 +12,7 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	"github.com/pkg/errors"
-	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 

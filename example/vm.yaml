@@ -3,6 +3,22 @@ kind: VirtualMachine
 metadata:
   name: example-vm
 spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: example-dv-template
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        volumeMode: Block
+        resources:
+          requests:
+            storage: 5Gi
+        storageClassName: rook-ceph-block
+      source:
+        registry:
+          pullMethod: node
+          url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk
   running: true
   template:
     metadata:
@@ -18,6 +34,9 @@ spec:
           - disk:
               bus: virtio
             name: volume1
+          - disk:
+              bus: virtio
+            name: volume2
           interfaces:
           - masquerade: {}
             name: default
@@ -26,7 +45,7 @@ spec:
           type: q35
         resources:
           requests:
-            memory: 256M
+            memory: 1Gi
       networks:
       - name: default
         pod: {}
@@ -35,6 +54,9 @@ spec:
       - dataVolume:
           name: example-dv
         name: volume0
+      - dataVolume:
+          name: example-dv-template
+        name: volume1
       - cloudInitNoCloud:
           networkData: |-
             ethernets:
@@ -52,4 +74,4 @@ spec:
                   - svc.cluster.local
                   - cluster.local
             version: 2
-        name: volume1
+        name: volume2

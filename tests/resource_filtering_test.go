@@ -3,10 +3,11 @@ package tests
 import (
 	"context"
 	"fmt"
+	"time"
+
 	kubernetes "k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1399,6 +1400,72 @@ var _ = Describe("Resource includes", func() {
 			})
 		})
 
+		Context("VM with DVTemplates and standalone DVs", func() {
+			It("Backup of a stopped VM selected by label should include its DVs and PVCs", func() {
+				dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", r.StorageClass)
+				dvSpec.Annotations[forceBindAnnotation] = "true"
+
+				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
+				_, err := framework.CreateDataVolumeFromDefinition(kvClient, namespace.Name, dvSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = framework.WaitForDataVolumePhase(kvClient, namespace.Name, cdiv1.Succeeded, dvSpec.Name)
+				Expect(err).ToNot(HaveOccurred())
+				// creating a started VM, so it works correctly also on WFFC storage
+				vmSpec := framework.CreateVmWithGuestAgent("test-vm", r.StorageClass)
+				vmSpec.Spec.Template.Spec.Domain.Devices.Disks = append(vmSpec.Spec.Template.Spec.Domain.Devices.Disks, kvv1.Disk{
+					Name: "volume2",
+					DiskDevice: kvv1.DiskDevice{
+						Disk: &kvv1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				})
+				vmSpec.Spec.Template.Spec.Volumes = append(vmSpec.Spec.Template.Spec.Volumes, kvv1.Volume{
+					Name: "volume2",
+					VolumeSource: kvv1.VolumeSource{
+						DataVolume: &kvv1.DataVolumeSource{
+							Name: dvSpec.Name,
+						},
+					},
+				})
+				vmSpec.Labels = map[string]string{
+					"a.test.label": "included",
+				}
+
+				vm, err := framework.CreateStartedVirtualMachine(kvClient, namespace.Name, vmSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Stopping a VM")
+				err = framework.StopVirtualMachine(kvClient, namespace.Name, vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating backup")
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, r.BackupNamespace, true)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = framework.WaitForBackupPhase(timeout, backupName, r.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Veryfing backup")
+				backup, err := framework.GetBackup(timeout, backupName, r.BackupNamespace)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
+
+				// The backup should contain the following 13 items:
+				// - VirtualMachine
+				// - 2 DataVolume
+				// - 2 PVC
+				// - 2 PV
+				// - 2 VolumeSnapshot
+				// - 2 VolumeSnapshotContent
+				// - VolumeSpapshotClass
+				// - Datavolume resource definition
+				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(13))
+			})
+		})
 		Context("VM with DVTemplates", func() {
 			It("Backup of a stopped VMs selected by label should include its DVs and PVCs", func() {
 				By("Creating VirtualMachines")
