@@ -1,0 +1,88 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: test-vm-with-different-volume-types
+  labels:
+    a.test.label: included
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: test-dv
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        volumeMode: Block
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: rook-ceph-block
+      source:
+        registry:
+          pullMethod: node
+          url: docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1
+  running: true
+  template:
+    metadata:
+      creationTimestamp: null
+      name: test-vm-with-different-volume-types
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: volume0
+          - disk:
+              bus: virtio
+            name: volume1
+          - disk:
+            name: config-volume
+          - disk:
+            name: secret-volume
+          - disk:
+            name: sa-volume
+          interfaces:
+          - masquerade: {}
+            name: default
+          rng: {}
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 256Mi
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: test-dv
+        name: volume0
+      - configMap:
+          name: test-configmap
+        name: config-volume
+      - secret:
+          secretName: test-secret
+        name: secret-volume
+      - serviceAccount:
+          serviceAccountName: default
+        name: sa-volume
+      - cloudInitNoCloud:
+          networkData: |-
+            ethernets:
+              eth0:
+                addresses:
+                - fd10:0:2::2/120
+                dhcp4: true
+                gateway6: fd10:0:2::1
+                match: {}
+                nameservers:
+                  addresses:
+                  - 10.96.0.10
+                  search:
+                  - default.svc.cluster.local
+                  - svc.cluster.local
+                  - cluster.local
+            version: 2
+        name: volume1

@@ -1,0 +1,77 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: test-vm-with-dv-and-dvtemplate
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: test-dv-template
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        volumeMode: Block
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: rook-ceph-block
+      source:
+        registry:
+          pullMethod: node
+          url: docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1
+  running: true
+  template:
+    metadata:
+      creationTimestamp: null
+      name: test-vm-with-dv-and-dvtemplate
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: volume0
+          - disk:
+              bus: virtio
+            name: volume1
+          - disk:
+              bus: virtio
+            name: volume2
+          interfaces:
+          - masquerade: {}
+            name: default
+          rng: {}
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 1Gi
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: test-dv
+        name: volume0
+      - dataVolume:
+          name: test-dv-template
+        name: volume1
+      - cloudInitNoCloud:
+          networkData: |-
+            ethernets:
+              eth0:
+                addresses:
+                - fd10:0:2::2/120
+                dhcp4: true
+                gateway6: fd10:0:2::1
+                match: {}
+                nameservers:
+                  addresses:
+                  - 10.96.0.10
+                  search:
+                  - default.svc.cluster.local
+                  - svc.cluster.local
+                  - cluster.local
+            version: 2
+        name: volume2
