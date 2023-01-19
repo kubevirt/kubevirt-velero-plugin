@@ -11,10 +11,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kvv1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	kubecli "kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
+)
+
+const (
+	dvName           = "test-dv"
+	dvTemplateName   = "test-dv-template"
+	instancetypeName = "test-vm-instancetype"
+	preferenceName   = "test-vm-preference"
+	acSecretName     = "test-access-credentials-secret"
+	configMapName    = "test-configmap"
+	secretName       = "test-secret"
 )
 
 var _ = Describe("[smoke] VM Backup", func() {
@@ -49,35 +58,17 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	It("Stopped VM should be restored", func() {
-		dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", f.StorageClass)
-		dvSpec.Annotations[forceBindAnnotation] = "true"
-
-		By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-		dv, err := framework.CreateDataVolumeFromDefinition(f.KvClient, f.Namespace.Name, dvSpec)
+		By(fmt.Sprintf("Creating DataVolume %s", dvName))
+		err := f.CreateBlankDataVolume()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvSpec.Name)
+		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
 		Expect(err).ToNot(HaveOccurred())
 		// creating a started VM, so it works correctly also on WFFC storage
 		By("Starting a VM")
-		vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
-		vmSpec.Spec.Template.Spec.Domain.Devices.Disks = append(vmSpec.Spec.Template.Spec.Domain.Devices.Disks, kvv1.Disk{
-			Name: "volume2",
-			DiskDevice: kvv1.DiskDevice{
-				Disk: &kvv1.DiskTarget{
-					Bus: "virtio",
-				},
-			},
-		})
-		vmSpec.Spec.Template.Spec.Volumes = append(vmSpec.Spec.Template.Spec.Volumes, kvv1.Volume{
-			Name: "volume2",
-			VolumeSource: kvv1.VolumeSource{
-				DataVolume: &kvv1.DataVolumeSource{
-					Name: dvSpec.Name,
-				},
-			},
-		})
-		vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, vmSpec)
+		err = f.CreateVMWithDVAndDVTemplate()
+		Expect(err).ToNot(HaveOccurred())
+		vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-dv-and-dvtemplate", dvTemplateName)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Stopping a VM")
@@ -99,10 +90,10 @@ var _ = Describe("[smoke] VM Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Deleting DataVolume")
-		err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dv.Name)
+		err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
 		Expect(err).ToNot(HaveOccurred())
 
-		ok, err := framework.WaitDataVolumeDeleted(f.KvClient, f.Namespace.Name, dv.Name)
+		ok, err := framework.WaitDataVolumeDeleted(f.KvClient, f.Namespace.Name, dvName)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ok).To(BeTrue())
 
@@ -119,7 +110,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking DataVolume exists")
-		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvSpec.Name)
+		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
 		Expect(err).ToNot(HaveOccurred())
 		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, vm.Spec.DataVolumeTemplates[0].Name)
 		Expect(err).ToNot(HaveOccurred())
@@ -211,28 +202,27 @@ var _ = Describe("[smoke] VM Backup", func() {
 	Context("VM and VMI object graph backup", func() {
 		It("with instancetype and preference", func() {
 			By("Create instancetype and preference")
-			instancetype := newVirtualMachineInstancetype(namespace.Name)
-			instancetype, err := kvClient.VirtualMachineInstancetype(namespace.Name).
-				Create(context.Background(), instancetype, metav1.CreateOptions{})
+			err := f.CreateInstancetype()
 			Expect(err).ToNot(HaveOccurred())
-
-			preference := newVirtualMachinePreference(namespace.Name)
-			preference, err = kvClient.VirtualMachinePreference(namespace.Name).
-				Create(context.Background(), preference, metav1.CreateOptions{})
+			err = f.CreatePreference()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting a VM")
-			vmSpec := framework.CreateVmWithInstancetypeAndPreference("test-vm", r.StorageClass, instancetype.Name, preference.Name)
-			vmSpec.Labels = map[string]string{
-				"a.test.label": "included",
-			}
-			vm, err = framework.CreateStartedVirtualMachine(kvClient, namespace.Name, vmSpec)
+			err = f.CreateVMWithInstancetypeAndPreference()
 			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-instancetype-and-preference", dvName)
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Wait instance type controller revision to be updated on VM spec")
 			Eventually(func(g Gomega) {
-				vm, err = kvClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(vm.Name, &metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+				g.Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
+				_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("Creating backup")
@@ -242,11 +232,11 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VM, instancetype and preference")
-			err = kvClient.VirtualMachineInstancetype(namespace.Name).
-				Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{})
+			err = f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).
+				Delete(context.Background(), instancetypeName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			err = kvClient.VirtualMachinePreference(namespace.Name).
-				Delete(context.Background(), preference.Name, metav1.DeleteOptions{})
+			err = f.KvClient.VirtualMachinePreference(f.Namespace.Name).
+				Delete(context.Background(), preferenceName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			ok, err := framework.DeleteVirtualMachineAndWait(f.KvClient, f.Namespace.Name, vm.Name)
 			Expect(err).ToNot(HaveOccurred())
@@ -254,7 +244,11 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 			// Wait until ControllerRevision is deleted
 			Eventually(func(g Gomega) metav1.StatusReason {
-				_, err := kvClient.AppsV1().ControllerRevisions(namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+				_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+				if err != nil && errors.ReasonForError(err) != metav1.StatusReasonNotFound {
+					return errors.ReasonForError(err)
+				}
+				_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
 				return errors.ReasonForError(err)
 			}, 2*time.Minute, 2*time.Second).Should(Equal(metav1.StatusReasonNotFound))
 
@@ -273,20 +267,15 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 		It("with configmap, secret and serviceaccount", func() {
 			By("Creating configmap and secret")
-			t := time.Now().UnixNano()
-			configMapName := fmt.Sprintf("configmap-%d", t)
-			secretName := fmt.Sprintf("secret-%d", t)
-			err := createConfigMap(kvClient, configMapName, namespace.Name)
+			err := f.CreateConfigMap()
 			Expect(err).ToNot(HaveOccurred())
-			err = createSecret(kvClient, secretName, namespace.Name)
+			err = f.CreateSecret()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting a VM")
-			vmSpec := createVMWithDifferentVolumes("test-vm", r.StorageClass, configMapName, secretName)
-			vmSpec.Labels = map[string]string{
-				"a.test.label": "included",
-			}
-			vm, err = framework.CreateStartedVirtualMachine(kvClient, namespace.Name, vmSpec)
+			err = f.CreateVMWithDifferentVolumes()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-different-volume-types", dvName)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Stopping a VM")
@@ -302,19 +291,15 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VM and volumes")
-			err = deleteConfigMap(kvClient, configMapName, namespace.Name)
-			err = deleteConfigMap(kvClient, configMapName, namespace.Name)
+			err = deleteConfigMap(f.KvClient, configMapName, f.Namespace.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = deleteSecret(kvClient, secretName, namespace.Name)
-			Expect(err).ToNot(HaveOccurred())
+			err = deleteSecret(f.KvClient, secretName, f.Namespace.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = deleteSecret(kvClient, secretName, namespace.Name)
+			err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
 			Expect(err).ToNot(HaveOccurred())
-			err = framework.DeleteVirtualMachine(kvClient, namespace.Name, vm.Name)
-			Expect(err).ToNot(HaveOccurred())
-			ok, err := framework.WaitVirtualMachineDeleted(kvClient, namespace.Name, vm.Name)
+			ok, err := framework.WaitVirtualMachineDeleted(f.KvClient, f.Namespace.Name, vm.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
@@ -330,25 +315,21 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying config map and secret exist")
-			_, err = kvClient.CoreV1().ConfigMaps(namespace.Name).Get(context.Background(), configMapName, metav1.GetOptions{})
+			_, err = f.KvClient.CoreV1().ConfigMaps(f.Namespace.Name).Get(context.Background(), configMapName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			_, err = kvClient.CoreV1().Secrets(namespace.Name).Get(context.Background(), secretName, metav1.GetOptions{})
+			_, err = f.KvClient.CoreV1().Secrets(f.Namespace.Name).Get(context.Background(), secretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("with access credentials", func() {
 			By("Creating access credentials")
-			t := time.Now().UnixNano()
-			secretName := fmt.Sprintf("secret-%d", t)
-			err := createAccessCredentialsSecret(kvClient, secretName, namespace.Name)
+			err := f.CreateAccessCredentialsSecret()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting a VM")
-			vmSpec := createVMWithAccessCredentials("test-vm", r.StorageClass, secretName)
-			vmSpec.Labels = map[string]string{
-				"a.test.label": "included",
-			}
-			vm, err = framework.CreateStartedVirtualMachine(kvClient, namespace.Name, vmSpec)
+			err = f.CreateVMWithAccessCredentials()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-access-credentials", dvName)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
@@ -362,7 +343,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 			ok, err := framework.WaitVirtualMachineDeleted(f.KvClient, f.Namespace.Name, vm.Name)
 			Expect(err).ToNot(HaveOccurred())
-			err = deleteSecret(kvClient, secretName, namespace.Name)
+			err = deleteSecret(f.KvClient, acSecretName, f.Namespace.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 
@@ -374,59 +355,15 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
-			By("Verifying VM")
-			_, err = kvClient.CoreV1().Secrets(namespace.Name).Get(context.Background(), secretName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			err = framework.WaitForVirtualMachineStatus(kvClient, namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
-			Expect(err).ToNot(HaveOccurred())
 			By("Verifying secret exists")
+			_, err = f.KvClient.CoreV1().Secrets(f.Namespace.Name).Get(context.Background(), acSecretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Verifying VM")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
-
-func newVirtualMachineInstancetype(namespace string) *instancetypev1alpha2.VirtualMachineInstancetype {
-	return &instancetypev1alpha2.VirtualMachineInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-instancetype-",
-			Namespace:    namespace,
-		},
-		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
-				Guest: uint32(1),
-			},
-			Memory: instancetypev1alpha2.MemoryInstancetype{
-				Guest: resource.MustParse("256M"),
-			},
-		},
-	}
-}
-
-func newVirtualMachinePreference(namespace string) *instancetypev1alpha2.VirtualMachinePreference {
-	return &instancetypev1alpha2.VirtualMachinePreference{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-preference-",
-			Namespace:    namespace,
-		},
-		Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-			CPU: &instancetypev1alpha2.CPUPreferences{
-				PreferredCPUTopology: instancetypev1alpha2.PreferSockets,
-			},
-		},
-	}
-}
-
-func createConfigMap(kvClient kubecli.KubevirtClient, name, namespace string) error {
-	data := map[string]string{
-		"option1": "value1",
-		"option2": "value2",
-		"option3": "value3",
-	}
-	_, err := kvClient.CoreV1().ConfigMaps(namespace).Create(context.Background(), &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Data:       data,
-	}, metav1.CreateOptions{})
-	return err
-}
 
 func deleteConfigMap(kvClient kubecli.KubevirtClient, name, namespace string) error {
 	err := kvClient.CoreV1().ConfigMaps(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
@@ -442,38 +379,6 @@ func deleteConfigMap(kvClient kubecli.KubevirtClient, name, namespace string) er
 	return nil
 }
 
-func getConfigMapSourcePath(volumeName string) string {
-	return filepath.Join("/var/run/kubevirt-private/config-map", volumeName)
-}
-
-func createSecret(kvClient kubecli.KubevirtClient, name, namespace string) error {
-	data := map[string]string{
-		"user":     "admin",
-		"password": "community",
-	}
-	_, err := kvClient.CoreV1().Secrets(namespace).Create(context.Background(), &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		StringData: data,
-	}, metav1.CreateOptions{})
-	return err
-}
-
-func createAccessCredentialsSecret(kvClient kubecli.KubevirtClient, name, namespace string) error {
-	customPassword := "imadethisup"
-	secret := v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Type: "Opaque",
-		Data: map[string][]byte{
-			"fedora": []byte(customPassword),
-		},
-	}
-	_, err := kvClient.CoreV1().Secrets(namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
-	return err
-}
-
 func deleteSecret(kvClient kubecli.KubevirtClient, name, namespace string) error {
 	err := kvClient.CoreV1().Secrets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
@@ -486,64 +391,4 @@ func deleteSecret(kvClient kubecli.KubevirtClient, name, namespace string) error
 		return errors.ReasonForError(err)
 	}, 2*time.Minute, 2*time.Second).Should(Equal(metav1.StatusReasonNotFound))
 	return nil
-}
-
-func createVMWithAccessCredentials(vmName, storageClassName, secretName string) *kvv1.VirtualMachine {
-	vmSpec := framework.CreateFedoraVmWithGuestAgent("test-vm", storageClassName)
-	vmSpec.Spec.Template.Spec.AccessCredentials = []kvv1.AccessCredential{
-		{
-			UserPassword: &kvv1.UserPasswordAccessCredential{
-				Source: kvv1.UserPasswordAccessCredentialSource{
-					Secret: &kvv1.AccessCredentialSecretSource{
-						SecretName: secretName,
-					},
-				},
-				PropagationMethod: kvv1.UserPasswordAccessCredentialPropagationMethod{
-					QemuGuestAgent: &kvv1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
-				},
-			},
-		},
-	}
-	return vmSpec
-}
-
-func createVMWithDifferentVolumes(vmName, storageClassName, configMapName, secretName string) *kvv1.VirtualMachine {
-	vmSpec := framework.CreateVmWithGuestAgent("test-vm", storageClassName)
-	vmSpec.Spec.Template.Spec.Volumes = append(vmSpec.Spec.Template.Spec.Volumes, kvv1.Volume{
-		Name: "config-volume",
-		VolumeSource: kvv1.VolumeSource{
-			ConfigMap: &kvv1.ConfigMapVolumeSource{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: configMapName,
-				},
-			},
-		},
-	})
-	vmSpec.Spec.Template.Spec.Volumes = append(vmSpec.Spec.Template.Spec.Volumes, kvv1.Volume{
-		Name: "secret-volume",
-		VolumeSource: kvv1.VolumeSource{
-			Secret: &kvv1.SecretVolumeSource{
-				SecretName: secretName,
-			},
-		},
-	})
-	vmSpec.Spec.Template.Spec.Volumes = append(vmSpec.Spec.Template.Spec.Volumes, kvv1.Volume{
-		Name: "sa-volume",
-		VolumeSource: kvv1.VolumeSource{
-			ServiceAccount: &kvv1.ServiceAccountVolumeSource{
-				ServiceAccountName: "default",
-			},
-		},
-	})
-	vmSpec.Spec.Template.Spec.Domain.Devices.Disks = append(vmSpec.Spec.Template.Spec.Domain.Devices.Disks, kvv1.Disk{
-		Name: "config-volume",
-	})
-	vmSpec.Spec.Template.Spec.Domain.Devices.Disks = append(vmSpec.Spec.Template.Spec.Domain.Devices.Disks, kvv1.Disk{
-		Name: "secret-volume",
-	})
-	vmSpec.Spec.Template.Spec.Domain.Devices.Disks = append(vmSpec.Spec.Template.Spec.Domain.Devices.Disks, kvv1.Disk{
-		Name: "sa-volume",
-	})
-
-	return vmSpec
 }
