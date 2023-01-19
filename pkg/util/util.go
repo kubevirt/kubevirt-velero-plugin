@@ -42,10 +42,6 @@ func GetK8sClient() (*kubernetes.Clientset, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
 	return client, nil
 }
 

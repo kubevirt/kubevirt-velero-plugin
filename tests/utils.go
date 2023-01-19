@@ -7,12 +7,8 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -23,33 +19,6 @@ const (
 	forceBindAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 	snapshotLocation    = ""
 )
-
-func CreateNamespace(client *kubernetes.Clientset) (*v1.Namespace, error) {
-	ns := &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "kvp-e2e-tests-",
-			Namespace:    "",
-		},
-		Status: v1.NamespaceStatus{},
-	}
-
-	var nsObj *v1.Namespace
-	err := wait.PollImmediate(2*time.Second, waitTime, func() (bool, error) {
-		var err error
-		nsObj, err = client.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
-		if err == nil || apierrs.IsAlreadyExists(err) {
-			return true, nil // done
-		}
-		klog.Warningf("Unexpected error while creating %q namespace: %v", ns.GenerateName, err)
-		return false, err // keep trying
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	ginkgo.By(fmt.Sprintf("INFO: Created new namespace %q\n", nsObj.Name))
-	return nsObj, nil
-}
 
 func PrintEventsForKind(client kubecli.KubevirtClient, kind, namespace, name string) {
 	events, _ := client.EventsV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
@@ -327,19 +296,6 @@ func newVMISpecWithDV(vmiName, dvName string) *kvv1.VirtualMachineInstance {
 		DataVolume: &kvv1.DataVolumeSource{
 			Name: dvName,
 		},
-	}
-	vmi = addVolumeToVMI(vmi, source, "volume0")
-	return vmi
-}
-
-func newVMISpecWithPVC(vmiName, pvcName string) *kvv1.VirtualMachineInstance {
-	vmi := newVMISpec(vmiName)
-
-	source := kvv1.VolumeSource{
-		PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
-			PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-				ClaimName: pvcName,
-			}},
 	}
 	vmi = addVolumeToVMI(vmi, source, "volume0")
 	return vmi

@@ -25,6 +25,23 @@ readonly CDI_WAIT_TIME=10
 # so now is the time to install it
 kvp::fetch_velero
 
+KUBEVIRTCI_CONFIG_PATH="$(
+    cd "$(dirname "$BASH_SOURCE[0]")/../../"
+    echo "$(pwd)/_ci-configs"
+)"
+
+BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
+KUBECONFIG=${KUBECONFIG:-$BASE_PATH/$KUBEVIRT_PROVIDER/.kubeconfig}
+
+if [ -z "${KUBECTL+x}" ]; then
+    kubevirtci_kubectl="${BASE_PATH}/${KUBEVIRT_PROVIDER}/.kubectl"
+    if [ -e ${kubevirtci_kubectl} ]; then
+        KUBECTL=${kubevirtci_kubectl}
+    else
+        KUBECTL=$(which kubectl)
+    fi
+fi
+
 # parsetTestOpts sets 'pkgs' and test_args
 function parseTestOpts() {
     pkgs=""
@@ -49,7 +66,13 @@ function parseTestOpts() {
 
 parseTestOpts "${@}"
 
-test_args="${test_args} -ginkgo.v"
+echo $KUBECONFIG
+echo $KUBECTL
+
+arg_kubectl="${KUBECTL:+-kubectl-path=$KUBECTL}"
+arg_kubeconfig="${KUBECONFIG:+-kubeconfig=$KUBECONFIG}"
+
+test_args="${test_args} -ginkgo.v ${arg_kubectl} ${arg_kubeconfig}"
 
 test_command="${TESTS_OUT_DIR}/tests.test -test.timeout 360m ${test_args}"
 kubeconfig_arg=${KUBECONFIG:-${kubeconfig}}
