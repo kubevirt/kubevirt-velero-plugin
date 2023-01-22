@@ -14,15 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package framework
+package common
 
 import (
+	"runtime/debug"
+
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 )
 
-// handlePanic is a panic handler for the server half of velero plugins.
-func handlePanic(p interface{}) error {
+// HandlePanic is a panic handler for the server half of velero plugins.
+func HandlePanic(p interface{}) error {
 	if p == nil {
 		return nil
 	}
@@ -35,12 +37,13 @@ func handlePanic(p interface{}) error {
 	if panicErr, ok := p.(error); !ok {
 		err = errors.Errorf("plugin panicked: %v", p)
 	} else {
-		if _, ok := panicErr.(stackTracer); ok {
+		if _, ok := panicErr.(StackTracer); ok {
 			err = panicErr
 		} else {
-			err = errors.Wrap(panicErr, "plugin panicked")
+			errWithStacktrace := errors.Errorf("%v, stack trace: %s", panicErr, debug.Stack())
+			err = errors.Wrap(errWithStacktrace, "plugin panicked")
 		}
 	}
 
-	return newGRPCErrorWithCode(err, codes.Aborted)
+	return NewGRPCErrorWithCode(err, codes.Aborted)
 }

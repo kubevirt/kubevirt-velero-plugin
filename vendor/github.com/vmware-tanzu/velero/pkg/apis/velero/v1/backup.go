@@ -100,13 +100,21 @@ type BackupSpec struct {
 
 	// DefaultVolumesToRestic specifies whether restic should be used to take a
 	// backup of all pod volumes by default.
+	//
+	// Deprecated: this field is no longer used and will be removed entirely in future. Use DefaultVolumesToFsBackup instead.
 	// +optional
-	// + nullable
+	// +nullable
 	DefaultVolumesToRestic *bool `json:"defaultVolumesToRestic,omitempty"`
 
+	// DefaultVolumesToFsBackup specifies whether pod volume file system backup should be used
+	// for all volumes by default.
+	// +optional
+	// +nullable
+	DefaultVolumesToFsBackup *bool `json:"defaultVolumesToFsBackup,omitempty"`
+
 	// OrderedResources specifies the backup order of resources of specific Kind.
-	// The map key is the Kind name and value is a list of resource names separated by commas.
-	// Each resource name has format "namespace/resourcename".  For cluster resources, simply use "resourcename".
+	// The map key is the resource name and value is a list of object names separated by commas.
+	// Each resource name has format "namespace/objectname".  For cluster resources, simply use "objectname".
 	// +optional
 	// +nullable
 	OrderedResources map[string]string `json:"orderedResources,omitempty"`
