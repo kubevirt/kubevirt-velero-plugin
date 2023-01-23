@@ -30,6 +30,11 @@ func (f *Framework) CreateBlankDataVolume() error {
 	return err
 }
 
+func (f *Framework) CreatePVCUsingDataVolume() error {
+	err := f.RunKubectlCommand("create", "-f", "manifests/dv-for-pvc.yaml", "-n", f.Namespace.Name)
+	return err
+}
+
 func (f *Framework) CreateVMWithInstancetypeAndPreference() error {
 	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_instancetype_and_preference.yaml", "-n", f.Namespace.Name)
 	return err
@@ -47,5 +52,10 @@ func (f *Framework) CreateVMWithAccessCredentials() error {
 
 func (f *Framework) CreateVMWithDVAndDVTemplate() error {
 	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_dv_and_dvtemplate.yaml", "-n", f.Namespace.Name)
+	return err
+}
+
+func (f *Framework) CreateVMWithPVC() error {
+	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_pvc.yaml", "-n", f.Namespace.Name)
 	return err
 }

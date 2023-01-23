@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kvv1 "kubevirt.io/api/core/v1"
@@ -19,6 +20,7 @@ import (
 const (
 	dvName           = "test-dv"
 	dvTemplateName   = "test-dv-template"
+	dvForPVCName     = "test-pvc"
 	instancetypeName = "test-vm-instancetype"
 	preferenceName   = "test-vm-preference"
 	acSecretName     = "test-access-credentials-secret"
@@ -360,6 +362,67 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("VM with standalone PVC", func() {
+			By(fmt.Sprintf("Creating DataVolume %s to create PVC", dvForPVCName))
+			err := f.CreatePVCUsingDataVolume()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvForPVCName)
+			Expect(err).ToNot(HaveOccurred())
+
+			// creating a started VM, so it works correctly also on WFFC storage
+			By("Starting a VM")
+			err = f.CreateVMWithPVC()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-pvc", dvForPVCName)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Stopping a VM")
+			err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = framework.DeleteDataVolumeWithoutDeletingPVC(f.KvClient, f.Namespace.Name, dvForPVCName)
+			Expect(err).ToNot(HaveOccurred())
+			ok, err := framework.WaitDataVolumeDeleted(f.KvClient, f.Namespace.Name, dvName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+
+			By("Creating backup")
+			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+			Expect(err).ToNot(HaveOccurred())
+			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting VM")
+			err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting PVC")
+			err = framework.DeletePVC(f.K8sClient, f.Namespace.Name, dvForPVCName)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = framework.WaitPVCDeleted(f.K8sClient, f.Namespace.Name, dvForPVCName)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating restore")
+			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
+
+			By("Verifying VM")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking PVC exists")
+			err = framework.WaitForPVCPhase(f.K8sClient, f.Namespace.Name, dvForPVCName, v1.ClaimBound)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

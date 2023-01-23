@@ -156,6 +156,19 @@ func DeleteDataVolume(kvClient kubecli.KubevirtClient, namespace, name string) e
 	})
 }
 
+func DeleteDataVolumeWithoutDeletingPVC(kvClient kubecli.KubevirtClient, namespace, name string) error {
+	propagationOrphan := metav1.DeletePropagationOrphan
+	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		err := kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{
+			PropagationPolicy: &propagationOrphan,
+		})
+		if err == nil || apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	})
+}
+
 // DeletePVC deletes the PVC by name
 func DeletePVC(clientSet *kubernetes.Clientset, namespace string, pvcName string) error {
 	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
