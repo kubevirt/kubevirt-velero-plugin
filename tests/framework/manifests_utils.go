@@ -59,3 +59,8 @@ func (f *Framework) CreateVMWithPVC() error {
 	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_pvc.yaml", "-n", f.Namespace.Name)
 	return err
 }
+
+func (f *Framework) CreateVMForHotplug() error {
+	err := f.RunKubectlCommand("create", "-f", "manifests/vm_for_hotplug.yaml", "-n", f.Namespace.Name)
+	return err
+}

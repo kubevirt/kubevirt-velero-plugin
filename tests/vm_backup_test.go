@@ -425,6 +425,60 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = framework.WaitForPVCPhase(f.K8sClient, f.Namespace.Name, dvForPVCName, v1.ClaimBound)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("VM with hotplug disk", func() {
+			By("Starting a VM")
+			err := f.CreateVMForHotplug()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-for-hotplug", dvTemplateName)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create datavolume to hotplug")
+			err = f.CreateBlankDataVolume()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Adding Hotplug volume to VM")
+			hotplugVolName := addVolumeAndVerify(f.KvClient, vm, dvName)
+
+			By("Creating backup")
+			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+			Expect(err).ToNot(HaveOccurred())
+			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting VM")
+			err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting hotplug DataVolume")
+			err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
+			Expect(err).ToNot(HaveOccurred())
+
+			ok, err := framework.WaitDataVolumeDeleted(f.KvClient, f.Namespace.Name, dvName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+
+			By("Creating restore")
+			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
+
+			By("Verifying VM")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking hotpluged data volume exists")
+			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
+			Expect(err).ToNot(HaveOccurred())
+
+			verifyVolumeAndDiskAdded(f.KvClient, vm.Namespace, vm.Name, hotplugVolName)
+		})
 	})
 })
 
@@ -454,4 +508,71 @@ func deleteSecret(kvClient kubecli.KubevirtClient, name, namespace string) error
 		return errors.ReasonForError(err)
 	}, 2*time.Minute, 2*time.Second).Should(Equal(metav1.StatusReasonNotFound))
 	return nil
+}
+
+func addVolumeAndVerify(kvClient kubecli.KubevirtClient, vm *kvv1.VirtualMachine, dvName string) string {
+	volumeSource := &kvv1.HotplugVolumeSource{
+		DataVolume: &kvv1.DataVolumeSource{
+			Name: dvName,
+		},
+	}
+	addVolumeName := "hotplug-volume"
+	addVolumeOptions := &kvv1.AddVolumeOptions{
+		Name: addVolumeName,
+		Disk: &kvv1.Disk{
+			DiskDevice: kvv1.DiskDevice{
+				Disk: &kvv1.DiskTarget{
+					Bus: kvv1.DiskBusSCSI,
+				},
+			},
+			Serial: addVolumeName,
+		},
+		VolumeSource: volumeSource,
+	}
+
+	Eventually(func() error {
+		return kvClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, addVolumeOptions)
+	}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	verifyVolumeAndDiskAdded(kvClient, vm.Namespace, vm.Name, addVolumeName)
+
+	return addVolumeName
+}
+
+func verifyVolumeAndDiskAdded(kvClient kubecli.KubevirtClient, namespace, name, volumeName string) {
+	Eventually(func() error {
+		updatedVM, err := kvClient.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(updatedVM.Status.VolumeRequests) > 0 {
+			return fmt.Errorf("waiting on all VolumeRequests to be processed")
+		}
+		updatedVMI, err := framework.GetVirtualMachineInstance(kvClient, namespace, name)
+		if err != nil {
+			return err
+		}
+
+		foundVolume := false
+		foundDisk := false
+
+		for _, volume := range updatedVMI.Spec.Volumes {
+			if volume.Name == volumeName {
+				foundVolume = true
+				break
+			}
+		}
+		for _, disk := range updatedVMI.Spec.Domain.Devices.Disks {
+			if disk.Name == volumeName {
+				foundDisk = true
+				break
+			}
+		}
+
+		if !foundDisk || !foundVolume {
+			return fmt.Errorf("waiting on new disk and volume to appear in VMI")
+		}
+
+		return nil
+	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
