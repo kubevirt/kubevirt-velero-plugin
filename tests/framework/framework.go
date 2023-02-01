@@ -185,6 +185,7 @@ func (f *Framework) AfterEach() {
 
 	if ginkgo.CurrentGinkgoTestDescription().Failed {
 		f.reporter.FailureCount++
+		fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", f.reporter.artifactsDir, f.reporter.FailureCount)
 		f.reporter.Dump(f.K8sClient, f.KvClient, ginkgo.CurrentGinkgoTestDescription().Duration)
 	}
 

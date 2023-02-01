@@ -165,7 +165,7 @@ func DeleteDataVolumeWithoutDeletingPVC(kvClient kubecli.KubevirtClient, namespa
 		if err == nil || apierrs.IsNotFound(err) {
 			return true, nil
 		}
-		return false, err
+		return false, nil
 	})
 }
 
