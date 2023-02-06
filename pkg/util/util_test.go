@@ -84,6 +84,24 @@ func TestIsResourceIncluded(t *testing.T) {
 			},
 			true,
 		},
+		{"Full resource name should succeed",
+			"virtualmachines",
+			&velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachines.kubevirt.io"},
+				},
+			},
+			true,
+		},
+		{"Singular/plural full resource name should succeed",
+			"virtualmachines",
+			&velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachine.kubevirt.io"},
+				},
+			},
+			true,
+		},
 	}
 
 	logrus.SetLevel(logrus.ErrorLevel)
@@ -162,6 +180,24 @@ func TestIsResourceExcluded(t *testing.T) {
 			&velerov1.Backup{
 				Spec: velerov1.BackupSpec{
 					ExcludedResources: []string{"pod"},
+				},
+			},
+			true,
+		},
+		{"Full resource name in excluded resources should return true",
+			"virtualmachines",
+			&velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					ExcludedResources: []string{"virtualmachines.kubevirt.io"},
+				},
+			},
+			true,
+		},
+		{"Singular/plural full resource name in excluded resources should return true",
+			"virtualmachines",
+			&velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					ExcludedResources: []string{"virtualmachine.kubevirt.io"},
 				},
 			},
 			true,
