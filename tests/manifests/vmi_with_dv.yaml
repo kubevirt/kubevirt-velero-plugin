@@ -1,0 +1,49 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: test-vmi-with-dv
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: volume0
+      - disk:
+          bus: virtio
+        name: volume1
+      interfaces:
+      - masquerade: {}
+        name: default
+      rng: {}
+    machine:
+      type: q35
+    resources:
+      requests:
+        memory: 512Mi
+  networks:
+  - name: default
+    pod: {}
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - dataVolume:
+      name: test-dv
+    name: volume0
+  - cloudInitNoCloud:
+      networkData: |-
+        ethernets:
+          eth0:
+            addresses:
+            - fd10:0:2::2/120
+            dhcp4: true
+            gateway6: fd10:0:2::1
+            match: {}
+            nameservers:
+              addresses:
+              - 10.96.0.10
+              search:
+              - default.svc.cluster.local
+              - svc.cluster.local
+              - cluster.local
+        version: 2
+    name: volume1

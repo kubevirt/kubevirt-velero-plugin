@@ -30,6 +30,11 @@ func (f *Framework) CreateBlankDataVolume() error {
 	return err
 }
 
+func (f *Framework) CreateDataVolumeWithGuestAgentImage() error {
+	err := f.RunKubectlCommand("create", "-f", "manifests/dv-with-guest-agent-image.yaml", "-n", f.Namespace.Name)
+	return err
+}
+
 func (f *Framework) CreatePVCUsingDataVolume() error {
 	err := f.RunKubectlCommand("create", "-f", "manifests/dv-for-pvc.yaml", "-n", f.Namespace.Name)
 	return err
@@ -62,5 +67,10 @@ func (f *Framework) CreateVMWithPVC() error {
 
 func (f *Framework) CreateVMForHotplug() error {
 	err := f.RunKubectlCommand("create", "-f", "manifests/vm_for_hotplug.yaml", "-n", f.Namespace.Name)
+	return err
+}
+
+func (f *Framework) CreateVMIWithDataVolume() error {
+	err := f.RunKubectlCommand("create", "-f", "manifests/vmi_with_dv.yaml", "-n", f.Namespace.Name)
 	return err
 }

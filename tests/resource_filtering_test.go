@@ -1132,22 +1132,20 @@ var _ = Describe("Resource includes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			// This test tries to backup on all namespaces, on some clusters it always fails
 			// need to be improved
-			XIt("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
-				By("Creating DVs")
-				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage("test-dv", f.StorageClass)
-				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
-				_, err := framework.CreateDataVolumeFromDefinition(f.KvClient, f.Namespace.Name, dvSpec)
+			It("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
+				By(fmt.Sprintf("Creating DataVolume %s", dvName))
+				err := f.CreateDataVolumeWithGuestAgentImage()
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, "test-dv")
+				err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VirtualMachineInstance")
-				vmiSpec := newBigVMISpecWithDV("test-vmi", "test-dv")
-				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
+				vmiName := "test-vmi-with-dv"
+				err = f.CreateVMIWithDataVolume()
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiName, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := framework.WaitForVirtualMachineInstanceCondition(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(f.KvClient, f.Namespace.Name, vmiName, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
@@ -1159,7 +1157,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
-				err = framework.DeleteVirtualMachineInstance(f.KvClient, f.Namespace.Name, vmiSpec.Name)
+				err = framework.DeleteVirtualMachineInstance(f.KvClient, f.Namespace.Name, vmiName)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
 				Expect(err).ToNot(HaveOccurred())
