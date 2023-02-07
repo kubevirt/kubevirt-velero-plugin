@@ -69,7 +69,8 @@ func IsResourceIncluded(resourceKind string, backup *velerov1.Backup) bool {
 	}
 
 	for _, res := range backup.Spec.IncludedResources {
-		if equalIgnorePlural(res, resourceKind) {
+		gr := schema.ParseGroupResource(res)
+		if equalIgnorePlural(gr.Resource, resourceKind) {
 			return true
 		}
 	}
@@ -84,7 +85,8 @@ func IsResourceExcluded(resourceKind string, backup *velerov1.Backup) bool {
 	}
 
 	for _, res := range backup.Spec.ExcludedResources {
-		if equalIgnorePlural(res, resourceKind) {
+		gr := schema.ParseGroupResource(res)
+		if equalIgnorePlural(gr.Resource, resourceKind) {
 			return true
 		}
 	}
