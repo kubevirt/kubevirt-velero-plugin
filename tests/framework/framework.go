@@ -11,12 +11,18 @@ import (
 	"strconv"
 	"time"
 
+	ginkgo "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
 const (
@@ -31,16 +37,51 @@ const (
 
 	defaultRegionName      = "minio"
 	defaultBackupNamespace = "velero"
+	TestNamespacePrefix    = "kvp-e2e-tests-"
 )
+
+// run-time flags
+var (
+	ClientsInstance = &Clients{}
+	reporter        = NewKubernetesReporter()
+)
+
+// Framework supports common operations used by functional/e2e tests. It holds the k8s and cdi clients,
+// a generated unique namespace, run-time flags, and more fields will be added over time as cdi e2e
+// evolves. Global BeforeEach and AfterEach are called in the Framework constructor.
+type Framework struct {
+	BackupNamespace string
+	StorageClass    string
+	Region          string
+	// Namespace provides a namespace for each test generated/unique ns per test
+	Namespace          *v1.Namespace
+	namespacesToDelete []*v1.Namespace
+
+	*Clients
+
+	reporter *KubernetesReporter
+}
+
+// Clients is the struct containing the client-go kubernetes clients
+type Clients struct {
+	KubectlPath string
+	KubeConfig  string
+
+	// KvClient provides our kubevirt client pointer
+	KvClient  kubecli.KubevirtClient
+	K8sClient *kubernetes.Clientset
+}
 
 // KubernetesReporter is the struct that holds the report info.
 type KubernetesReporter struct {
-	BackupNamespace string
-	FailureCount    int
-	Region          string
-	StorageClass    string
-	artifactsDir    string
-	maxFails        int
+	FailureCount int
+	artifactsDir string
+	maxFails     int
+}
+
+// LoadConfig loads our specified kubeconfig
+func (c *Clients) LoadConfig() (*rest.Config, error) {
+	return clientcmd.BuildConfigFromFlags("", c.KubeConfig)
 }
 
 func getBackupNamespaceFromEnv() string {
@@ -96,28 +137,108 @@ func getMaxFailsFromEnv() int {
 // NewKubernetesReporter creates a new instance of the reporter.
 func NewKubernetesReporter() *KubernetesReporter {
 	return &KubernetesReporter{
+		FailureCount: 0,
+		artifactsDir: os.Getenv("ARTIFACTS"),
+		maxFails:     getMaxFailsFromEnv(),
+	}
+}
+
+func NewFramework() *Framework {
+	f := &Framework{
 		BackupNamespace: getBackupNamespaceFromEnv(),
 		Region:          getRegionFromEnv(),
 		StorageClass:    getStorageClassFromEnv(),
-		FailureCount:    0,
-		artifactsDir:    os.Getenv("ARTIFACTS"),
-		maxFails:        getMaxFailsFromEnv(),
+		Clients:         ClientsInstance,
+		reporter:        reporter,
 	}
+
+	ginkgo.BeforeEach(f.BeforeEach)
+	ginkgo.AfterEach(f.AfterEach)
+
+	return f
+}
+
+// BeforeEach provides a set of operations to run before each test
+func (f *Framework) BeforeEach() {
+	ginkgo.By("Building a namespace api object")
+	ns, err := f.CreateNamespace()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	f.Namespace = ns
+	f.AddNamespaceToDelete(ns)
+}
+
+// AfterEach provides a set of operations to run after each test
+func (f *Framework) AfterEach() {
+	// delete the namespace(s) in a defer in case future code
+	// added here could generate an exception.
+	defer func() {
+		for _, ns := range f.namespacesToDelete {
+			defer func() { f.namespacesToDelete = nil }()
+			if ns == nil || len(ns.Name) == 0 {
+				continue
+			}
+			ginkgo.By(fmt.Sprintf("Destroying namespace %q for this suite.", ns.Name))
+			err := DeleteNS(f.K8sClient, ns.Name)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}
+	}()
+
+	if ginkgo.CurrentGinkgoTestDescription().Failed {
+		f.reporter.FailureCount++
+		fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", f.reporter.artifactsDir, f.reporter.FailureCount)
+		f.reporter.Dump(f.K8sClient, f.KvClient, ginkgo.CurrentGinkgoTestDescription().Duration)
+	}
+
+	return
+}
+
+// AddNamespaceToDelete provides a wrapper around the go append function
+func (f *Framework) AddNamespaceToDelete(ns *v1.Namespace) {
+	f.namespacesToDelete = append(f.namespacesToDelete, ns)
+}
+
+// CreateNamespace provides a function to create namespace for the test cluster
+func (f *Framework) CreateNamespace() (*v1.Namespace, error) {
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: TestNamespacePrefix,
+			Namespace:    "",
+		},
+		Status: v1.NamespaceStatus{},
+	}
+
+	var nsObj *v1.Namespace
+	err := wait.PollImmediate(2*time.Second, waitTime, func() (bool, error) {
+		var err error
+		nsObj, err = f.K8sClient.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
+		if err == nil || apierrs.IsAlreadyExists(err) {
+			return true, nil // done
+		}
+		klog.Warningf("Unexpected error while creating %q namespace: %v", ns.GenerateName, err)
+		return false, err // keep trying
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	ginkgo.By(fmt.Sprintf("INFO: Created new namespace %q\n", nsObj.Name))
+	return nsObj, nil
+}
+
+// DeleteNS provides a function to delete the specified namespace from the test cluster
+func DeleteNS(c *kubernetes.Clientset, ns string) error {
+	// return wait.PollImmediate(2*time.Second, nsDeleteTime, func() (bool, error) {
+	err := c.CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{})
+	if err != nil && !apierrs.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 // Dump dumps the current state of the cluster. The relevant logs are collected starting
 // from the since parameter.
-func (r *KubernetesReporter) Dump(duration time.Duration) {
-
-	kvClient, err := util.GetKubeVirtclient()
-	kubeCli := (*kvClient).(kubernetes.Interface)
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get client: %v\n", err)
-		return
-	}
-
-	// If we got not directory, print to stderr
+func (r *KubernetesReporter) Dump(kubeCli *kubernetes.Clientset, kvClient kubecli.KubevirtClient, duration time.Duration) {
+	// If we got no directory, print to stderr
 	if r.artifactsDir == "" {
 		return
 	}
@@ -133,7 +254,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	}
 	since := time.Now().Add(-duration)
 
-	r.logDVs(*kvClient)
+	r.logDVs(kvClient)
 	r.logEvents(kubeCli, since)
 	r.logNodes(kubeCli)
 	r.logPVCs(kubeCli)
@@ -141,7 +262,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logPods(kubeCli)
 	r.logServices(kubeCli)
 	r.logEndpoints(kubeCli)
-	r.logVMs(*kvClient)
+	r.logVMs(kvClient)
 
 	r.logRestores(kubeCli)
 	r.logBackups(kubeCli)

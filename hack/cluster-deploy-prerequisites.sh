@@ -49,6 +49,9 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     sleep 1m
 done
 
+# Patch kubevirt with hotplug feature gate enabled
+_kubectl patch -n kubevirt kubevirt kubevirt --type merge -p '{"spec": {"configuration": { "developerConfiguration": { "featureGates": ["HotplugVolumes"] }}}}'
+
 if [[ "$KUBEVIRT_DEPLOY_CDI" != "false" ]] && [[ $CDI_DV_GC != "0" ]]; then
     _kubectl patch cdi cdi --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
 fi

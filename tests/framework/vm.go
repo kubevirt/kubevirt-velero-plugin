@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -94,24 +93,6 @@ func CreateVmWithGuestAgent(vmName string, storageClassName string) *v1.VirtualM
 
 func CreateFedoraVmWithGuestAgent(vmName string, storageClassName string) *v1.VirtualMachine {
 	return CreateVm(vmName, storageClassName, fedoraWithGuestAgentUrl, "5Gi")
-}
-
-func CreateVmWithInstancetypeAndPreference(vmName, storageClassName, instancetypeName, preferenceName string) *v1.VirtualMachine {
-	vm := CreateVm(vmName, storageClassName, alpineWithGuestAgentUrl, "1Gi")
-	// Add the instancetype and preference matchers to the VM spec
-	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-		Name: instancetypeName,
-		Kind: instancetypeapi.SingularResourceName,
-	}
-	vm.Spec.Preference = &v1.PreferenceMatcher{
-		Name: preferenceName,
-		Kind: instancetypeapi.SingularPreferenceResourceName,
-	}
-	// remove resources and preferences
-	vm.Spec.Template.Spec.Domain.CPU = nil
-	vm.Spec.Template.Spec.Domain.Memory = nil
-	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
-	return vm
 }
 
 func CreateVm(vmName string, storageClassName string, containerDiskUrl string, size string) *v1.VirtualMachine {
@@ -273,11 +254,23 @@ func CreateStartedVirtualMachine(client kubecli.KubevirtClient, namespace string
 		return nil, err
 	}
 
-	err = WaitForDataVolumePhase(client, namespace, cdiv1.Succeeded, vmSpec.Spec.DataVolumeTemplates[0].Name)
+	vm, err = WaitVirtualMachineRunning(client, namespace, vmSpec.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
+
+	return vm, nil
+}
+
+func WaitVirtualMachineRunning(client kubecli.KubevirtClient, namespace, vmName, dvName string) (*v1.VirtualMachine, error) {
+	err := WaitForDataVolumePhase(client, namespace, cdiv1.Succeeded, dvName)
 	if err != nil {
 		return nil, err
 	}
-	err = WaitForVirtualMachineInstancePhase(client, namespace, vmSpec.Name, v1.Running)
+
+	err = WaitForVirtualMachineInstancePhase(client, namespace, vmName, v1.Running)
+	if err != nil {
+		return nil, err
+	}
+
+	vm, err := GetVirtualMachine(client, namespace, vmName)
 	if err != nil {
 		return nil, err
 	}

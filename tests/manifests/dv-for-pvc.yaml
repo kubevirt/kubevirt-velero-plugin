@@ -1,0 +1,17 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: test-pvc
+spec:
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    volumeMode: Block
+    resources:
+      requests:
+        storage: 1Gi
+    storageClassName: rook-ceph-block
+  source:
+    registry:
+      pullMethod: node
+      url: docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
 
@@ -153,6 +153,19 @@ func DeleteDataVolume(kvClient kubecli.KubevirtClient, namespace, name string) e
 			return true, nil
 		}
 		return false, err
+	})
+}
+
+func DeleteDataVolumeWithoutDeletingPVC(kvClient kubecli.KubevirtClient, namespace, name string) error {
+	propagationOrphan := metav1.DeletePropagationOrphan
+	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+		err := kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{
+			PropagationPolicy: &propagationOrphan,
+		})
+		if err == nil || apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, nil
 	})
 }
 
