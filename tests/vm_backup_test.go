@@ -120,8 +120,9 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 	It("started VM should be restored - with guest agent", func() {
 		// creating a started VM, so it works correctly also on WFFC storage
+		var err error
 		By("Starting a VM")
-		vm, err := framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, framework.CreateVmWithGuestAgent("test-vm", f.StorageClass))
+		vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, framework.CreateVmWithGuestAgent("test-vm", f.StorageClass))
 		Expect(err).ToNot(HaveOccurred())
 
 		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
@@ -163,8 +164,9 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 	It("started VM should be restored - without guest agent", func() {
 		// creating a started VM, so it works correctly also on WFFC storage
+		var err error
 		By("Starting a VM")
-		vm, err := framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, framework.CreateVmWithGuestAgent("test-vm", f.StorageClass))
+		vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, framework.CreateVmWithGuestAgent("test-vm", f.StorageClass))
 		Expect(err).ToNot(HaveOccurred())
 
 		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
