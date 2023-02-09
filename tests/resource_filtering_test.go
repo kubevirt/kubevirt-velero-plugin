@@ -1367,7 +1367,7 @@ var _ = Describe("Resource includes", func() {
 		})
 
 		Context("VM with DVTemplates and standalone DVs", func() {
-			It("Backup of a stopped VM selected by label should include its DVs and PVCs", func() {
+			It("[test_id:9679]Backup of a stopped VM selected by label should include its DVs and PVCs", func() {
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				dvSpec.Annotations[forceBindAnnotation] = "true"
 
