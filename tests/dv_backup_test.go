@@ -110,11 +110,6 @@ var _ = Describe("DV Backup", func() {
 			f.AddNamespaceToDelete(sourceNamespace)
 		})
 
-		AfterEach(func() {
-			err := framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dv.Name)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
 		It("[test_id:9684]DataVolume should be restored", func() {
 			var err error
 			By("Creating source DV")

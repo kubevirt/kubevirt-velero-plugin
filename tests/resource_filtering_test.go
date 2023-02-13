@@ -109,10 +109,6 @@ var _ = Describe("Resource includes", func() {
 			ok, err = framework.WaitDataVolumeDeleted(f.KvClient, otherNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
-
-			By("Cleanup")
-			err = framework.DeleteDataVolume(f.KvClient, includedNamespace.Name, dvIncluded.Name)
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should only backup and restore VM from included namespace", func() {
@@ -162,10 +158,6 @@ var _ = Describe("Resource includes", func() {
 			ok, err = framework.WaitVirtualMachineDeleted(f.KvClient, otherNamespace.Name, vmOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
-
-			By("Cleanup")
-			err = framework.DeleteVirtualMachine(f.KvClient, includedNamespace.Name, vmIncluded.Name)
-			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -220,9 +212,6 @@ var _ = Describe("Resource includes", func() {
 				err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting DV+PVC+PV+VolumeSnapshot+VSContent: Both DVs and PVCs should be backed up and restored, content of PVC not re-imported", func() {
@@ -277,10 +266,6 @@ var _ = Describe("Resource includes", func() {
 				By("Checking DataVolume does not re-import content")
 				err = framework.WaitForDataVolumePhaseButNot(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, dvName)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting only DVs: the restored DV should not recreate its PVC", func() {
@@ -323,10 +308,6 @@ var _ = Describe("Resource includes", func() {
 
 				By("Checking DataVolume Pending")
 				err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Pending, dvName)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -385,10 +366,6 @@ var _ = Describe("Resource includes", func() {
 					_, err := framework.FindDataVolume(f.KvClient, f.Namespace.Name, dvName)
 					return apierrs.IsNotFound(err)
 				}, "1000ms", "100ms").Should(BeTrue())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -437,10 +414,6 @@ var _ = Describe("Resource includes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+DV+PVC: Backing up VM should fail if the VM is running", func() {
@@ -462,10 +435,6 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+VMI but not Pod: Backing up should fail if the VM is running", func() {
@@ -486,10 +455,6 @@ var _ = Describe("Resource includes", func() {
 				err = framework.CreateBackupForResources(timeout, backupName, resources, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -549,10 +514,6 @@ var _ = Describe("Resource includes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -618,10 +579,6 @@ var _ = Describe("Resource includes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM but not VMI or Pod: Backing up should fail if the VM is running", func() {
@@ -642,10 +599,6 @@ var _ = Describe("Resource includes", func() {
 				err = framework.CreateBackupForResources(timeout, backupName, resources, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -701,10 +654,6 @@ var _ = Describe("Resource includes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+DV+PVC+VMI+Pod: All objects should be restored", func() {
@@ -745,10 +694,6 @@ var _ = Describe("Resource includes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM+DV: VM, DV should be restored, PVC should not be recreated", func() {
@@ -788,10 +733,6 @@ var _ = Describe("Resource includes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -885,10 +826,6 @@ var _ = Describe("Resource includes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VMI (with DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
@@ -911,10 +848,6 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VMI (without DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
@@ -936,10 +869,6 @@ var _ = Describe("Resource includes", func() {
 				err = framework.CreateBackupForResources(timeout, backupName, resources, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -998,10 +927,6 @@ var _ = Describe("Resource includes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Selecting VM + PVC, VM stopped: VM and PVC should be restored", func() {
@@ -1053,10 +978,6 @@ var _ = Describe("Resource includes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1177,10 +1098,6 @@ var _ = Describe("Resource includes", func() {
 
 				By("Verifying VMI running")
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiName, kvv1.Running)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1322,10 +1239,6 @@ var _ = Describe("Resource includes", func() {
 				ok, err = framework.WaitDataVolumeDeleted(f.KvClient, f.Namespace.Name, dvOther.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Backup of DVs selected by label should include PVCs", func() {
@@ -1584,12 +1497,6 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSpapshotClass
 				// - VMI resource definition
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(13))
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
-				Expect(err).ToNot(HaveOccurred())
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, "test-dv-2")
-				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
@@ -1685,10 +1592,6 @@ var _ = Describe("Resource excludes", func() {
 			ok, err = framework.WaitDataVolumeDeleted(f.KvClient, excludedNamespace.Name, dvOther.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
-
-			By("Cleanup")
-			err = framework.DeleteDataVolume(f.KvClient, otherNamespace.Name, dvExcluded.Name)
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should not backup and restore VM from excluded namespace", func() {
@@ -1741,10 +1644,6 @@ var _ = Describe("Resource excludes", func() {
 			ok, err = framework.WaitVirtualMachineDeleted(f.KvClient, excludedNamespace.Name, vmExcluded.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
-
-			By("Cleanup")
-			err = framework.DeleteVirtualMachine(f.KvClient, otherNamespace.Name, vmExcluded.Name)
-			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -1790,10 +1689,6 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err = framework.FindPVC(f.K8sClient, f.Namespace.Name, dvName)
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("DV excluded: PVC restored, ownership relation empty", func() {
@@ -1839,10 +1734,6 @@ var _ = Describe("Resource excludes", func() {
 					_, err := framework.FindDataVolume(f.KvClient, f.Namespace.Name, dvName)
 					return apierrs.IsNotFound(err)
 				}, "1000ms", "100ms").Should(BeTrue())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -1865,10 +1756,6 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Pods+DV excluded, VM running: backup should fail", func() {
@@ -1889,10 +1776,6 @@ var _ = Describe("Resource excludes", func() {
 				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, f.Namespace.Name, resources, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1938,10 +1821,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Pods excluded, VM stopped: VM+DV+PVC should be restored", func() {
@@ -1978,10 +1857,6 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2038,10 +1913,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI excluded, Pod not excluded: backup should fail", func() {
@@ -2063,10 +1934,6 @@ var _ = Describe("Resource excludes", func() {
 				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, f.Namespace.Name, resources, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2106,10 +1973,6 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2151,10 +2014,6 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2199,10 +2058,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Running VM excluded: backup should fail", func() {
@@ -2223,10 +2078,6 @@ var _ = Describe("Resource excludes", func() {
 				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, f.Namespace.Name, resources, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2361,10 +2212,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM with PVC Volume, PVC excluded: backup should fail", func() {
@@ -2472,10 +2319,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying VMI running")
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, "test-vmi", kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[smoke] Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
@@ -2526,10 +2369,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying VMI not present")
 				_, err = framework.GetVirtualMachineInstance(f.KvClient, f.Namespace.Name, "test-vmi")
 				Expect(err).To(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI+Pod included, DV excluded: backup should fail", func() {
@@ -2648,10 +2487,6 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err = framework.FindPVC(f.K8sClient, f.Namespace.Name, dvName)
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("PVC included, DV excluded: PVC should not be restored, ownership relation empty", func() {
@@ -2719,10 +2554,6 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM+VMI included, Pod excluded: should fail if VM is running", func() {
@@ -2749,10 +2580,6 @@ var _ = Describe("Resource excludes", func() {
 				err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2808,10 +2635,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Negative: VM+VMI+Pod included should fail if VM is paused", func() {
@@ -2863,10 +2686,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VM included, DV and PVC excluded: both DV and PVC recreated", func() {
@@ -2910,10 +2729,6 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2982,10 +2797,6 @@ var _ = Describe("Resource excludes", func() {
 				err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -3081,10 +2892,6 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusProvisioning)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -3203,10 +3010,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying VMI running")
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, "test-vmi", kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
@@ -3259,10 +3062,6 @@ var _ = Describe("Resource excludes", func() {
 				By("Verifying VMI not present")
 				_, err = framework.GetVirtualMachineInstance(f.KvClient, f.Namespace.Name, "test-vmi")
 				Expect(err).To(HaveOccurred())
-
-				By("Cleanup")
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("VMI+Pod included, DV excluded: backup should fail", func() {
