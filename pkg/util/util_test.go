@@ -9,6 +9,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
@@ -216,6 +217,9 @@ func TestIsResourceExcluded(t *testing.T) {
 
 func TestRestorePossible(t *testing.T) {
 	returnFalse := func(something ...interface{}) (bool, error) { return false, nil }
+	returnDVNotFound := func(something ...interface{}) (bool, error) {
+		return false, k8serrors.NewNotFound(schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"}, "dv")
+	}
 	returnTrue := func(something ...interface{}) (bool, error) { return true, nil }
 	skipFalse := func(volume kvcore.Volume) bool { return false }
 	skipTrue := func(volume kvcore.Volume) bool { return true }
@@ -277,11 +281,59 @@ func TestRestorePossible(t *testing.T) {
 			returnFalse,
 			true,
 		},
-		{"Returns false if volumes have DV volumes and DVs not included in backup",
+		{"Returns true if volumes have DV volumes, DVs doesnt exist, but PVCs included in backup",
+			dvVolumes,
+			velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"persistentvolumeclaims"},
+				},
+			},
+			skipFalse,
+			returnDVNotFound,
+			returnFalse,
+			true,
+		},
+		{"Returns false if volumes have DV volumes, DV doesnt exist and PVCs excluded in backup",
+			dvVolumes,
+			velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					ExcludedResources: []string{"persistentvolumeclaims"},
+				},
+			},
+			skipFalse,
+			returnDVNotFound,
+			returnFalse,
+			false,
+		},
+		{"Returns false if volumes have DV volumes, DV doesnt exist and PVCs not inclueded in backup",
 			dvVolumes,
 			velerov1.Backup{
 				Spec: velerov1.BackupSpec{
 					IncludedResources: []string{"pods"},
+				},
+			},
+			skipFalse,
+			returnDVNotFound,
+			returnFalse,
+			false,
+		},
+		{"Returns false if volumes have DV volumes, DV doesnt exist, PVCs included in backup but excluded by label",
+			dvVolumes,
+			velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"pods", "persistentvolumeclaims"},
+				},
+			},
+			skipFalse,
+			returnDVNotFound,
+			returnTrue,
+			false,
+		},
+		{"Returns false if volumes have DV volumes and DVs not inclued in backup",
+			dvVolumes,
+			velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"pods", "persistentvolumeclaims"},
 				},
 			},
 			skipFalse,
@@ -447,6 +499,11 @@ func TestAddVMIObjectGraph(t *testing.T) {
 					},
 					Namespace: "test-namespace",
 					Name:      "test-dv",
+				},
+				{
+					GroupResource: kuberesource.PersistentVolumeClaims,
+					Namespace:     "test-namespace",
+					Name:          "test-dv",
 				},
 				{
 					GroupResource: kuberesource.PersistentVolumeClaims,

@@ -412,6 +412,11 @@ func TestVMBackupAction(t *testing.T) {
 				{
 					GroupResource: kuberesource.PersistentVolumeClaims,
 					Namespace:     testNamespace,
+					Name:          "test-dv",
+				},
+				{
+					GroupResource: kuberesource.PersistentVolumeClaims,
+					Namespace:     testNamespace,
 					Name:          "test-pvc",
 				},
 				{

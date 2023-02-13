@@ -513,6 +513,7 @@ func TestVMIBackupItemAction(t *testing.T) {
 		action := NewVMIBackupItemAction(logrus.StandardLogger(), client)
 		isVMExcludedByLabel = func(vmi *kvcore.VirtualMachineInstance) (bool, error) { return tc.isVmExcluded(vmi) }
 		util.IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) { return tc.isPvcExcluded(namespace, pvcName) }
+		util.IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) { return returnFalse() }
 
 		t.Run(tc.name, func(t *testing.T) {
 			output, extra, err := action.Execute(&tc.item, &tc.backup)
