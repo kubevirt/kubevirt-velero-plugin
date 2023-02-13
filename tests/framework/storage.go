@@ -6,7 +6,10 @@ import (
 	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
 
@@ -14,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -21,6 +25,12 @@ const (
 	pollInterval = 3 * time.Second
 	waitTime     = 600 * time.Second
 )
+
+func IsDataVolumeGC(kvClient kubecli.KubevirtClient) bool {
+	config, err := kvClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return config.Spec.DataVolumeTTLSeconds == nil || *config.Spec.DataVolumeTTLSeconds >= 0
+}
 
 func CreateDataVolumeFromDefinition(clientSet kubecli.KubevirtClient, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {
 	var dataVolume *cdiv1.DataVolume
@@ -145,15 +155,20 @@ func WaitForDataVolumePhaseButNot(kvClient kubecli.KubevirtClient, namespace str
 	return nil
 }
 
-// DeleteDataVolume deletes the DataVolume with the given name
+// DeleteDataVolume deletes the DataVolume with the given name in case of GC it makes sure to also delete the relevant pvc
 func DeleteDataVolume(kvClient kubecli.KubevirtClient, namespace, name string) error {
-	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		err := kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 		if err == nil || apierrs.IsNotFound(err) {
 			return true, nil
 		}
-		return false, err
+		return false, nil
 	})
+	if err != nil || !IsDataVolumeGC(kvClient) {
+		return err
+	}
+
+	return DeletePVC(kvClient, namespace, name)
 }
 
 func DeleteDataVolumeWithoutDeletingPVC(kvClient kubecli.KubevirtClient, namespace, name string) error {
@@ -170,36 +185,55 @@ func DeleteDataVolumeWithoutDeletingPVC(kvClient kubecli.KubevirtClient, namespa
 }
 
 // DeletePVC deletes the PVC by name
-func DeletePVC(clientSet *kubernetes.Clientset, namespace string, pvcName string) error {
+func DeletePVC(kvClient kubecli.KubevirtClient, namespace string, pvcName string) error {
 	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		err := clientSet.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), pvcName, metav1.DeleteOptions{})
+		err := kvClient.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), pvcName, metav1.DeleteOptions{})
 		if err == nil || apierrs.IsNotFound(err) {
 			return true, nil
 		}
-		return false, err
+		return false, nil
 	})
 }
 
-func WaitDataVolumeDeleted(kcClient kubecli.KubevirtClient, namespace, dvName string) (bool, error) {
+func DataVolumeDeleted(kvClient kubecli.KubevirtClient, namespace, dvName string) (bool, error) {
+	_, err := kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
+}
+
+func WaitOnlyDataVolumeDeleted(kvClient kubecli.KubevirtClient, namespace, dvName string) (bool, error) {
 	var result bool
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		_, err := kcClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+		var err error
+		result, err = DataVolumeDeleted(kvClient, namespace, dvName)
 		if err != nil {
-			if apierrs.IsNotFound(err) {
-				result = true
-				return true, nil
-			}
-			return false, err
+			fmt.Fprintf(ginkgo.GinkgoWriter, "ERROR: Get Data volume to check if deleted failed, retrying: %v\n", err.Error())
+			return false, nil
 		}
-		return false, nil
+		return result, nil
 	})
+
 	return result, err
 }
 
-func WaitPVCDeleted(clientSet *kubernetes.Clientset, namespace, pvcName string) (bool, error) {
+func WaitDataVolumeDeleted(kvClient kubecli.KubevirtClient, namespace, dvName string) (bool, error) {
+	result, err := WaitOnlyDataVolumeDeleted(kvClient, namespace, dvName)
+	if err != nil || !IsDataVolumeGC(kvClient) {
+		return result, err
+	}
+
+	return WaitPVCDeleted(kvClient, namespace, dvName)
+}
+
+func WaitPVCDeleted(kvClient kubecli.KubevirtClient, namespace, pvcName string) (bool, error) {
 	var result bool
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		_, err := clientSet.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+		_, err := kvClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
 		if err != nil {
 			if apierrs.IsNotFound(err) {
 				result = true
@@ -304,4 +338,74 @@ func NewCloneDataVolume(name, size, srcNamespace, srcPvcName string, storageClas
 		dv.Spec.PVC.StorageClassName = &storageClassName
 	}
 	return dv
+}
+
+// ThisPVCWith fetches the latest state of the PersistentVolumeClaim based on namespace and name. If the object does not exist, nil is returned.
+func ThisPVCWith(kvClient kubecli.KubevirtClient, namespace string, name string) func() (*v1.PersistentVolumeClaim, error) {
+	return func() (p *v1.PersistentVolumeClaim, err error) {
+		p, err = kvClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "PersistentVolumeClaim"
+		return
+	}
+}
+
+// ThisDV fetches the latest state of the DataVolume. If the object does not exist, nil is returned.
+func ThisDV(kvClient kubecli.KubevirtClient, dv *v1beta1.DataVolume) func() (*v1beta1.DataVolume, error) {
+	return ThisDVWith(kvClient, dv.Namespace, dv.Name)
+}
+
+// ThisDVWith fetches the latest state of the DataVolume based on namespace and name. If the object does not exist, nil is returned.
+func ThisDVWith(kvClient kubecli.KubevirtClient, namespace string, name string) func() (*v1beta1.DataVolume, error) {
+	return func() (p *v1beta1.DataVolume, err error) {
+		p, err = kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "DataVolume"
+		return
+	}
+}
+
+func EventuallyDVWith(kvClient kubecli.KubevirtClient, namespace, name string, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
+	if !IsDataVolumeGC(kvClient) {
+		Eventually(ThisDVWith(kvClient, namespace, name), timeoutSec, time.Second).Should(matcher)
+		return
+	}
+
+	// wait PVC exists before making sure DV not nil to prevent
+	// race of checking dv before it was even created
+	Eventually(func() bool {
+		pvc, err := ThisPVCWith(kvClient, namespace, name)()
+		Expect(err).ToNot(HaveOccurred())
+		return pvc != nil
+	}, timeoutSec, time.Second).Should(BeTrue())
+
+	ginkgo.By("Verifying DataVolume garbage collection")
+	var dv *v1beta1.DataVolume
+	Eventually(func() *v1beta1.DataVolume {
+		var err error
+		dv, err = ThisDVWith(kvClient, namespace, name)()
+		Expect(err).ToNot(HaveOccurred())
+		return dv
+	}, timeoutSec, time.Second).Should(Or(BeNil(), matcher))
+
+	if dv != nil {
+		if dv.Status.Phase != v1beta1.Succeeded {
+			return
+		}
+		if dv.Annotations["cdi.kubevirt.io/storage.deleteAfterCompletion"] == "true" {
+			Eventually(ThisDV(kvClient, dv), timeoutSec).Should(BeNil())
+		}
+	}
+
+	Eventually(func() bool {
+		pvc, err := ThisPVCWith(kvClient, namespace, name)()
+		Expect(err).ToNot(HaveOccurred())
+		return pvc != nil && pvc.Spec.VolumeName != ""
+	}, timeoutSec, time.Second).Should(BeTrue())
 }

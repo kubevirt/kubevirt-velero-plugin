@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
+	. "kubevirt.io/kubevirt-velero-plugin/tests/framework/matcher"
 )
 
 var _ = Describe("DV Backup", func() {
@@ -44,15 +45,14 @@ var _ = Describe("DV Backup", func() {
 
 		BeforeEach(func() {
 			var err error
-			dvSpec := framework.NewDataVolumeForBlankRawImage("test-dv", "100Mi", f.StorageClass)
+			dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 			dvSpec.Annotations[forceBindAnnotation] = "true"
 
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
 			dv, err = framework.CreateDataVolumeFromDefinition(f.KvClient, f.Namespace.Name, dvSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, "test-dv")
-			Expect(err).ToNot(HaveOccurred())
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 		})
 
 		AfterEach(func() {
@@ -94,8 +94,7 @@ var _ = Describe("DV Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking DataVolume exists")
-			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, "test-dv")
-			Expect(err).ToNot(HaveOccurred())
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 		})
 	})
 
@@ -120,8 +119,7 @@ var _ = Describe("DV Backup", func() {
 			By(fmt.Sprintf("Creating DataVolume %s", srcDvSpec.Name))
 			srcDv, err := framework.CreateDataVolumeFromDefinition(f.KvClient, sourceNamespace.Name, srcDvSpec)
 			Expect(err).ToNot(HaveOccurred())
-			err = framework.WaitForDataVolumePhase(f.KvClient, srcDv.Namespace, cdiv1.Succeeded, srcDv.Name)
-			Expect(err).ToNot(HaveOccurred())
+			framework.EventuallyDVWith(f.KvClient, srcDv.Namespace, srcDv.Name, 180, HaveSucceeded())
 
 			By("Creating source pod")
 			podSpec := framework.NewPod("source-use-pod", sourceVolumeName, "while true; do echo hello; sleep 2; done")
@@ -134,7 +132,7 @@ var _ = Describe("DV Backup", func() {
 			}, 90*time.Second, 2*time.Second).Should(Equal(v1.PodRunning))
 
 			By("Creating clone DV - object under test")
-			dvSpec := framework.NewCloneDataVolume("test-dv", "100Mi", srcDv.Namespace, srcDv.Name, f.StorageClass)
+			dvSpec := framework.NewCloneDataVolume(dvName, "100Mi", srcDv.Namespace, srcDv.Name, f.StorageClass)
 			dv, err = framework.CreateDataVolumeFromDefinition(f.KvClient, f.Namespace.Name, dvSpec)
 
 			By("Creating backup test-backup")
@@ -164,8 +162,7 @@ var _ = Describe("DV Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking DataVolume exists")
-			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, "test-dv")
-			Expect(err).ToNot(HaveOccurred())
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 		})
 	})
 })
