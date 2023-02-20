@@ -14,6 +14,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	corev1api "k8s.io/api/core/v1"
 	k8score "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -158,6 +159,9 @@ var GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
 
 	dv, err := (*client).CdiClient().CdiV1beta1().DataVolumes(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, err
+		}
 		return nil, errors.Wrapf(err, "failed to get DV %s/%s", ns, name)
 	}
 
@@ -166,12 +170,7 @@ var GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
 var IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) {
-	client, err := GetKubeVirtclient()
-	if err != nil {
-		return false, err
-	}
-
-	dv, err := (*client).CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+	dv, err := GetDV(namespace, dvName)
 	if err != nil {
 		return false, err
 	}
@@ -206,39 +205,64 @@ var IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) {
 	return ok && label == "true", nil
 }
 
+func checkRestoreDataVolumePossible(backup *velerov1.Backup, namespace, name string) (bool, error) {
+	// IsDVExcludedByLabel first checks if DV exists
+	// If not no use of checking restore of DV
+	excluded, err := IsDVExcludedByLabel(namespace, name)
+	if err != nil {
+		return false, err
+	}
+	if excluded {
+		return false, nil
+	}
+
+	if !IsResourceInBackup("datavolume", backup) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func checkRestorePVCPossible(backup *velerov1.Backup, namespace, claimName string) (bool, error) {
+	if !IsResourceInBackup("persistentvolumeclaims", backup) {
+		return false, nil
+	}
+
+	excluded, err := IsPVCExcludedByLabel(namespace, claimName)
+	if err != nil {
+		return false, err
+	}
+	if excluded {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // RestorePossible returns false in cases when restoring a VM would not be possible due to missing objects
 func RestorePossible(volumes []kvv1.Volume, backup *velerov1.Backup, namespace string, skipVolume func(volume kvv1.Volume) bool, log logrus.FieldLogger) (bool, error) {
 	// Restore will not be possible if a DV or PVC volume outside VM's DVTemplates is not backed up
 	for _, volume := range volumes {
 		if volume.VolumeSource.DataVolume != nil && !skipVolume(volume) {
-			if !IsResourceInBackup("datavolume", backup) {
-				log.Infof("DataVolume not included in backup")
-				return false, nil
-			}
-
-			excluded, err := IsDVExcludedByLabel(namespace, volume.VolumeSource.DataVolume.Name)
-			if err != nil {
-				return false, err
-			}
-			if excluded {
-				log.Infof("DataVolume not included in backup")
-				return false, nil
+			possible, err := checkRestoreDataVolumePossible(backup, namespace, volume.VolumeSource.DataVolume.Name)
+			if k8serrors.IsNotFound(err) {
+				// If DV doesnt exist check that the related PVC exists
+				// and can be backed up
+				possible, err = checkRestorePVCPossible(backup, namespace, volume.VolumeSource.DataVolume.Name)
+				if err != nil || !possible {
+					log.Infof("PVC of DV volume source %s not included in backup", volume.VolumeSource.DataVolume.Name)
+					return possible, err
+				}
+			} else if err != nil || !possible {
+				log.Infof("DataVolume %s not included in backup", volume.VolumeSource.DataVolume.Name)
+				return possible, err
 			}
 		}
 
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
-			if !IsResourceInBackup("persistentvolumeclaims", backup) {
-				log.Infof("PVC not included in backup")
-				return false, nil
-			}
-
-			excluded, err := IsPVCExcludedByLabel(namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
-			if err != nil {
-				return false, err
-			}
-			if excluded {
-				log.Infof("PVC not included in backup")
-				return false, nil
+			possible, err := checkRestorePVCPossible(backup, namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+			if err != nil || !possible {
+				log.Infof("PVC %s not included in backup", volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+				return possible, err
 			}
 		}
 		// TODO: what about other types of volumes?
@@ -253,6 +277,13 @@ func addVolumes(volumes []kvv1.Volume, namespace string, extra []velero.Resource
 			log.Infof("Adding dataVolume %s to the backup", volume.DataVolume.Name)
 			extra = append(extra, velero.ResourceIdentifier{
 				GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+				Namespace:     namespace,
+				Name:          volume.DataVolume.Name,
+			})
+			// Add also the data volume PVC here in case the DV was already garbage collected
+			log.Infof("Adding PVC %s to the backup", volume.DataVolume.Name)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: kuberesource.PersistentVolumeClaims,
 				Namespace:     namespace,
 				Name:          volume.DataVolume.Name,
 			})

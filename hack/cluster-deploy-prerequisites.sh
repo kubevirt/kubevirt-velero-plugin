@@ -19,7 +19,7 @@
 set -ex
 
 KUBEVIRT_STORAGE=rook-ceph-default
-CDI_DV_GC=${CDI_DV_GC:--1}
+CDI_DV_GC=${CDI_DV_GC:-0}
 source ./hack/config.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 

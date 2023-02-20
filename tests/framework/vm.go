@@ -13,6 +13,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	. "kubevirt.io/kubevirt-velero-plugin/tests/framework/matcher"
 )
 
 const (
@@ -260,12 +261,9 @@ func CreateStartedVirtualMachine(client kubecli.KubevirtClient, namespace string
 }
 
 func WaitVirtualMachineRunning(client kubecli.KubevirtClient, namespace, vmName, dvName string) (*v1.VirtualMachine, error) {
-	err := WaitForDataVolumePhase(client, namespace, cdiv1.Succeeded, dvName)
-	if err != nil {
-		return nil, err
-	}
+	EventuallyDVWith(client, namespace, dvName, 180, HaveSucceeded())
 
-	err = WaitForVirtualMachineInstancePhase(client, namespace, vmName, v1.Running)
+	err := WaitForVirtualMachineInstancePhase(client, namespace, vmName, v1.Running)
 	if err != nil {
 		return nil, err
 	}

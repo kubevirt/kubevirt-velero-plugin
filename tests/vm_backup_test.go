@@ -13,8 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kvv1 "kubevirt.io/api/core/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
+	. "kubevirt.io/kubevirt-velero-plugin/tests/framework/matcher"
 )
 
 const (
@@ -64,8 +64,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 		err := f.CreateBlankDataVolume()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
-		Expect(err).ToNot(HaveOccurred())
+		framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 		// creating a started VM, so it works correctly also on WFFC storage
 		By("Starting a VM")
 		err = f.CreateVMWithDVAndDVTemplate()
@@ -112,10 +111,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking DataVolume exists")
-		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
-		Expect(err).ToNot(HaveOccurred())
-		err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, vm.Spec.DataVolumeTemplates[0].Name)
-		Expect(err).ToNot(HaveOccurred())
+		framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
+		framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vm.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
 	})
 
 	It("started VM should be restored - with guest agent", func() {
@@ -372,8 +369,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err := f.CreatePVCUsingDataVolume()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvForPVCName)
-			Expect(err).ToNot(HaveOccurred())
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvForPVCName, 180, HaveSucceeded())
 
 			// creating a started VM, so it works correctly also on WFFC storage
 			By("Starting a VM")
@@ -405,10 +401,10 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting PVC")
-			err = framework.DeletePVC(f.K8sClient, f.Namespace.Name, dvForPVCName)
+			err = framework.DeletePVC(f.KvClient, f.Namespace.Name, dvForPVCName)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = framework.WaitPVCDeleted(f.K8sClient, f.Namespace.Name, dvForPVCName)
+			_, err = framework.WaitPVCDeleted(f.KvClient, f.Namespace.Name, dvForPVCName)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating restore")
@@ -439,8 +435,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = f.CreateBlankDataVolume()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
-			Expect(err).ToNot(HaveOccurred())
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 
 			By("Adding Hotplug volume to VM")
 			hotplugVolName := addVolumeAndVerify(f.KvClient, vm, dvName)
@@ -476,8 +471,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking hotpluged data volume exists")
-			err = framework.WaitForDataVolumePhase(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, dvName)
-			Expect(err).ToNot(HaveOccurred())
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 
 			verifyVolumeAndDiskAdded(f.KvClient, vm.Namespace, vm.Name, hotplugVolName)
 		})
