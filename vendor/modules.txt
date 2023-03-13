@@ -204,7 +204,7 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/vmware-tanzu/velero v1.10.0
+# github.com/vmware-tanzu/velero v1.10.2
 ## explicit; go 1.18
 github.com/vmware-tanzu/velero/pkg/apis/velero/v1
 github.com/vmware-tanzu/velero/pkg/cmd/util/flag
@@ -221,6 +221,7 @@ github.com/vmware-tanzu/velero/pkg/plugin/velero/restoreitemaction/v1
 github.com/vmware-tanzu/velero/pkg/plugin/velero/volumesnapshotter/v1
 github.com/vmware-tanzu/velero/pkg/util/collections
 github.com/vmware-tanzu/velero/pkg/util/logging
+github.com/vmware-tanzu/velero/pkg/util/results
 github.com/vmware-tanzu/velero/third_party/kubernetes/pkg/kubectl/cmd/util
 # golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
 ## explicit; go 1.17
