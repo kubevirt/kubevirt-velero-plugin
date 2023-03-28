@@ -65,7 +65,7 @@ var _ = Describe("Resource includes", func() {
 			f.AddNamespaceToDelete(otherNamespace)
 		})
 
-		It("Should only backup and restore DV from included namespace", func() {
+		It("[test_id:9798]Should only backup and restore DV from included namespace", func() {
 			By("Creating DVs")
 			dvSpec := framework.NewDataVolumeForBlankRawImage(includedDVName, "100Mi", f.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -115,7 +115,7 @@ var _ = Describe("Resource includes", func() {
 			Expect(ok).To(BeTrue())
 		})
 
-		It("Should only backup and restore VM from included namespace", func() {
+		It("[test_id:9799]Should only backup and restore VM from included namespace", func() {
 			By("Creating VirtualMachines")
 			vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 			vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, includedNamespace.Name, vmSpec)
@@ -166,7 +166,7 @@ var _ = Describe("Resource includes", func() {
 	Context("Include resources", func() {
 
 		Context("Standalone DV", func() {
-			It("Selecting DV+PVC: Both DVs and PVCs should be backed up and restored", func() {
+			It("[test_id:9800]Selecting DV+PVC: Both DVs and PVCs should be backed up and restored", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -217,7 +217,7 @@ var _ = Describe("Resource includes", func() {
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 			})
 
-			It("Selecting DV+PVC+PV+VolumeSnapshot+VSContent: Both DVs and PVCs should be backed up and restored, content of PVC not re-imported", func() {
+			It("[test_id:9801]Selecting DV+PVC+PV+VolumeSnapshot+VSContent: Both DVs and PVCs should be backed up and restored, content of PVC not re-imported", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -281,7 +281,7 @@ var _ = Describe("Resource includes", func() {
 				}
 			})
 
-			It("Selecting only DVs: the restored DV should not recreate its PVC", func() {
+			It("[test_id:9802]Selecting only DVs: the restored DV should not recreate its PVC", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -330,7 +330,7 @@ var _ = Describe("Resource includes", func() {
 				}
 			})
 
-			It("Selecting only PVCs: PVC should be restored, ownership relation empty", func() {
+			It("[test_id:9803]Selecting only PVCs: PVC should be restored, ownership relation empty", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -388,7 +388,7 @@ var _ = Describe("Resource includes", func() {
 		})
 
 		Context("VM with DVTemplates", func() {
-			It("Selecting VM+DV+PVC: VM, DV and PVC should be restored", func() {
+			It("[test_id:9804]Selecting VM+DV+PVC: VM, DV and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent(includedVMName, f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
