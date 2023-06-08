@@ -1297,10 +1297,9 @@ var _ = Describe("Resource includes", func() {
 				// - Datavolume resource definition
 				expectedItems := 7
 				if framework.IsDataVolumeGC(f.KvClient) {
-					// currently DV doesnt pass labels to PVC hence in case the DV was GC
-					// the backup didnt backup anything since the PVC doesnt have the label
-					// TODO: should be fixed with PR: https://github.com/kubevirt/containerized-data-importer/pull/2547
-					expectedItems = 0
+					// labels of DV are passed to the PVC hence all but DataVolume and DataVolume resource
+					// definition should be backed up in case of GC
+					expectedItems = 5
 				}
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 
