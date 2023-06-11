@@ -18,6 +18,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+git config --global --add safe.directory /go/src/kubevirt-velero-plugin
+
 if [ -z "${BIN}" ]; then
     echo "BIN must be set"
     exit 1

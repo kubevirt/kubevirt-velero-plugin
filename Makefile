@@ -67,7 +67,7 @@ GOARCH = $(word 2, $(platform_temp))
 KUBEVIRTCI_REGISTRY_PREFIX=registry:5000/kubevirt
 PORT=$(shell ./cluster-up/cli.sh ports registry)
 
-BUILD_IMAGE ?= quay.io/konveyor/builder:v1.18
+BUILD_IMAGE ?= quay.io/konveyor/builder:latest
 OCI_BIN ?= $(shell if podman ps >/dev/null 2>&1; then echo podman; elif docker ps >/dev/null 2>&1; then echo docker; fi)
 TLS_SETTING := $(if $(filter $(OCI_BIN),podman),--tls-verify=false,)
 export OCI_BIN
@@ -119,13 +119,8 @@ shell: build-dirs
 		-e GOFLAGS \
 		-i $(TTY) \
 		--rm \
-		-u $$(id -u):$$(id -g) \
 		$(PODMAN_SPECIFIC_FLAG) \
 		-v "$$(pwd)/_output/bin:/output:delegated" \
-		-v $$(pwd)/.go/pkg:/go/pkg \
-		-v $$(pwd)/.go/src:/go/src \
-		-v $$(pwd)/.go/std:/go/std \
-		-v $$(pwd)/.go/bin:/go/bin \
 		-v $$(pwd):/go/src/kubevirt-velero-plugin \
 		-v $$(pwd)/.go/std/$(GOOS)_$(GOARCH):/usr/local/go/pkg/$(GOOS)_$(GOARCH)_static \
 		-v "$$(pwd)/.go/go-build:/.cache/go-build:delegated" \
