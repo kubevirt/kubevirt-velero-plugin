@@ -16,7 +16,7 @@ require (
 	k8s.io/klog/v2 v2.90.0
 	kubevirt.io/api v0.59.0
 	kubevirt.io/client-go v0.58.0
-	kubevirt.io/containerized-data-importer-api v1.55.2
+	kubevirt.io/containerized-data-importer-api v1.56.0
 )
 
 require (
