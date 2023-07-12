@@ -65,7 +65,7 @@ var _ = Describe("Resource includes", func() {
 			f.AddNamespaceToDelete(otherNamespace)
 		})
 
-		It("Should only backup and restore DV from included namespace", func() {
+		It("[test_id:9798]Should only backup and restore DV from included namespace", func() {
 			By("Creating DVs")
 			dvSpec := framework.NewDataVolumeForBlankRawImage(includedDVName, "100Mi", f.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -115,7 +115,7 @@ var _ = Describe("Resource includes", func() {
 			Expect(ok).To(BeTrue())
 		})
 
-		It("Should only backup and restore VM from included namespace", func() {
+		It("[test_id:9799]Should only backup and restore VM from included namespace", func() {
 			By("Creating VirtualMachines")
 			vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 			vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, includedNamespace.Name, vmSpec)
@@ -166,7 +166,7 @@ var _ = Describe("Resource includes", func() {
 	Context("Include resources", func() {
 
 		Context("Standalone DV", func() {
-			It("Selecting DV+PVC: Both DVs and PVCs should be backed up and restored", func() {
+			It("[test_id:9800]Selecting DV+PVC: Both DVs and PVCs should be backed up and restored", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -217,7 +217,7 @@ var _ = Describe("Resource includes", func() {
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
 			})
 
-			It("Selecting DV+PVC+PV+VolumeSnapshot+VSContent: Both DVs and PVCs should be backed up and restored, content of PVC not re-imported", func() {
+			It("[test_id:9801]Selecting DV+PVC+PV+VolumeSnapshot+VSContent: Both DVs and PVCs should be backed up and restored, content of PVC not re-imported", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -281,7 +281,7 @@ var _ = Describe("Resource includes", func() {
 				}
 			})
 
-			It("Selecting only DVs: the restored DV should not recreate its PVC", func() {
+			It("[test_id:9802]Selecting only DVs: the restored DV should not recreate its PVC", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -330,7 +330,7 @@ var _ = Describe("Resource includes", func() {
 				}
 			})
 
-			It("Selecting only PVCs: PVC should be restored, ownership relation empty", func() {
+			It("[test_id:9803]Selecting only PVCs: PVC should be restored, ownership relation empty", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -388,7 +388,7 @@ var _ = Describe("Resource includes", func() {
 		})
 
 		Context("VM with DVTemplates", func() {
-			It("Selecting VM+DV+PVC: VM, DV and PVC should be restored", func() {
+			It("[test_id:9804]Selecting VM+DV+PVC: VM, DV and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent(includedVMName, f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -440,7 +440,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+DV+PVC: Backing up VM should fail if the VM is running", func() {
+			It("[test_id:10188]Selecting VM+DV+PVC: Backing up VM should fail if the VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -460,7 +460,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+VMI but not Pod: Backing up should fail if the VM is running", func() {
+			It("[test_id:10189]Selecting VM+VMI but not Pod: Backing up should fail if the VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -480,7 +480,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+VMI but not Pod+PVC: Backup should succeed, DV+PVC should be restored", func() {
+			It("[test_id:10190]Selecting VM+VMI but not Pod+PVC: Backup should succeed, DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -536,7 +536,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+VMI but not Pod: Backing up should succeed if the VM is paused", func() {
+			It("[test_id:10191]Selecting VM+VMI but not Pod: Backing up should succeed if the VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -598,7 +598,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM but not VMI or Pod: Backing up should fail if the VM is running", func() {
+			It("[test_id:10192]Selecting VM but not VMI or Pod: Backing up should fail if the VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -618,7 +618,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM but not VMI and Pod: Backing up should succeed if the VM is paused", func() {
+			It("[test_id:10193]Selecting VM but not VMI and Pod: Backing up should succeed if the VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -678,7 +678,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+DV+PVC+VMI+Pod: All objects should be restored", func() {
+			It("[test_id:10194]Selecting VM+DV+PVC+VMI+Pod: All objects should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -724,7 +724,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+DV: VM, DV should be restored, PVC should not be recreated", func() {
+			It("[test_id:10195]Selecting VM+DV: VM, DV should be restored, PVC should not be recreated", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -762,7 +762,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM+PVC: VM and PVC should be restored", func() {
+			It("[test_id:10196]Selecting VM+PVC: VM and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -807,7 +807,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM but not DV and PVC: VM should be restored, DV and PVC should be recreated", func() {
+			It("[test_id:10197]Selecting VM but not DV and PVC: VM should be restored, DV and PVC should be recreated", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -851,7 +851,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VMI (with DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
+			It("[test_id:10198]Selecting VMI (with DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
 				By("Creating VirtualMachine")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -872,7 +872,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VMI (without DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
+			It("[test_id:10199]Selecting VMI (without DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
 				By("Creating VirtualMachine")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -896,7 +896,7 @@ var _ = Describe("Resource includes", func() {
 
 		Context("VM without DVTemplates", func() {
 
-			It("Selecting VM+DV+PVC, VM stopped: VM, DV and PVC should be restored", func() {
+			It("[test_id:10200]Selecting VM+DV+PVC, VM stopped: VM, DV and PVC should be restored", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -956,7 +956,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM + PVC, VM stopped: VM and PVC should be restored", func() {
+			It("[test_id:10201]Selecting VM + PVC, VM stopped: VM and PVC should be restored", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1006,7 +1006,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM + PVC, VM running: Backup should fail", func() {
+			It("[test_id:10202]Selecting VM + PVC, VM running: Backup should fail", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1038,7 +1038,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting VM but not PVC: Backup should fail", func() {
+			It("[test_id:10203]Selecting VM but not PVC: Backup should fail", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1074,7 +1074,7 @@ var _ = Describe("Resource includes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			// This test tries to backup on all namespaces, on some clusters it always fails
 			// need to be improved
-			It("Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
+			It("[test_id:10204]Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
 				By(fmt.Sprintf("Creating DataVolume %s", dvName))
 				err := f.CreateDataVolumeWithGuestAgentImage()
 				Expect(err).ToNot(HaveOccurred())
@@ -1128,7 +1128,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting standalone VMI+Pod without DV: backup should fail", func() {
+			It("[test_id:10205]Selecting standalone VMI+Pod without DV: backup should fail", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1154,7 +1154,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting standalone VMI+Pod without PVC: backup should fail", func() {
+			It("[test_id:10206]Selecting standalone VMI+Pod without PVC: backup should fail", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1180,7 +1180,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Selecting standalone VMI without Pod: Backup should fail", func() {
+			It("[test_id:10207]Selecting standalone VMI without Pod: Backup should fail", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1211,7 +1211,7 @@ var _ = Describe("Resource includes", func() {
 	Context("Selector includes", func() {
 
 		Context("Standalone DV", func() {
-			It("[no-gc] Should only backup and restore DV selected by label", func() {
+			It("[test_id:10208][no-gc] Should only backup and restore DV selected by label", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -1265,7 +1265,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 			})
 
-			It("Backup of DVs selected by label should include PVCs", func() {
+			It("[test_id:10209]Backup of DVs selected by label should include PVCs", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(includedDVName, "100Mi", f.StorageClass)
 				dvSpec.Labels = map[string]string{
@@ -1379,7 +1379,7 @@ var _ = Describe("Resource includes", func() {
 			})
 		})
 		Context("VM with DVTemplates", func() {
-			It("Backup of a stopped VMs selected by label should include its DVs and PVCs", func() {
+			It("[test_id:10210]Backup of a stopped VMs selected by label should include its DVs and PVCs", func() {
 				By("Creating VirtualMachines")
 
 				vmSpec := framework.CreateVmWithGuestAgent(includedVMName, f.StorageClass)
@@ -1422,7 +1422,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 			})
 
-			It("Backup of a running VMs selected by label should include its DVs and PVCs, VMIs and Pods", func() {
+			It("[test_id:10211]Backup of a running VMs selected by label should include its DVs and PVCs, VMIs and Pods", func() {
 				By("Creating VirtualMachines")
 
 				vmSpec := framework.CreateVmWithGuestAgent(includedVMName, f.StorageClass)
@@ -1473,7 +1473,7 @@ var _ = Describe("Resource includes", func() {
 		})
 
 		Context("[smoke] Standalone VMI", func() {
-			It("Backup of VMIs selected by label should include its DVs, PVCs, and Pods", func() {
+			It("[test_id:10212]Backup of VMIs selected by label should include its DVs, PVCs, and Pods", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1581,7 +1581,7 @@ var _ = Describe("Resource excludes", func() {
 			f.AddNamespaceToDelete(otherNamespace)
 		})
 
-		It("Should not backup and restore DV from excluded namespace", func() {
+		It("[test_id:10213]Should not backup and restore DV from excluded namespace", func() {
 			By("Creating DVs")
 			dvSpec := framework.NewDataVolumeForBlankRawImage("excluded-test-dv", "100Mi", f.StorageClass)
 			By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1631,7 +1631,7 @@ var _ = Describe("Resource excludes", func() {
 			Expect(ok).To(BeTrue())
 		})
 
-		It("Should not backup and restore VM from excluded namespace", func() {
+		It("[test_id:10214]Should not backup and restore VM from excluded namespace", func() {
 			By("Creating VirtualMachines")
 			//vmSpec := newVMSpecBlankDVTemplate("excluded-test-vm", "100Mi")
 			vmSpec := framework.CreateVmWithGuestAgent("excluded-test-vm", f.StorageClass)
@@ -1684,7 +1684,7 @@ var _ = Describe("Resource excludes", func() {
 
 	Context("Exclude resources", func() {
 		Context("Standalone DV", func() {
-			It("[negative][no-gc] PVC excluded: DV restored, PVC will not be re-imported", func() {
+			It("[test_id:10215][negative][no-gc] PVC excluded: DV restored, PVC will not be re-imported", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -1727,7 +1727,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("DV excluded: PVC restored, ownership relation empty", func() {
+			It("[test_id:10216]DV excluded: PVC restored, ownership relation empty", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -1773,7 +1773,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 
 		Context("VM with DVTemplates", func() {
-			It("Pods excluded, VM running: backup should fail", func() {
+			It("[test_id:10217]Pods excluded, VM running: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -1792,7 +1792,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Pods+DV excluded, VM running: backup should fail", func() {
+			It("[test_id:10218]Pods+DV excluded, VM running: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -1812,7 +1812,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[negative][no-gc] Pods+PVC excluded, VM running: VM+DV restored, PVC not re-imported", func() {
+			It("[test_id:10219][negative][no-gc] Pods+PVC excluded, VM running: VM+DV restored, PVC not re-imported", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					// gc case in test:
 					// [gc-only] Pods+PVC excluded, VM running, DV GC: VM restored, DV and PVC recreated
@@ -1859,7 +1859,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[gc-only] Pods+PVC excluded, VM running, DV GC: VM restored, DV and PVC recreated", func() {
+			It("[test_id:10220][gc-only] Pods+PVC excluded, VM running, DV GC: VM restored, DV and PVC recreated", func() {
 				if !framework.IsDataVolumeGC(f.KvClient) {
 					// no gc case in test:
 					// [negative][no-gc] Pods+PVC excluded, VM running: VM+DV restored, PVC not re-imported
@@ -1907,7 +1907,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Pods excluded, VM stopped: VM+DV+PVC should be restored", func() {
+			It("[test_id:10221]Pods excluded, VM stopped: VM+DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -1950,7 +1950,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Pods excluded, VM paused: VM+DV+PVC should be restored", func() {
+			It("[test_id:10222]Pods excluded, VM paused: VM+DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2011,7 +2011,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VMI excluded, Pod not excluded: backup should fail", func() {
+			It("[test_id:10223]VMI excluded, Pod not excluded: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2032,7 +2032,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("PVC excluded: DV restored, PVC not re-imported", func() {
+			It("[test_id:10224]PVC excluded: DV restored, PVC not re-imported", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2069,7 +2069,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("DV+PVC excluded: VM restored, DV+PVC recreated", func() {
+			It("[test_id:10225]DV+PVC excluded: VM restored, DV+PVC recreated", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2107,7 +2107,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("DV excluded: VM+PVC restored, DV recreated and bound to the PVC", func() {
+			It("[test_id:10226]DV excluded: VM+PVC restored, DV recreated and bound to the PVC", func() {
 				By("Creating VirtualMachines")
 				//vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
@@ -2149,7 +2149,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Running VM excluded: backup should fail", func() {
+			It("[test_id:10227]Running VM excluded: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2169,7 +2169,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Stopped VM excluded: DV+PVC should be restored", func() {
+			It("[test_id:10228]Stopped VM excluded: DV+PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				vm, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2219,7 +2219,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 
 		Context("VM without DVTemplates", func() {
-			It("[no-gc] VM with DV Volume, DV excluded: backup should fail", func() {
+			It("[test_id:10229][no-gc] VM with DV Volume, DV excluded: backup should fail", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -2249,7 +2249,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[no-gc] VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC not recreated and re-imported", func() {
+			It("[test_id:10230][no-gc] VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC not recreated and re-imported", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -2310,7 +2310,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[gc-only] VM with DV Volume, DV GC, PVC excluded: backup should fail", func() {
+			It("[test_id:10231][gc-only] VM with DV Volume, DV GC, PVC excluded: backup should fail", func() {
 				if !framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only with GC")
 				}
@@ -2343,7 +2343,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM with PVC Volume, PVC excluded: backup should fail", func() {
+			It("[test_id:10233]VM with PVC Volume, PVC excluded: backup should fail", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2373,7 +2373,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 
 		Context("Standalone VMI", func() {
-			It("VMI included, Pod excluded: should fail if VM is running", func() {
+			It("[test_id:10234]VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2396,7 +2396,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VMI included, Pod excluded: should succeed if VM is paused", func() {
+			It("[test_id:10235]VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2453,7 +2453,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[smoke] Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
+			It("[test_id:10236][smoke] Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -2509,7 +2509,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("[no-gc] VMI+Pod included, DV excluded: backup should fail", func() {
+			It("[test_id:10237][no-gc] VMI+Pod included, DV excluded: backup should fail", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -2535,7 +2535,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[gc-only] VMI+Pod included, DV GC, PVC excluded: backup should fail", func() {
+			It("[test_id:10238][gc-only] VMI+Pod included, DV GC, PVC excluded: backup should fail", func() {
 				if !framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only with GC")
 				}
@@ -2617,7 +2617,7 @@ var _ = Describe("Resource excludes", func() {
 
 		Context("Standalone DV", func() {
 
-			It("[no-gc] DV included, PVC excluded: PVC should not be re-imported", func() {
+			It("[test_id:10239][no-gc] DV included, PVC excluded: PVC should not be re-imported", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -2656,7 +2656,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("[no-gc] PVC included, DV excluded: PVC should not be restored, ownership relation empty", func() {
+			It("[test_id:10247][no-gc] PVC included, DV excluded: PVC should not be restored, ownership relation empty", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -2701,7 +2701,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 
 		Context("VM with DVTemplates", func() {
-			It("VM included, VMI excluded: should fail if VM is running", func() {
+			It("[test_id:10248]VM included, VMI excluded: should fail if VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2724,7 +2724,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM+VMI included, Pod excluded: should fail if VM is running", func() {
+			It("[test_id:10249]VM+VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2750,7 +2750,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
+			It("[test_id:10250]VM+VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2810,7 +2810,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Negative: VM+VMI+Pod included should fail if VM is paused", func() {
+			It("[test_id:10251]Negative: VM+VMI+Pod included should fail if VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2867,7 +2867,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM included, DV and PVC excluded: both DV and PVC recreated", func() {
+			It("[test_id:10252]VM included, DV and PVC excluded: both DV and PVC recreated", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2910,7 +2910,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM+PVC included, DV excluded(or GC): VM and PVC should be restored", func() {
+			It("[test_id:10253]VM+PVC included, DV excluded(or GC): VM and PVC should be restored", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2955,7 +2955,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VMI included, VM excluded: backup should fail", func() {
+			It("[test_id:10254]VMI included, VM excluded: backup should fail", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2980,7 +2980,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 
 		Context("VM without DVTemplates", func() {
-			It("[no-gc] VM with DV Volume, DV excluded: backup should fail", func() {
+			It("[test_id:10255][no-gc] VM with DV Volume, DV excluded: backup should fail", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -3012,7 +3012,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[gc-only] VM with DV Volume, DV GC, PVC excluded: backup should fail", func() {
+			It("[test_id:10256][gc-only] VM with DV Volume, DV GC, PVC excluded: backup should fail", func() {
 				if !framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only with GC")
 				}
@@ -3046,7 +3046,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[negative][no-gc] VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC not recreated", func() {
+			It("[test_id:10260][negative][no-gc] VM with DV Volume, DV included, PVC excluded: VM+DV recreated, PVC not recreated", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -3109,7 +3109,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VM with PVC Volume, PVC excluded: backup should fail", func() {
+			It("[test_id:10261]VM with PVC Volume, PVC excluded: backup should fail", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForBlankRawImage(dvName, "100Mi", f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -3141,7 +3141,7 @@ var _ = Describe("Resource excludes", func() {
 		})
 
 		Context("[smoke] Standalone VMI", func() {
-			It("VMI included, Pod excluded: should fail if VM is running", func() {
+			It("[test_id:10262]VMI included, Pod excluded: should fail if VM is running", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -3166,7 +3166,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("VMI included, Pod excluded: should succeed if VM is paused", func() {
+			It("[test_id:10263]VMI included, Pod excluded: should succeed if VM is paused", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -3228,7 +3228,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
+			It("[test_id:10264]Pod included, VMI excluded: backup should succeed, only DV and PVC restored", func() {
 				By("Creating DVs")
 				dvSpec := framework.NewDataVolumeForVmWithGuestAgentImage(dvName, f.StorageClass)
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec.Name))
@@ -3286,7 +3286,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("[no-gc] VMI+Pod included, DV excluded: backup should fail", func() {
+			It("[test_id:10265][no-gc] VMI+Pod included, DV excluded: backup should fail", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only without GC")
 				}
@@ -3314,7 +3314,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[gc-only] VMI+Pod included, DV GC, PVC excluded: backup should fail", func() {
+			It("[test_id:10266][gc-only] VMI+Pod included, DV GC, PVC excluded: backup should fail", func() {
 				if !framework.IsDataVolumeGC(f.KvClient) {
 					Skip("Test worth testing only with GC")
 				}
