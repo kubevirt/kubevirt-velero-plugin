@@ -220,23 +220,30 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.4
 ## explicit; go 1.20
 github.com/stretchr/testify/assert
-# github.com/vmware-tanzu/velero v1.10.0
-## explicit; go 1.18
+# github.com/vmware-tanzu/velero v1.11.1
+## explicit; go 1.20
 github.com/vmware-tanzu/velero/pkg/apis/velero/v1
 github.com/vmware-tanzu/velero/pkg/cmd/util/flag
 github.com/vmware-tanzu/velero/pkg/discovery
 github.com/vmware-tanzu/velero/pkg/features
 github.com/vmware-tanzu/velero/pkg/kuberesource
 github.com/vmware-tanzu/velero/pkg/plugin/framework
+github.com/vmware-tanzu/velero/pkg/plugin/framework/backupitemaction/v2
 github.com/vmware-tanzu/velero/pkg/plugin/framework/common
+github.com/vmware-tanzu/velero/pkg/plugin/framework/restoreitemaction/v2
 github.com/vmware-tanzu/velero/pkg/plugin/generated
+github.com/vmware-tanzu/velero/pkg/plugin/generated/backupitemaction/v2
+github.com/vmware-tanzu/velero/pkg/plugin/generated/restoreitemaction/v2
 github.com/vmware-tanzu/velero/pkg/plugin/velero
 github.com/vmware-tanzu/velero/pkg/plugin/velero/backupitemaction/v1
-github.com/vmware-tanzu/velero/pkg/plugin/velero/item_snapshotter/v1
+github.com/vmware-tanzu/velero/pkg/plugin/velero/backupitemaction/v2
 github.com/vmware-tanzu/velero/pkg/plugin/velero/restoreitemaction/v1
+github.com/vmware-tanzu/velero/pkg/plugin/velero/restoreitemaction/v2
 github.com/vmware-tanzu/velero/pkg/plugin/velero/volumesnapshotter/v1
+github.com/vmware-tanzu/velero/pkg/util/boolptr
 github.com/vmware-tanzu/velero/pkg/util/collections
 github.com/vmware-tanzu/velero/pkg/util/logging
+github.com/vmware-tanzu/velero/pkg/util/results
 github.com/vmware-tanzu/velero/third_party/kubernetes/pkg/kubectl/cmd/util
 # golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
 ## explicit; go 1.17
@@ -400,7 +407,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.24.2 => k8s.io/api v0.24.0
+# k8s.io/api v0.25.6 => k8s.io/api v0.24.0
 ## explicit; go 1.16
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -456,7 +463,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.25.4
+# k8s.io/apimachinery v0.25.6
 ## explicit; go 1.19
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors

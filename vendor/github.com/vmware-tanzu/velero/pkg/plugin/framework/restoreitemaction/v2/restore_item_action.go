@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package framework
+package v2
 
 import (
 	plugin "github.com/hashicorp/go-plugin"
@@ -22,24 +22,24 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/vmware-tanzu/velero/pkg/plugin/framework/common"
-	proto "github.com/vmware-tanzu/velero/pkg/plugin/generated"
+	protoriav2 "github.com/vmware-tanzu/velero/pkg/plugin/generated/restoreitemaction/v2"
 )
 
-// ItemSnapshotterPlugin is an implementation of go-plugin's Plugin
-// interface with support for gRPC for the ItemSnapshotter
+// RestoreItemActionPlugin is an implementation of go-plugin's Plugin
+// interface with support for gRPC for the restore/ItemAction
 // interface.
-type ItemSnapshotterPlugin struct {
+type RestoreItemActionPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
 	*common.PluginBase
 }
 
-// GRPCClient returns a clientDispenser for ItemSnapshotter gRPC clients.
-func (p *ItemSnapshotterPlugin) GRPCClient(_ context.Context, _ *plugin.GRPCBroker, clientConn *grpc.ClientConn) (interface{}, error) {
-	return common.NewClientDispenser(p.ClientLogger, clientConn, newItemSnapshotterGRPCClient), nil
+// GRPCClient returns a RestoreItemAction gRPC client.
+func (p *RestoreItemActionPlugin) GRPCClient(_ context.Context, _ *plugin.GRPCBroker, clientConn *grpc.ClientConn) (interface{}, error) {
+	return common.NewClientDispenser(p.ClientLogger, clientConn, newRestoreItemActionGRPCClient), nil
 }
 
-// GRPCServer registers an ItemSnapshotter gRPC server.
-func (p *ItemSnapshotterPlugin) GRPCServer(_ *plugin.GRPCBroker, server *grpc.Server) error {
-	proto.RegisterItemSnapshotterServer(server, &ItemSnapshotterGRPCServer{mux: p.ServerMux})
+// GRPCServer registers a RestoreItemAction gRPC server.
+func (p *RestoreItemActionPlugin) GRPCServer(_ *plugin.GRPCBroker, server *grpc.Server) error {
+	protoriav2.RegisterRestoreItemActionServer(server, &RestoreItemActionGRPCServer{mux: p.ServerMux})
 	return nil
 }

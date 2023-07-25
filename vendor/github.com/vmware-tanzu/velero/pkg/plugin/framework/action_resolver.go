@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -25,8 +26,9 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/discovery"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	biav1 "github.com/vmware-tanzu/velero/pkg/plugin/velero/backupitemaction/v1"
-	isv1 "github.com/vmware-tanzu/velero/pkg/plugin/velero/item_snapshotter/v1"
+	biav2 "github.com/vmware-tanzu/velero/pkg/plugin/velero/backupitemaction/v2"
 	riav1 "github.com/vmware-tanzu/velero/pkg/plugin/velero/restoreitemaction/v1"
+	riav2 "github.com/vmware-tanzu/velero/pkg/plugin/velero/restoreitemaction/v2"
 	"github.com/vmware-tanzu/velero/pkg/util/collections"
 )
 
@@ -109,20 +111,31 @@ func NewBackupItemActionResolver(actions []biav1.BackupItemAction) BackupItemAct
 	}
 }
 
+type BackupItemResolvedActionV2 struct {
+	biav2.BackupItemAction
+	resolvedAction
+}
+
+func NewBackupItemActionResolverV2(actions []biav2.BackupItemAction) BackupItemActionResolverV2 {
+	return BackupItemActionResolverV2{
+		actions: actions,
+	}
+}
+
 func NewRestoreItemActionResolver(actions []riav1.RestoreItemAction) RestoreItemActionResolver {
 	return RestoreItemActionResolver{
 		actions: actions,
 	}
 }
 
-func NewDeleteItemActionResolver(actions []velero.DeleteItemAction) DeleteItemActionResolver {
-	return DeleteItemActionResolver{
+func NewRestoreItemActionResolverV2(actions []riav2.RestoreItemAction) RestoreItemActionResolverV2 {
+	return RestoreItemActionResolverV2{
 		actions: actions,
 	}
 }
 
-func NewItemSnapshotterResolver(actions []isv1.ItemSnapshotter) ItemSnapshotterResolver {
-	return ItemSnapshotterResolver{
+func NewDeleteItemActionResolver(actions []velero.DeleteItemAction) DeleteItemActionResolver {
+	return DeleteItemActionResolver{
 		actions: actions,
 	}
 }
@@ -155,8 +168,39 @@ func (recv BackupItemActionResolver) ResolveActions(helper discovery.Helper, log
 	return resolved, nil
 }
 
+type BackupItemActionResolverV2 struct {
+	actions []biav2.BackupItemAction
+}
+
+func (recv BackupItemActionResolverV2) ResolveActions(helper discovery.Helper, log logrus.FieldLogger) ([]BackupItemResolvedActionV2, error) {
+	var resolved []BackupItemResolvedActionV2
+	for _, action := range recv.actions {
+		log.Debugf("resolving BackupItemAction for: %v", action)
+		resources, namespaces, selector, err := resolveAction(helper, action)
+		if err != nil {
+			log.WithError(errors.WithStack(err)).Debugf("resolveAction error, action: %v", action)
+			return nil, err
+		}
+		res := BackupItemResolvedActionV2{
+			BackupItemAction: action,
+			resolvedAction: resolvedAction{
+				ResourceIncludesExcludes:  resources,
+				NamespaceIncludesExcludes: namespaces,
+				Selector:                  selector,
+			},
+		}
+		resolved = append(resolved, res)
+	}
+	return resolved, nil
+}
+
 type RestoreItemResolvedAction struct {
 	riav1.RestoreItemAction
+	resolvedAction
+}
+
+type RestoreItemResolvedActionV2 struct {
+	riav2.RestoreItemAction
 	resolvedAction
 }
 
@@ -172,6 +216,30 @@ func (recv RestoreItemActionResolver) ResolveActions(helper discovery.Helper, lo
 			return nil, err
 		}
 		res := RestoreItemResolvedAction{
+			RestoreItemAction: action,
+			resolvedAction: resolvedAction{
+				ResourceIncludesExcludes:  resources,
+				NamespaceIncludesExcludes: namespaces,
+				Selector:                  selector,
+			},
+		}
+		resolved = append(resolved, res)
+	}
+	return resolved, nil
+}
+
+type RestoreItemActionResolverV2 struct {
+	actions []riav2.RestoreItemAction
+}
+
+func (recv RestoreItemActionResolverV2) ResolveActions(helper discovery.Helper, log logrus.FieldLogger) ([]RestoreItemResolvedActionV2, error) {
+	var resolved []RestoreItemResolvedActionV2
+	for _, action := range recv.actions {
+		resources, namespaces, selector, err := resolveAction(helper, action)
+		if err != nil {
+			return nil, err
+		}
+		res := RestoreItemResolvedActionV2{
 			RestoreItemAction: action,
 			resolvedAction: resolvedAction{
 				ResourceIncludesExcludes:  resources,
@@ -202,35 +270,6 @@ func (recv DeleteItemActionResolver) ResolveActions(helper discovery.Helper, log
 		}
 		res := DeleteItemResolvedAction{
 			DeleteItemAction: action,
-			resolvedAction: resolvedAction{
-				ResourceIncludesExcludes:  resources,
-				NamespaceIncludesExcludes: namespaces,
-				Selector:                  selector,
-			},
-		}
-		resolved = append(resolved, res)
-	}
-	return resolved, nil
-}
-
-type ItemSnapshotterResolvedAction struct {
-	isv1.ItemSnapshotter
-	resolvedAction
-}
-
-type ItemSnapshotterResolver struct {
-	actions []isv1.ItemSnapshotter
-}
-
-func (recv ItemSnapshotterResolver) ResolveActions(helper discovery.Helper, log logrus.FieldLogger) ([]ItemSnapshotterResolvedAction, error) {
-	var resolved []ItemSnapshotterResolvedAction
-	for _, action := range recv.actions {
-		resources, namespaces, selector, err := resolveAction(helper, action)
-		if err != nil {
-			return nil, err
-		}
-		res := ItemSnapshotterResolvedAction{
-			ItemSnapshotter: action,
 			resolvedAction: resolvedAction{
 				ResourceIncludesExcludes:  resources,
 				NamespaceIncludesExcludes: namespaces,
