@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -52,6 +53,38 @@ type BackupSpec struct {
 	// +nullable
 	ExcludedResources []string `json:"excludedResources,omitempty"`
 
+	// IncludedClusterScopedResources is a slice of cluster-scoped
+	// resource type names to include in the backup.
+	// If set to "*", all cluster-scoped resource types are included.
+	// The default value is empty, which means only related
+	// cluster-scoped resources are included.
+	// +optional
+	// +nullable
+	IncludedClusterScopedResources []string `json:"includedClusterScopedResources,omitempty"`
+
+	// ExcludedClusterScopedResources is a slice of cluster-scoped
+	// resource type names to exclude from the backup.
+	// If set to "*", all cluster-scoped resource types are excluded.
+	// The default value is empty.
+	// +optional
+	// +nullable
+	ExcludedClusterScopedResources []string `json:"excludedClusterScopedResources,omitempty"`
+
+	// IncludedNamespaceScopedResources is a slice of namespace-scoped
+	// resource type names to include in the backup.
+	// The default value is "*".
+	// +optional
+	// +nullable
+	IncludedNamespaceScopedResources []string `json:"includedNamespaceScopedResources,omitempty"`
+
+	// ExcludedNamespaceScopedResources is a slice of namespace-scoped
+	// resource type names to exclude from the backup.
+	// If set to "*", all namespace-scoped resource types are excluded.
+	// The default value is empty.
+	// +optional
+	// +nullable
+	ExcludedNamespaceScopedResources []string `json:"excludedNamespaceScopedResources,omitempty"`
+
 	// LabelSelector is a metav1.LabelSelector to filter with
 	// when adding individual objects to the backup. If empty
 	// or nil, all objects are included. Optional.
@@ -68,7 +101,7 @@ type BackupSpec struct {
 	// +nullable
 	OrLabelSelectors []*metav1.LabelSelector `json:"orLabelSelectors,omitempty"`
 
-	// SnapshotVolumes specifies whether to take cloud snapshots
+	// SnapshotVolumes specifies whether to take snapshots
 	// of any PV's referenced in the set of objects included
 	// in the Backup.
 	// +optional
@@ -124,6 +157,14 @@ type BackupSpec struct {
 	// The default value is 10 minute.
 	// +optional
 	CSISnapshotTimeout metav1.Duration `json:"csiSnapshotTimeout,omitempty"`
+
+	// ItemOperationTimeout specifies the time used to wait for asynchronous BackupItemAction operations
+	// The default value is 1 hour.
+	// +optional
+	ItemOperationTimeout metav1.Duration `json:"itemOperationTimeout,omitempty"`
+	// ResourcePolicy specifies the referenced resource policies that backup should follow
+	// +optional
+	ResourcePolicy *v1.TypedLocalObjectReference `json:"resourcePolicy,omitempty"`
 }
 
 // BackupHooks contains custom behaviors that should be executed at different phases of the backup.
@@ -221,7 +262,7 @@ const (
 
 // BackupPhase is a string representation of the lifecycle phase
 // of a Velero backup.
-// +kubebuilder:validation:Enum=New;FailedValidation;InProgress;Completed;PartiallyFailed;Failed;Deleting
+// +kubebuilder:validation:Enum=New;FailedValidation;InProgress;WaitingForPluginOperations;WaitingForPluginOperationsPartiallyFailed;Finalizing;FinalizingPartiallyFailed;Completed;PartiallyFailed;Failed;Deleting
 type BackupPhase string
 
 const (
@@ -236,16 +277,37 @@ const (
 	// BackupPhaseInProgress means the backup is currently executing.
 	BackupPhaseInProgress BackupPhase = "InProgress"
 
-	// BackupPhaseUploading means the backups of Kubernetes resources
-	// and creation of snapshots was successful and snapshot data
-	// is currently uploading.  The backup is not usable yet.
-	BackupPhaseUploading BackupPhase = "Uploading"
+	// BackupPhaseWaitingForPluginOperations means the backup of
+	// Kubernetes resources, creation of snapshots, and other
+	// async plugin operations was successful and snapshot data is
+	// currently uploading or other plugin operations are still
+	// ongoing.  The backup is not usable yet.
+	BackupPhaseWaitingForPluginOperations BackupPhase = "WaitingForPluginOperations"
 
-	// BackupPhaseUploadingPartialFailure means the backup of Kubernetes
-	// resources and creation of snapshots partially failed (final phase
-	// will be PartiallyFailed) and snapshot data is currently uploading.
+	// BackupPhaseWaitingForPluginOperationsPartiallyFailed means
+	// the backup of Kubernetes resources, creation of snapshots,
+	// and other async plugin operations partially failed (final
+	// phase will be PartiallyFailed) and snapshot data is
+	// currently uploading or other plugin operations are still
+	// ongoing.  The backup is not usable yet.
+	BackupPhaseWaitingForPluginOperationsPartiallyFailed BackupPhase = "WaitingForPluginOperationsPartiallyFailed"
+
+	// BackupPhaseFinalizing means the backup of
+	// Kubernetes resources, creation of snapshots, and other
+	// async plugin operations were successful and snapshot upload and
+	// other plugin operations are now complete, but the Backup is awaiting
+	// final update of resources modified during async operations.
 	// The backup is not usable yet.
-	BackupPhaseUploadingPartialFailure BackupPhase = "UploadingPartialFailure"
+	BackupPhaseFinalizing BackupPhase = "Finalizing"
+
+	// BackupPhaseFinalizingPartiallyFailed means the backup of
+	// Kubernetes resources, creation of snapshots, and other
+	// async plugin operations were successful and snapshot upload and
+	// other plugin operations are now complete, but one or more errors
+	// occurred during backup or async operation processing, and the
+	// Backup is awaiting final update of resources modified during async
+	// operations. The backup is not usable yet.
+	BackupPhaseFinalizingPartiallyFailed BackupPhase = "FinalizingPartiallyFailed"
 
 	// BackupPhaseCompleted means the backup has run successfully without
 	// errors.
@@ -347,6 +409,21 @@ type BackupStatus struct {
 	// completed CSI VolumeSnapshots for this backup.
 	// +optional
 	CSIVolumeSnapshotsCompleted int `json:"csiVolumeSnapshotsCompleted,omitempty"`
+
+	// BackupItemOperationsAttempted is the total number of attempted
+	// async BackupItemAction operations for this backup.
+	// +optional
+	BackupItemOperationsAttempted int `json:"backupItemOperationsAttempted,omitempty"`
+
+	// BackupItemOperationsCompleted is the total number of successfully completed
+	// async BackupItemAction operations for this backup.
+	// +optional
+	BackupItemOperationsCompleted int `json:"backupItemOperationsCompleted,omitempty"`
+
+	// BackupItemOperationsFailed is the total number of async
+	// BackupItemAction operations for this backup which ended with an error.
+	// +optional
+	BackupItemOperationsFailed int `json:"backupItemOperationsFailed,omitempty"`
 }
 
 // BackupProgress stores information about the progress of a Backup's execution.
@@ -366,6 +443,11 @@ type BackupProgress struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:object:generate=true
+// +kubebuilder:storageversion
+// +kubebuilder:rbac:groups=velero.io,resources=backups,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=velero.io,resources=backups/status,verbs=get;update;patch
 
 // Backup is a Velero resource that represents the capture of Kubernetes
 // cluster state at a point in time (API objects and associated volume state).
