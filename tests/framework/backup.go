@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	veleroCLI = "velero"
+	veleroCLI            = "velero"
+	backupRestoreTimeout = 600 * time.Second
 )
 
 // TODO: change this to resource not a command!!!
@@ -226,7 +227,7 @@ func GetBackupPhase(ctx context.Context, backupName string, backupNamespace stri
 }
 
 func WaitForBackupPhase(ctx context.Context, backupName string, backupNamespace string, expectedPhase v1.BackupPhase) error {
-	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+	err := wait.PollImmediate(pollInterval, backupRestoreTimeout, func() (bool, error) {
 		backup, err := GetBackup(ctx, backupName, backupNamespace)
 		if err != nil {
 			return false, err
@@ -242,7 +243,7 @@ func WaitForBackupPhase(ctx context.Context, backupName string, backupNamespace 
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("backup %s not in phase %s within %v", backupName, expectedPhase, waitTime)
+		return fmt.Errorf("backup %s not in phase %s within %v", backupName, expectedPhase, backupRestoreTimeout)
 	}
 	return nil
 }
@@ -335,7 +336,7 @@ func GetRestorePhase(ctx context.Context, restoreName string, backupNamespace st
 }
 
 func WaitForRestorePhase(ctx context.Context, restoreName string, backupNamespace string, expectedPhase v1.RestorePhase) error {
-	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+	err := wait.PollImmediate(pollInterval, backupRestoreTimeout, func() (bool, error) {
 		phase, err := GetRestorePhase(ctx, restoreName, backupNamespace)
 		ginkgo.By(fmt.Sprintf("Waiting for restore phase %v, got %v", expectedPhase, phase))
 		if err != nil || phase != expectedPhase {
@@ -344,7 +345,7 @@ func WaitForRestorePhase(ctx context.Context, restoreName string, backupNamespac
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("restore %s not in phase %s within %v", restoreName, expectedPhase, waitTime)
+		return fmt.Errorf("restore %s not in phase %s within %v", restoreName, expectedPhase, backupRestoreTimeout)
 	}
 	return nil
 }

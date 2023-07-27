@@ -23,7 +23,7 @@ import (
 
 const (
 	pollInterval = 3 * time.Second
-	waitTime     = 600 * time.Second
+	waitTime     = 360 * time.Second
 )
 
 func IsDataVolumeGC(kvClient kubecli.KubevirtClient) bool {
