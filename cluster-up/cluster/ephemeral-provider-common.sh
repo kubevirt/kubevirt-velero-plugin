@@ -4,6 +4,7 @@ set -e
 
 KUBEVIRT_WITH_ETC_IN_MEMORY=${KUBEVIRT_WITH_ETC_IN_MEMORY:-false}
 KUBEVIRT_WITH_ETC_CAPACITY=${KUBEVIRT_WITH_ETC_CAPACITY:-none}
+KUBEVIRT_DNS_HOST_PORT=${KUBEVIRT_DNS_HOST_PORT:-31111}
 
 export KUBEVIRTCI_PODMAN_SOCKET=${KUBEVIRTCI_PODMAN_SOCKET:-"/run/podman/podman.sock"}
 
@@ -87,6 +88,9 @@ function _registry_volume() {
 function _add_common_params() {
     # shellcheck disable=SC2155
     local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 6 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix ${KUBEVIRT_PROVIDER} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+
+    params=" --dns-port $KUBEVIRT_DNS_HOST_PORT $params"
+
     if [[ $TARGET =~ windows_sysprep.* ]] && [ -n "$WINDOWS_SYSPREP_NFS_DIR" ]; then
         params=" --nfs-data $WINDOWS_SYSPREP_NFS_DIR $params"
     elif [[ $TARGET =~ windows.* ]] && [ -n "$WINDOWS_NFS_DIR" ]; then
@@ -97,8 +101,22 @@ function _add_common_params() {
 
     if [ -n "${KUBEVIRTCI_PROVISION_CHECK}" ]; then
         params=" --container-registry=quay.io --container-suffix=:latest $params"
-    elif [[ ${KUBEVIRT_SLIM} == "true" ]]; then
-        params=" --slim $params"
+    else
+        if [[ -n ${KUBEVIRTCI_CONTAINER_REGISTRY} ]]; then
+            params=" --container-registry=$KUBEVIRTCI_CONTAINER_REGISTRY $params"
+        fi
+
+        if [[ -n ${KUBEVIRTCI_CONTAINER_ORG} ]]; then
+            params=" --container-org=$KUBEVIRTCI_CONTAINER_ORG $params"
+        fi
+
+        if [[ -n ${KUBEVIRTCI_CONTAINER_SUFFIX} ]]; then
+            params=" --container-suffix=:$KUBEVIRTCI_CONTAINER_SUFFIX $params"
+        fi
+
+        if [[ ${KUBEVIRT_SLIM} == "true" ]]; then
+            params=" --slim $params"
+        fi
     fi
 
     if [ $KUBEVIRT_WITH_ETC_IN_MEMORY == "true" ]; then
@@ -110,6 +128,18 @@ function _add_common_params() {
 
     if [ $KUBEVIRT_DEPLOY_ISTIO == "true" ]; then
         params=" --enable-istio $params"
+    fi
+
+    if [ $KUBEVIRT_PSA == "true" ]; then
+        params=" --enable-psa $params"
+    fi
+
+    if [ $KUBEVIRT_SINGLE_STACK == "true" ]; then
+        params=" --single-stack $params"
+    fi
+
+    if [ $KUBEVIRT_ENABLE_AUDIT == "true" ]; then
+        params=" --enable-audit $params"
     fi
 
     if [ $KUBEVIRT_DEPLOY_NFS_CSI == "true" ]; then
@@ -141,6 +171,10 @@ function _add_common_params() {
 
     if [ -n "$KUBEVIRT_REALTIME_SCHEDULER" ]; then
         params=" --enable-realtime-scheduler $params"
+    fi
+
+    if [ -n "$KUBEVIRT_FIPS" ]; then
+        params=" --enable-fips $params"
     fi
 
     if [ -n "$KUBEVIRTCI_PROXY" ]; then
