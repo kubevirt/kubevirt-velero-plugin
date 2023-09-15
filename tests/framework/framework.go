@@ -456,7 +456,7 @@ func (r *KubernetesReporter) logEndpoints(kubeCli kubernetes.Interface) {
 }
 
 func (r *KubernetesReporter) logVMs(kvClient kubecli.KubevirtClient) {
-	vms, err := kvClient.VirtualMachine(v1.NamespaceAll).List(&metav1.ListOptions{})
+	vms, err := kvClient.VirtualMachine(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vms: %v\n", err)
 		return

@@ -22,14 +22,14 @@ import (
 )
 
 const (
-	pollInterval = 3 * time.Second
-	waitTime     = 600 * time.Second
+	pollInterval = 2 * time.Second
+	waitTime     = 180 * time.Second
 )
 
 func IsDataVolumeGC(kvClient kubecli.KubevirtClient) bool {
 	config, err := kvClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	return config.Spec.DataVolumeTTLSeconds == nil || *config.Spec.DataVolumeTTLSeconds >= 0
+	return config.Spec.DataVolumeTTLSeconds != nil && *config.Spec.DataVolumeTTLSeconds >= 0
 }
 
 func CreateDataVolumeFromDefinition(clientSet kubecli.KubevirtClient, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {
@@ -293,6 +293,12 @@ func NewPod(podName, pvcName, cmd string) *v1.Pod {
 						Requests: map[v1.ResourceName]resource.Quantity{
 							v1.ResourceCPU:    *resource.NewQuantity(0, resource.DecimalSI),
 							v1.ResourceMemory: *resource.NewQuantity(0, resource.DecimalSI)},
+					},
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      "storage",
+							MountPath: "/mnt",
+						},
 					},
 				},
 			},
