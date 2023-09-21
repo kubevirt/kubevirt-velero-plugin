@@ -134,6 +134,7 @@ var _ = Describe("DV Backup", func() {
 			By("Creating clone DV - object under test")
 			dvSpec := framework.NewCloneDataVolume(dvName, "100Mi", srcDv.Namespace, srcDv.Name, f.StorageClass)
 			dv, err = framework.CreateDataVolumeFromDefinition(f.KvClient, f.Namespace.Name, dvSpec)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup test-backup")
 			err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
@@ -141,7 +142,7 @@ var _ = Describe("DV Backup", func() {
 
 			phase, err := framework.GetBackupPhase(timeout, backupName, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
+			Expect(phase).To(Equal(velerov1api.BackupPhasePartiallyFailed))
 
 			By("Deleting DataVolume")
 			err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dv.Name)

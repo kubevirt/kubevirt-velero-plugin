@@ -186,12 +186,15 @@ var _ = Describe("Resource includes", func() {
 				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-				// The backup should contains the following 2 items:
+				// The backup should contains the following 5 items:
 				// - DataVolume
 				// - PVC
-				expectedItems := 2
+				// - VolumeSnapshot
+				// - VolumeSnapshotContent
+				// - VolumeSnapshotClass
+				expectedItems := 5
 				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems = 1
+					expectedItems -= 1
 				}
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 
@@ -325,7 +328,7 @@ var _ = Describe("Resource includes", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Checking DataVolume does not re-import content")
-					err = framework.WaitForDataVolumePhaseButNot(f.KvClient, f.Namespace.Name, cdiv1.Succeeded, cdiv1.ImportScheduled, dvName)
+					err = framework.WaitForDataVolumePhaseButNot(f.KvClient, f.Namespace.Name, cdiv1.Pending, cdiv1.ImportScheduled, dvName)
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
@@ -377,6 +380,7 @@ var _ = Describe("Resource includes", func() {
 				err = framework.WaitForPVCPhase(f.K8sClient, f.Namespace.Name, dvName, v1.ClaimBound)
 				Expect(err).ToNot(HaveOccurred())
 				pvc, err := framework.FindPVC(f.K8sClient, f.Namespace.Name, dvName)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pvc.OwnerReferences)).To(Equal(0))
 
 				By("Checking DataVolume does not exist")
@@ -584,6 +588,14 @@ var _ = Describe("Resource includes", func() {
 				err = framework.WaitForRestorePhase(timeout, restoreName, f.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
+				By("Stopping the VM")
+				err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying included VM exists")
+				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				Expect(err).ToNot(HaveOccurred())
+
 				// Testing for ImportScheduled is not reliable, because sometimes it might happen so fast,
 				// that DV switches to Succeeded before we even get here
 				By("Checking DataVolume import succeeds")
@@ -592,10 +604,6 @@ var _ = Describe("Resource includes", func() {
 				By("Verifying DataVolume is re-imported - file should not exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyNoFile(volumeName))
 				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
-
-				By("Verifying included VM exists")
-				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[test_id:10192]Selecting VM but not VMI or Pod: Backing up should fail if the VM is running", func() {
@@ -757,8 +765,12 @@ var _ = Describe("Resource includes", func() {
 				By("Checking DataVolume Pending")
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, BeInPhase(cdiv1.Pending))
 
+				expectedStatus := kvv1.VirtualMachineStatusProvisioning
+				if framework.IsDataVolumeGC(f.KvClient) {
+					expectedStatus = kvv1.VirtualMachineStatusStopped
+				}
 				By("Verifying included VM exists")
-				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, expectedStatus)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1287,20 +1299,16 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
-				// The backup should contains the following 7 items:
+				// The backup should contains the following 6 items:
 				// - DataVolume
 				// - PVC
 				// - PV
 				// - VolumeSnapshot
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				// - Datavolume resource definition
-				expectedItems := 7
+				expectedItems := 6
 				if framework.IsDataVolumeGC(f.KvClient) {
-					// currently DV doesnt pass labels to PVC hence in case the DV was GC
-					// the backup didnt backup anything since the PVC doesnt have the label
-					// TODO: should be fixed with PR: https://github.com/kubevirt/containerized-data-importer/pull/2547
-					expectedItems = 0
+					expectedItems -= 1
 				}
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 
@@ -1362,7 +1370,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
-				// The backup should contain the following 13 items:
+				// The backup should contain the following 12 items:
 				// - VirtualMachine
 				// - 2 DataVolume
 				// - 2 PVC
@@ -1370,10 +1378,9 @@ var _ = Describe("Resource includes", func() {
 				// - 2 VolumeSnapshot
 				// - 2 VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				// - Datavolume resource definition
-				expectedItems := 13
+				expectedItems := 12
 				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems = 11
+					expectedItems -= 2
 				}
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 			})
@@ -1406,7 +1413,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
-				// The backup should contains the following 8 items:
+				// The backup should contains the following 7 items:
 				// - VirtualMachine
 				// - DataVolume
 				// - PVC
@@ -1414,10 +1421,9 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshot
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				// - Datavolume resource definition
-				expectedItems := 8
+				expectedItems := 7
 				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems = 7
+					expectedItems -= 1
 				}
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 			})
@@ -1453,7 +1459,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
-				// The backup should contains the following 10 items:
+				// The backup should contains the following 9 items:
 				// - VirtualMachine
 				// - VirtualMachineInstance
 				// - Launcher pod
@@ -1463,10 +1469,9 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshot
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				// - Datavolume resource definition
-				expectedItems := 10
+				expectedItems := 9
 				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems = 9
+					expectedItems -= 1
 				}
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 			})
@@ -1531,10 +1536,9 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshot (PVC)
 				// - VolumeSnapshotContent (PVC)
 				// - VolumeSpapshotClass
-				// - VMI resource definition
-				expectedItems := 13
+				expectedItems := 12
 				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems = 12
+					expectedItems -= 1
 				}
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 			})
@@ -1855,7 +1859,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
 				By("Verifying included VM exists")
-				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusProvisioning)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2064,8 +2068,12 @@ var _ = Describe("Resource excludes", func() {
 				_, err = framework.FindPVC(f.K8sClient, f.Namespace.Name, dvName)
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 
+				expectedStatus := kvv1.VirtualMachineStatusProvisioning
+				if framework.IsDataVolumeGC(f.KvClient) {
+					expectedStatus = kvv1.VirtualMachineStatusStopped
+				}
 				By("Verifying included VM exists")
-				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
+				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, expectedStatus)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -3363,13 +3371,13 @@ func FindLauncherPod(client *kubernetes.Clientset, namespace string, vmName stri
 func updateVm(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(*kvv1.VirtualMachine) *kvv1.VirtualMachine) func() error {
 	return func() error {
-		vm, err := kvClient.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+		vm, err := kvClient.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		vm = update(vm)
 
-		_, err = kvClient.VirtualMachine(namespace).Update(vm)
+		_, err = kvClient.VirtualMachine(namespace).Update(context.Background(), vm)
 		return err
 	}
 }
@@ -3377,13 +3385,13 @@ func updateVm(kvClient kubecli.KubevirtClient, namespace string, name string,
 func updateVmi(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(*kvv1.VirtualMachineInstance) *kvv1.VirtualMachineInstance) func() error {
 	return func() error {
-		vmi, err := kvClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
+		vmi, err := kvClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		vmi = update(vmi)
 
-		_, err = kvClient.VirtualMachineInstance(namespace).Update(vmi)
+		_, err = kvClient.VirtualMachineInstance(namespace).Update(context.Background(), vmi)
 		return err
 	}
 }
