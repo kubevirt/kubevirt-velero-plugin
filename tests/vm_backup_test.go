@@ -227,7 +227,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
@@ -286,7 +286,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
@@ -334,7 +334,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
@@ -391,7 +391,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
@@ -441,7 +441,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			hotplugVolName := addVolumeAndVerify(f.KvClient, vm, dvName)
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 			Expect(err).ToNot(HaveOccurred())
 			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 			Expect(err).ToNot(HaveOccurred())
