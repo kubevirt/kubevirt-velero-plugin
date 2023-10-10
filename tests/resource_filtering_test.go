@@ -1244,7 +1244,7 @@ var _ = Describe("Resource includes", func() {
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, otherDVName, 180, HaveSucceeded())
 
 				By("Crating backup test-backup")
-				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, f.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=include", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1289,7 +1289,7 @@ var _ = Describe("Resource includes", func() {
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, includedDVName, 180, HaveSucceeded())
 
 				By("Crating backup test-backup")
-				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=include", snapshotLocation, f.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=include", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1299,14 +1299,16 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
 
-				// The backup should contains the following 6 items:
+				// The backup should contains the following 8 items:
+				// - DataVolume CRD
 				// - DataVolume
 				// - PVC
 				// - PV
 				// - VolumeSnapshot
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				expectedItems := 6
+				// - Namespace
+				expectedItems := 8
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
@@ -1359,7 +1361,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating backup")
-				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
@@ -1378,7 +1380,9 @@ var _ = Describe("Resource includes", func() {
 				// - 2 VolumeSnapshot
 				// - 2 VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				expectedItems := 12
+				// - DataVolume CRD
+				// - Namespace
+				expectedItems := 14
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 2
 				}
@@ -1403,7 +1407,7 @@ var _ = Describe("Resource includes", func() {
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
 
 				By("Creating backup")
-				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1421,7 +1425,9 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshot
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				expectedItems := 7
+				// - DataVolume CRD
+				// - Namespace
+				expectedItems := 9
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
@@ -1449,7 +1455,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
-				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1469,7 +1475,9 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshot
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				expectedItems := 9
+				// - DataVolume CRD
+				// - Namespace
+				expectedItems := 11
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
@@ -1513,7 +1521,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
 				By("Creating backup")
-				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", snapshotLocation, f.BackupNamespace, true)
+				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
@@ -1536,7 +1544,9 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshot (PVC)
 				// - VolumeSnapshotContent (PVC)
 				// - VolumeSpapshotClass
-				expectedItems := 12
+				// - DataVolume CRD
+				// - Namespace
+				expectedItems := 14
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
