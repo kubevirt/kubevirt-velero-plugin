@@ -1307,8 +1307,7 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshot
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
-				// - Namespace
-				expectedItems := 8
+				expectedItems := 7
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
@@ -1381,8 +1380,7 @@ var _ = Describe("Resource includes", func() {
 				// - 2 VolumeSnapshotContent
 				// - VolumeSpapshotClass
 				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 14
+				expectedItems := 13
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 2
 				}
@@ -1426,8 +1424,7 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
 				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 9
+				expectedItems := 8
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
@@ -1476,8 +1473,7 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshotContent
 				// - VolumeSpapshotClass
 				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 11
+				expectedItems := 10
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
@@ -1545,8 +1541,7 @@ var _ = Describe("Resource includes", func() {
 				// - VolumeSnapshotContent (PVC)
 				// - VolumeSpapshotClass
 				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 14
+				expectedItems := 13
 				if framework.IsDataVolumeGC(f.KvClient) {
 					expectedItems -= 1
 				}
