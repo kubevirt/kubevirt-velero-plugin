@@ -1086,7 +1086,7 @@ var _ = Describe("Resource includes", func() {
 		Context("[smoke] Standalone VMI", func() {
 			// This test tries to backup on all namespaces, on some clusters it always fails
 			// need to be improved
-			It("[test_id:10204]Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", func() {
+			It("[test_id:10204]Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", Label("PartnerComp"), func() {
 				By(fmt.Sprintf("Creating DataVolume %s", dvName))
 				err := f.CreateDataVolumeWithGuestAgentImage()
 				Expect(err).ToNot(HaveOccurred())

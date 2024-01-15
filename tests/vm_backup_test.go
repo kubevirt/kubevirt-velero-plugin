@@ -59,7 +59,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 		cancelFunc()
 	})
 
-	It("[test_id:10267]Stopped VM should be restored", func() {
+	It("[test_id:10267]Stopped VM should be restored", Label("PartnerComp"), func() {
 		By(fmt.Sprintf("Creating DataVolume %s", dvName))
 		err := f.CreateBlankDataVolume()
 		Expect(err).ToNot(HaveOccurred())
@@ -201,7 +201,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	Context("VM and VMI object graph backup", func() {
-		It("[test_id:10270]with instancetype and preference", func() {
+		It("[test_id:10270]with instancetype and preference", Label("PartnerComp"), func() {
 			By("Create instancetype and preference")
 			err := f.CreateInstancetype()
 			Expect(err).ToNot(HaveOccurred())
@@ -266,7 +266,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:10271]with configmap, secret and serviceaccount", func() {
+		It("[test_id:10271]with configmap, secret and serviceaccount", Label("PartnerComp"), func() {
 			By("Creating configmap and secret")
 			err := f.CreateConfigMap()
 			Expect(err).ToNot(HaveOccurred())
@@ -322,7 +322,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:10272]with access credentials", func() {
+		It("[test_id:10272]with access credentials", Label("PartnerComp"), func() {
 			By("Creating access credentials")
 			err := f.CreateAccessCredentialsSecret()
 			Expect(err).ToNot(HaveOccurred())
@@ -361,10 +361,14 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			if err != nil {
+				fmt.Println("SLEEEEEEEEPPP")
+				time.Sleep(time.Minute * 1000)
+			}
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:10273]VM with standalone PVC", func() {
+		It("[test_id:10273]VM with standalone PVC", Label("PartnerComp"), func() {
 			By(fmt.Sprintf("Creating DataVolume %s to create PVC", dvForPVCName))
 			err := f.CreatePVCUsingDataVolume()
 			Expect(err).ToNot(HaveOccurred())
@@ -424,7 +428,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:10275]VM with hotplug disk", func() {
+		It("[test_id:10275]VM with hotplug disk", Label("PartnerComp"), func() {
 			By("Starting a VM")
 			err := f.CreateVMForHotplug()
 			Expect(err).ToNot(HaveOccurred())
