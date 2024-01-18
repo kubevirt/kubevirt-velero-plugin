@@ -113,7 +113,7 @@ func getStorageClassFromEnv() string {
 		return ""
 	}
 
-	fmt.Fprintf(os.Stderr, "StorageClass Name [%s]\n", storageClass)
+	fmt.Fprintf(ginkgo.GinkgoWriter, "StorageClass Name [%s]\n", storageClass)
 	return storageClass
 }
 

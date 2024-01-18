@@ -26,37 +26,37 @@ func (f *Framework) CreateAccessCredentialsSecret() error {
 }
 
 func (f *Framework) CreateBlankDataVolume() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/blank_datavolume.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/blank_datavolume.yaml")
 	return err
 }
 
 func (f *Framework) CreateDataVolumeWithGuestAgentImage() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/dv-with-guest-agent-image.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/dv_with_guest_agent_image.yaml")
 	return err
 }
 
 func (f *Framework) CreatePVCUsingDataVolume() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/dv-for-pvc.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/dv_for_pvc.yaml")
 	return err
 }
 
 func (f *Framework) CreateVMWithInstancetypeAndPreference() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_instancetype_and_preference.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/vm_with_instancetype_and_preference.yaml")
 	return err
 }
 
 func (f *Framework) CreateVMWithDifferentVolumes() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_different_volume_types.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/vm_with_different_volume_types.yaml")
 	return err
 }
 
 func (f *Framework) CreateVMWithAccessCredentials() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_access_credentials.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/vm_with_access_credentials.yaml")
 	return err
 }
 
 func (f *Framework) CreateVMWithDVAndDVTemplate() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_dv_and_dvtemplate.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/vm_with_dv_and_dvtemplate.yaml")
 	return err
 }
 
@@ -66,7 +66,7 @@ func (f *Framework) CreateVMWithPVC() error {
 }
 
 func (f *Framework) CreateVMForHotplug() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/vm_for_hotplug.yaml", "-n", f.Namespace.Name)
+	err := f.RunKubectlCreateYamlCommand("manifests/vm_for_hotplug.yaml")
 	return err
 }
 
