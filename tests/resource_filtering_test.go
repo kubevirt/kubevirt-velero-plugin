@@ -2891,12 +2891,16 @@ var _ = Describe("Resource excludes", func() {
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
 				Expect(err).ToNot(HaveOccurred())
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
+				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
+				By("Writing to PVC filesystem")
+				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
+				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Adding exclude labels")
 				if !framework.IsDataVolumeGC(f.KvClient) {
-					addExcludeLabelToDV(vmSpec.Spec.DataVolumeTemplates[0].Name)
+					addExcludeLabelToDV(volumeName)
 				}
-				addExcludeLabelToPVC(vmSpec.Spec.DataVolumeTemplates[0].Name)
+				addExcludeLabelToPVC(volumeName)
 
 				By("Creating backup")
 				err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
@@ -2917,11 +2921,12 @@ var _ = Describe("Resource excludes", func() {
 				err = framework.WaitForRestorePhase(timeout, restoreName, f.BackupNamespace, velerov1api.RestorePhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking DataVolume re-imports content")
-				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, BeInPhase(cdiv1.ImportScheduled))
-
 				By("Checking DataVolume import succeeds")
-				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
+				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, volumeName, 180, HaveSucceeded())
+
+				By("Verifying DataVolume has re-imported - file should not exists")
+				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyNoFile(volumeName))
+				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
