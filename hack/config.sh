@@ -50,8 +50,8 @@ _ssh=${KUBEVIRTCI_PATH}ssh.sh
 DEPLOYMENT_TIMEOUT=600
 USE_CSI=${USE_CSI:-1}
 USE_RESTIC=${USE_RESTIC:-0}
-CSI_PLUGIN=${CSI_PLUGIN:-velero/velero-plugin-for-csi:v0.5.1}
-VELERO_VERSION=${VELERO_VERSION:-v1.12.0}
+CSI_PLUGIN=${CSI_PLUGIN:-velero/velero-plugin-for-csi:v0.6.3}
+VELERO_VERSION=${VELERO_VERSION:-v1.12.3}
 VELERO_DIR=_output/velero/bin
 
 source cluster-up/hack/config.sh
