@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	kubernetes "k8s.io/client-go/kubernetes"
@@ -31,6 +32,7 @@ var _ = Describe("Resource includes", func() {
 	var cancelFunc context.CancelFunc
 	var backupName string
 	var restoreName string
+	var veleroPodName string
 
 	var f = framework.NewFramework()
 
@@ -39,6 +41,7 @@ var _ = Describe("Resource includes", func() {
 		t := time.Now().UnixNano()
 		backupName = fmt.Sprintf("test-backup-%d", t)
 		restoreName = fmt.Sprintf("test-restore-%d", t)
+		veleroPodName = FindVeleroPodName(f.K8sClient, f.BackupNamespace)
 	})
 
 	AfterEach(func() {
@@ -183,20 +186,17 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-				// The backup should contains the following 5 items:
-				// - DataVolume
-				// - PVC
-				// - VolumeSnapshot
-				// - VolumeSnapshotContent
-				// - VolumeSnapshotClass
-				expectedItems := 5
-				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems -= 1
+				expectedItems := map[string][]string{
+					"DataVolume":            []string{dvName},
+					"PersistentVolumeClaim": []string{dvName},
 				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
+				isDVGC := framework.IsDataVolumeGC(f.KvClient)
+				if isDVGC {
+					delete(expectedItems, "DataVolume")
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
+				Expect(err).ToNot(HaveOccurred())
+				checkBackupResources(backupItems, expectedItems)
 
 				By("Deleting DVs")
 				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
@@ -238,21 +238,18 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-				// The backup should contains the following items:
-				// - DataVolume
-				// - PVC
-				// - PV
-				// - VolumeSnapshot
-				// - VolumeSnapshotContent
-				// - a number of unbound PVs
-				expectedItems := 5
-				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems = 4
+				expectedItems := map[string][]string{
+					"DataVolume":            []string{dvName},
+					"PersistentVolumeClaim": []string{dvName},
+					"PersistentVolume":      []string{"pvc"},
 				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(BeNumerically(">=", expectedItems))
+				isDVGC := framework.IsDataVolumeGC(f.KvClient)
+				if isDVGC {
+					delete(expectedItems, "DataVolume")
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
+				Expect(err).ToNot(HaveOccurred())
+				checkBackupResources(backupItems, expectedItems)
 
 				By("Deleting DVs")
 				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
@@ -303,16 +300,16 @@ var _ = Describe("Resource includes", func() {
 				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-				// The backup should contains the following item:
-				// - DataVolume
-				expectedItems := 1
 				isDVGC := framework.IsDataVolumeGC(f.KvClient)
-				if isDVGC {
-					expectedItems = 0
-				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
 
 				if !isDVGC {
+					expectedItems := map[string][]string{
+						"DataVolume": []string{dvName},
+					}
+					backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
+					Expect(err).ToNot(HaveOccurred())
+					checkBackupResources(backupItems, expectedItems)
+
 					By("Deleting DVs")
 					err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
 					Expect(err).ToNot(HaveOccurred())
@@ -351,16 +348,13 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
+				expectedItems := map[string][]string{
+					"PersistentVolumeClaim": []string{dvName},
+					"PersistentVolume":      []string{"pvc"},
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-				// The backup should contains the following items:
-				// - PVC
-				// - PV
-				// - VolumeSnapshot
-				// - VolumeSnapshotContent
-				// - a number of unbound PVs
-				Expect(backup.Status.Progress.ItemsBackedUp).To(BeNumerically(">=", 4))
+				checkBackupResources(backupItems, expectedItems)
 
 				By("Deleting DVs")
 				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvIncluded.Name)
@@ -1295,27 +1289,19 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-
-				// The backup should contains the following 8 items:
-				// - DataVolume CRD
-				// - DataVolume
-				// - PVC
-				// - PV
-				// - VolumeSnapshot
-				// - VolumeSnapshotContent
-				// - VolumeSpapshotClass
-				// - Namespace
-				expectedItems := 8
-				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems -= 1
+				expectedItems := map[string][]string{
+					"CustomResourceDefinition": []string{"datavolumes"},
+					"DataVolume":               []string{includedDVName},
+					"PersistentVolume":         []string{"pvc"},
+					"PersistentVolumeClaim":    []string{includedDVName},
 				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
-
-				err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvSpec.Name)
+				isDVGC := framework.IsDataVolumeGC(f.KvClient)
+				if isDVGC {
+					delete(expectedItems, "DataVolume")
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
 				Expect(err).ToNot(HaveOccurred())
+				checkBackupResources(backupItems, expectedItems)
 			})
 		})
 
@@ -1368,25 +1354,20 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-
-				// The backup should contain the following 12 items:
-				// - VirtualMachine
-				// - 2 DataVolume
-				// - 2 PVC
-				// - 2 PV
-				// - 2 VolumeSnapshot
-				// - 2 VolumeSnapshotContent
-				// - VolumeSpapshotClass
-				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 14
-				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems -= 2
+				expectedItems := map[string][]string{
+					"CustomResourceDefinition": []string{"virtualmachines"},
+					"VirtualMachine":           []string{vm.Name},
+					"DataVolume":               []string{dvName, vm.Spec.DataVolumeTemplates[0].Name},
+					"PersistentVolume":         []string{"pvc"},
+					"PersistentVolumeClaim":    []string{dvName, vm.Spec.DataVolumeTemplates[0].Name},
 				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
+				isDVGC := framework.IsDataVolumeGC(f.KvClient)
+				if isDVGC {
+					delete(expectedItems, "DataVolume")
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
+				Expect(err).ToNot(HaveOccurred())
+				checkBackupResources(backupItems, expectedItems)
 			})
 		})
 		Context("VM with DVTemplates", func() {
@@ -1401,10 +1382,10 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
 
-				vmSpec = newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
-				_, err = framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
+				vmSpec2 := newVMSpecBlankDVTemplate("other-test-vm", "100Mi")
+				_, err = framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec2)
 				Expect(err).ToNot(HaveOccurred())
-				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
+				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec2.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
 
 				By("Creating backup")
 				err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
@@ -1413,25 +1394,20 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-
-				// The backup should contains the following 7 items:
-				// - VirtualMachine
-				// - DataVolume
-				// - PVC
-				// - PV
-				// - VolumeSnapshot
-				// - VolumeSnapshotContent
-				// - VolumeSpapshotClass
-				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 9
-				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems -= 1
+				expectedItems := map[string][]string{
+					"CustomResourceDefinition": []string{"virtualmachines"},
+					"VirtualMachine":           []string{includedVMName},
+					"DataVolume":               []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
+					"PersistentVolume":         []string{"pvc"},
+					"PersistentVolumeClaim":    []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
 				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
+				isDVGC := framework.IsDataVolumeGC(f.KvClient)
+				if isDVGC {
+					delete(expectedItems, "DataVolume")
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
+				Expect(err).ToNot(HaveOccurred())
+				checkBackupResources(backupItems, expectedItems)
 			})
 
 			It("[test_id:10211]Backup of a running VMs selected by label should include its DVs and PVCs, VMIs and Pods", func() {
@@ -1461,27 +1437,22 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-
-				// The backup should contains the following 9 items:
-				// - VirtualMachine
-				// - VirtualMachineInstance
-				// - Launcher pod
-				// - DataVolume
-				// - PVC
-				// - PV
-				// - VolumeSnapshot
-				// - VolumeSnapshotContent
-				// - VolumeSpapshotClass
-				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 11
-				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems -= 1
+				expectedItems := map[string][]string{
+					"CustomResourceDefinition": []string{"virtualmachines"},
+					"VirtualMachine":           []string{includedVMName},
+					"VirtualMachineInstance":   []string{includedVMName},
+					"Pod":                      []string{"virt-launcher"},
+					"DataVolume":               []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
+					"PersistentVolume":         []string{"pvc"},
+					"PersistentVolumeClaim":    []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
 				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
+				isDVGC := framework.IsDataVolumeGC(f.KvClient)
+				if isDVGC {
+					delete(expectedItems, "DataVolume")
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
+				Expect(err).ToNot(HaveOccurred())
+				checkBackupResources(backupItems, expectedItems)
 			})
 		})
 
@@ -1498,25 +1469,25 @@ var _ = Describe("Resource includes", func() {
 				By(fmt.Sprintf("Creating DataVolume %s", dvSpec2.Name))
 				_, err = framework.CreateDataVolumeFromDefinition(f.KvClient, f.Namespace.Name, dvSpec2)
 				Expect(err).ToNot(HaveOccurred())
-				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, "test-dv-2", 180, HaveSucceeded())
+				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvSpec2.Name, 180, HaveSucceeded())
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", dvName)
 				pvcVolume := kvv1.VolumeSource{
 					PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "test-dv-2",
+							ClaimName: dvSpec2.Name,
 						}},
 				}
 				addVolumeToVMI(vmiSpec, pvcVolume, "pvc-volume")
 				vmiSpec.Labels = map[string]string{
 					"a.test.label": "included",
 				}
-				vm, err := framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
+				vmi, err := framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
+				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmi.Name, kvv1.Running)
 				Expect(err).ToNot(HaveOccurred())
-				ok, err := framework.WaitForVirtualMachineInstanceCondition(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineInstanceAgentConnected)
+				ok, err := framework.WaitForVirtualMachineInstanceCondition(f.KvClient, f.Namespace.Name, vmi.Name, kvv1.VirtualMachineInstanceAgentConnected)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ok).To(BeTrue(), "VirtualMachineInstanceAgentConnected should be true")
 
@@ -1527,30 +1498,21 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing backup")
-				backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(backup.Status.Progress.TotalItems))
-
-				// The backup should contains the following 13 items:
-				// - VirtualMachineInstance
-				// - Launcher pod
-				// - DataVolume
-				// - DV's PVC
-				// - DV's PVC's PV
-				// - standalone PVC
-				// - standaolne PVC's PV
-				// - VolumeSnapshot (DV)
-				// - VolumeSnapshotContent (DV)
-				// - VolumeSnapshot (PVC)
-				// - VolumeSnapshotContent (PVC)
-				// - VolumeSpapshotClass
-				// - DataVolume CRD
-				// - Namespace
-				expectedItems := 14
-				if framework.IsDataVolumeGC(f.KvClient) {
-					expectedItems -= 1
+				expectedItems := map[string][]string{
+					"CustomResourceDefinition": []string{"virtualmachineinstances"},
+					"VirtualMachineInstance":   []string{vmi.Name},
+					"Pod":                      []string{"virt-launcher"},
+					"DataVolume":               []string{dvName},
+					"PersistentVolume":         []string{"pvc"},
+					"PersistentVolumeClaim":    []string{dvName, dvSpec2.Name},
 				}
-				Expect(backup.Status.Progress.ItemsBackedUp).To(Equal(expectedItems))
+				isDVGC := framework.IsDataVolumeGC(f.KvClient)
+				if isDVGC {
+					delete(expectedItems, "DataVolume")
+				}
+				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
+				Expect(err).ToNot(HaveOccurred())
+				checkBackupResources(backupItems, expectedItems)
 			})
 		})
 	})
@@ -3367,6 +3329,44 @@ var _ = Describe("Resource excludes", func() {
 		})
 	})
 })
+
+func checkBackupResources(backupRes map[string]interface{}, expectedRes map[string][]string) {
+	resStatus := backupRes["status"].(map[string]interface{})
+	Expect(resStatus["itemsBackedUp"]).To(Equal(resStatus["totalItemsToBeBackedUp"]))
+	if resStatus["resourceList"] == nil {
+		Fail("No resources were backed up")
+	}
+	resourceList := resStatus["resourceList"].(map[string]interface{})
+	Expect(len(expectedRes)).Should(BeNumerically("<=", len(resourceList)))
+
+	for expType, expVals := range expectedRes {
+		for _, expVal := range expVals {
+			found := false
+			for resType, resVal := range resourceList {
+				if strings.Contains(resType, expType) {
+					for _, val := range resVal.([]interface{}) {
+						if strings.Contains(val.(string), expVal) {
+							found = true
+							break
+						}
+					}
+				}
+			}
+			if !found {
+				Fail(fmt.Sprintf("resource: %s-%s not found in backup resources: %+v", expType, expVal, resourceList))
+			}
+		}
+	}
+}
+
+func FindVeleroPodName(client *kubernetes.Clientset, backupNamespace string) string {
+	pods, err := client.CoreV1().Pods(backupNamespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "deploy=velero",
+	})
+	Expect(err).WithOffset(1).ToNot(HaveOccurred())
+	Expect(pods.Items).To(HaveLen(1))
+	return pods.Items[0].Name
+}
 
 func FindLauncherPod(client *kubernetes.Clientset, namespace string, vmName string) v1.Pod {
 	var pod v1.Pod
