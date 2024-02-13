@@ -241,8 +241,8 @@ var _ = Describe("Resource includes", func() {
 				expectedItems := map[string][]string{
 					"DataVolume":            []string{dvName},
 					"PersistentVolumeClaim": []string{dvName},
-					"PersistentVolume":      []string{"pvc"},
 				}
+				addExpectedPVs(f.K8sClient, f.Namespace.Name, expectedItems)
 				isDVGC := framework.IsDataVolumeGC(f.KvClient)
 				if isDVGC {
 					delete(expectedItems, "DataVolume")
@@ -350,8 +350,8 @@ var _ = Describe("Resource includes", func() {
 				By("Veryfing backup")
 				expectedItems := map[string][]string{
 					"PersistentVolumeClaim": []string{dvName},
-					"PersistentVolume":      []string{"pvc"},
 				}
+				addExpectedPVs(f.K8sClient, f.Namespace.Name, expectedItems)
 				backupItems, err := f.KubectlDescribeVeleroBackup(timeout, veleroPodName, backupName)
 				Expect(err).ToNot(HaveOccurred())
 				checkBackupResources(backupItems, expectedItems)
@@ -1292,9 +1292,9 @@ var _ = Describe("Resource includes", func() {
 				expectedItems := map[string][]string{
 					"CustomResourceDefinition": []string{"datavolumes"},
 					"DataVolume":               []string{includedDVName},
-					"PersistentVolume":         []string{"pvc"},
 					"PersistentVolumeClaim":    []string{includedDVName},
 				}
+				addExpectedPVs(f.K8sClient, f.Namespace.Name, expectedItems)
 				isDVGC := framework.IsDataVolumeGC(f.KvClient)
 				if isDVGC {
 					delete(expectedItems, "DataVolume")
@@ -1358,9 +1358,9 @@ var _ = Describe("Resource includes", func() {
 					"CustomResourceDefinition": []string{"virtualmachines"},
 					"VirtualMachine":           []string{vm.Name},
 					"DataVolume":               []string{dvName, vm.Spec.DataVolumeTemplates[0].Name},
-					"PersistentVolume":         []string{"pvc"},
 					"PersistentVolumeClaim":    []string{dvName, vm.Spec.DataVolumeTemplates[0].Name},
 				}
+				addExpectedPVs(f.K8sClient, f.Namespace.Name, expectedItems)
 				isDVGC := framework.IsDataVolumeGC(f.KvClient)
 				if isDVGC {
 					delete(expectedItems, "DataVolume")
@@ -1398,9 +1398,9 @@ var _ = Describe("Resource includes", func() {
 					"CustomResourceDefinition": []string{"virtualmachines"},
 					"VirtualMachine":           []string{includedVMName},
 					"DataVolume":               []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
-					"PersistentVolume":         []string{"pvc"},
 					"PersistentVolumeClaim":    []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
 				}
+				addExpectedPVs(f.K8sClient, f.Namespace.Name, expectedItems)
 				isDVGC := framework.IsDataVolumeGC(f.KvClient)
 				if isDVGC {
 					delete(expectedItems, "DataVolume")
@@ -1441,11 +1441,11 @@ var _ = Describe("Resource includes", func() {
 					"CustomResourceDefinition": []string{"virtualmachines"},
 					"VirtualMachine":           []string{includedVMName},
 					"VirtualMachineInstance":   []string{includedVMName},
-					"Pod":                      []string{"virt-launcher"},
+					"Pod":                      []string{fmt.Sprintf("virt-launcher-%s", includedVMName)},
 					"DataVolume":               []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
-					"PersistentVolume":         []string{"pvc"},
 					"PersistentVolumeClaim":    []string{vmSpec.Spec.DataVolumeTemplates[0].Name},
 				}
+				addExpectedPVs(f.K8sClient, f.Namespace.Name, expectedItems)
 				isDVGC := framework.IsDataVolumeGC(f.KvClient)
 				if isDVGC {
 					delete(expectedItems, "DataVolume")
@@ -1501,11 +1501,11 @@ var _ = Describe("Resource includes", func() {
 				expectedItems := map[string][]string{
 					"CustomResourceDefinition": []string{"virtualmachineinstances"},
 					"VirtualMachineInstance":   []string{vmi.Name},
-					"Pod":                      []string{"virt-launcher"},
+					"Pod":                      []string{fmt.Sprintf("virt-launcher-%s", vmi.Name)},
 					"DataVolume":               []string{dvName},
-					"PersistentVolume":         []string{"pvc"},
 					"PersistentVolumeClaim":    []string{dvName, dvSpec2.Name},
 				}
+				addExpectedPVs(f.K8sClient, f.Namespace.Name, expectedItems)
 				isDVGC := framework.IsDataVolumeGC(f.KvClient)
 				if isDVGC {
 					delete(expectedItems, "DataVolume")
@@ -3366,6 +3366,18 @@ func FindVeleroPodName(client *kubernetes.Clientset, backupNamespace string) str
 	Expect(err).WithOffset(1).ToNot(HaveOccurred())
 	Expect(pods.Items).To(HaveLen(1))
 	return pods.Items[0].Name
+}
+
+func addExpectedPVs(client *kubernetes.Clientset, namespace string, resources map[string][]string) {
+	pvcs := resources["PersistentVolumeClaim"]
+	pvs := []string{}
+	for _, pvcName := range pvcs {
+		pvc, err := framework.FindPVC(client, namespace, pvcName)
+		Expect(err).ToNot(HaveOccurred())
+		pvName := pvc.Spec.VolumeName
+		pvs = append(pvs, pvName)
+	}
+	resources["PersistentVolume"] = pvs
 }
 
 func FindLauncherPod(client *kubernetes.Clientset, namespace string, vmName string) v1.Pod {
