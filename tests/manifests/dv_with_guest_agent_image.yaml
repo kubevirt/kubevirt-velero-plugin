@@ -2,6 +2,8 @@ apiVersion: cdi.kubevirt.io/v1beta1
 kind: DataVolume
 metadata:
   name: test-dv
+  annotations:
+    cdi.kubevirt.io/storage.bind.immediate.requested: "true"
 spec:
   pvc:
     accessModes:
@@ -10,7 +12,7 @@ spec:
     resources:
       requests:
         storage: 1Gi
-    storageClassName: rook-ceph-block
+    storageClassName: {{KVP_STORAGE_CLASS}}
   source:
     registry:
       pullMethod: node
