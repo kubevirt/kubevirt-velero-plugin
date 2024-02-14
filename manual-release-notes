@@ -1,4 +1,4 @@
-v0.6.2
+*v0.6.2*
 update velero back to 1.12.Z also update velero-plugin-for-csi to match the velero version
 Test and env updates
 Generalize problematic tests
