@@ -24,8 +24,9 @@ const (
 )
 
 var (
-	kubectlPath = flag.String("kubectl-path", "kubectl", "The path to the kubectl binary")
-	kubeConfig  = flag.String("kubeconfig", "/var/run/kubernetes/admin.kubeconfig", "The absolute path to the kubeconfig file")
+	kubectlPath  = flag.String("kubectl-path", "kubectl", "The path to the kubectl binary")
+	kubeConfig   = flag.String("kubeconfig", "/var/run/kubernetes/admin.kubeconfig", "The absolute path to the kubeconfig file")
+	backupScript = flag.String("backup-script", "", "The absolute path to backup restore script (if not defined veleroCLI will be used instead)")
 )
 
 func TestTests(t *testing.T) {
@@ -41,9 +42,11 @@ func BuildTestSuite() {
 		// Read flags, and configure client instances
 		framework.ClientsInstance.KubectlPath = *kubectlPath
 		framework.ClientsInstance.KubeConfig = *kubeConfig
+		framework.BackupScriptInstance.BackupScript = *backupScript
 
 		fmt.Fprintf(GinkgoWriter, "Kubectl path: %s\n", framework.ClientsInstance.KubectlPath)
 		fmt.Fprintf(GinkgoWriter, "Kubeconfig: %s\n", framework.ClientsInstance.KubeConfig)
+		fmt.Fprintf(GinkgoWriter, "BackupScript: %s\n", framework.BackupScriptInstance.BackupScript)
 
 		cfg, err := framework.ClientsInstance.LoadConfig()
 		if err != nil {

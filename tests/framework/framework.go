@@ -42,8 +42,9 @@ const (
 
 // run-time flags
 var (
-	ClientsInstance = &Clients{}
-	reporter        = NewKubernetesReporter()
+	ClientsInstance      = &Clients{}
+	BackupScriptInstance = &BackupScript{}
+	reporter             = NewKubernetesReporter()
 )
 
 // Framework supports common operations used by functional/e2e tests. It holds the k8s and cdi clients,
@@ -58,8 +59,13 @@ type Framework struct {
 	namespacesToDelete []*v1.Namespace
 
 	*Clients
+	*BackupScript
 
 	reporter *KubernetesReporter
+}
+
+type BackupScript struct {
+	BackupScript string
 }
 
 // Clients is the struct containing the client-go kubernetes clients
@@ -150,6 +156,7 @@ func NewFramework() *Framework {
 		StorageClass:    getStorageClassFromEnv(),
 		Clients:         ClientsInstance,
 		reporter:        reporter,
+		BackupScript:    BackupScriptInstance,
 	}
 
 	ginkgo.BeforeEach(f.BeforeEach)
@@ -183,10 +190,10 @@ func (f *Framework) AfterEach() {
 		}
 	}()
 
-	if ginkgo.CurrentGinkgoTestDescription().Failed {
+	if ginkgo.CurrentSpecReport().Failed() {
 		f.reporter.FailureCount++
 		fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", f.reporter.artifactsDir, f.reporter.FailureCount)
-		f.reporter.Dump(f.K8sClient, f.KvClient, ginkgo.CurrentGinkgoTestDescription().Duration)
+		f.reporter.Dump(f.K8sClient, f.KvClient, ginkgo.CurrentSpecReport().RunTime)
 	}
 
 	return

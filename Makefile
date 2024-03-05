@@ -138,6 +138,11 @@ build-dirs:
 	@mkdir -p _output/bin/$(GOOS)/$(GOARCH)
 	@mkdir -p .go/src/$(PKG) .go/pkg .go/bin .go/std/$(GOOS)_$(GOARCH) .go/go-build
 
+build-backup-script:
+	@echo -e "${GREEN}Building backup script for functional tests${WHITE}"
+	TESTS_OUT_DIR=$(TESTS_OUT_DIR) \
+	./hack/build/build-backup-script.sh
+
 container-name:
 	@echo "container: ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}"
 

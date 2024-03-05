@@ -1,6 +1,6 @@
 _output
 kubevirt-velero-plugin
-velero*
+./velero*/
 
 .go
 .idea

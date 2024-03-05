@@ -17,6 +17,7 @@
 set -eo pipefail
 
 source hack/config.sh
+source hack/build/build-backup-script.sh
 
 readonly MAX_CDI_WAIT_RETRY=30
 readonly CDI_WAIT_TIME=10
@@ -71,8 +72,9 @@ echo $KUBECTL
 
 arg_kubectl="${KUBECTL:+-kubectl-path=$KUBECTL}"
 arg_kubeconfig="${KUBECONFIG:+-kubeconfig=$KUBECONFIG}"
+arg_backup_script="${BACKUP_SCRIPT_BIN:+-backup-script=$BACKUP_SCRIPT_BIN}"
 
-test_args="${test_args} -ginkgo.v ${arg_kubectl} ${arg_kubeconfig}"
+test_args="${test_args} -ginkgo.v ${arg_kubectl} ${arg_kubeconfig} ${arg_backup_script}"
 
 test_command="${TESTS_OUT_DIR}/tests.test -test.timeout 360m ${test_args}"
 kubeconfig_arg=${KUBECONFIG:-${kubeconfig}}
