@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#Copyright 2021 The CDI Authors.
+#Copyright 2023 The CDI Authors.
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
 #you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@ set -euo pipefail
 
 export PATH=$PATH:$HOME/gopath/bin
 
-test_path="tests"
-GOBIN=$(go env GOBIN)
-if [ -d "$GOBIN" ]; then
-  ginkgo_path=$GOBIN/ginkgo
-else
-  ginkgo_path=$(go env GOPATH)/bin/ginkgo
-fi
-(cd $test_path; go install github.com/onsi/ginkgo/v2/ginkgo@v2.4.0)
-(cd $test_path; $ginkgo_path build .)
-mv ${test_path}/tests.test ${TESTS_OUT_DIR}
+DEFAULT_BACKUP_SCRIPT_PATH="$(
+    cd "$(dirname "$BASH_SOURCE[0]")/../../cmd/velero-backup-restore"
+    echo "$(pwd)/main.go"
+)"
+BACKUP_SCRIPT_PATH=${BACKUP_SCRIPT_PATH:-$DEFAULT_BACKUP_SCRIPT_PATH}
+echo $BACKUP_SCRIPT_PATH
+
+BACKUP_SCRIPT_BIN="${TESTS_OUT_DIR}/backup-restore"
+
+go build -a -o ${BACKUP_SCRIPT_BIN} ${BACKUP_SCRIPT_PATH}
+
