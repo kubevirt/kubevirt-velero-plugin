@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/strings/slices"
 	kvv1 "kubevirt.io/api/core/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
@@ -45,13 +46,19 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	AfterEach(func() {
-		// Deleting the backup also deletes all restores, volume snapshots etc.
-		err := framework.DeleteBackup(timeout, backupName, f.BackupNamespace)
-		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+		if slices.Contains(CurrentSpecReport().Labels(), "PartnerComp") {
+			err := f.RunDeleteBackupScript(timeout, backupName, f.BackupNamespace)
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
+		} else {
+			err := framework.DeleteBackup(timeout, backupName, f.BackupNamespace)
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
 		}
 
-		err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+		err := framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
 		}
@@ -79,12 +86,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating backup")
-		err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
+		err = f.RunBackupScript(timeout, backupName, "", "", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 		Expect(err).ToNot(HaveOccurred())
-
-		phase, err := framework.GetBackupPhase(timeout, backupName, f.BackupNamespace)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
 
 		By("Deleting VM")
 		err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
@@ -99,12 +102,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 		Expect(ok).To(BeTrue())
 
 		By("Creating restore")
-		err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+		err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 		Expect(err).ToNot(HaveOccurred())
-
-		rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
 		By("Verifying VM")
 		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
@@ -227,9 +226,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
-			Expect(err).ToNot(HaveOccurred())
-			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VM, instancetype and preference")
@@ -254,12 +251,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 			}, 2*time.Minute, 2*time.Second).Should(Equal(metav1.StatusReasonNotFound))
 
 			By("Creating restore")
-			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
-
-			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
@@ -286,9 +279,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
-			Expect(err).ToNot(HaveOccurred())
-			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VM and volumes")
@@ -305,12 +296,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore")
-			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
-
-			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
@@ -334,9 +321,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
-			Expect(err).ToNot(HaveOccurred())
-			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VM and access credentials secret")
@@ -349,12 +334,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore")
-			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
-
-			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
 			By("Verifying secret exists")
 			_, err = f.KvClient.CoreV1().Secrets(f.Namespace.Name).Get(context.Background(), acSecretName, metav1.GetOptions{})
@@ -391,9 +372,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
-			Expect(err).ToNot(HaveOccurred())
-			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VM")
@@ -408,12 +387,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating restore")
-			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
-
-			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
@@ -444,9 +419,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			hotplugVolName := addVolumeAndVerify(f.KvClient, vm, dvName)
 
 			By("Creating backup")
-			err = framework.CreateBackupForSelector(timeout, backupName, "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
-			Expect(err).ToNot(HaveOccurred())
-			err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting VM")
@@ -462,12 +435,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Creating restore")
-			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
-
-			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
 
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
