@@ -9,7 +9,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -36,62 +35,6 @@ func PrintEvents(client kubecli.KubevirtClient, namespace, name string) {
 	for _, event := range events.Items {
 		ginkgo.By(fmt.Sprintf("  INFO: event for %s/%s: %s, %s, %s\n",
 			event.Regarding.Kind, event.Regarding.Name, event.Type, event.Reason, event.Note))
-	}
-}
-
-func PodWithPvcSpec(podName, pvcName string, cmd, args []string) *v1.Pod {
-	image := "busybox"
-	volumeName := "pv1"
-	const uid int64 = 107
-
-	return &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: podName,
-		},
-		Spec: v1.PodSpec{
-			SecurityContext: &v1.PodSecurityContext{
-				FSGroup: pointer.Int64(uid),
-			},
-			RestartPolicy: v1.RestartPolicyNever,
-			Containers: []v1.Container{
-				{
-					Name:    podName,
-					Image:   image,
-					Command: cmd,
-					Args:    args,
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      volumeName,
-							MountPath: "/pvc",
-						},
-					},
-					SecurityContext: &v1.SecurityContext{
-						RunAsNonRoot: pointer.Bool(true),
-						RunAsUser:    pointer.Int64(uid),
-						RunAsGroup:   pointer.Int64(uid),
-						Capabilities: &v1.Capabilities{
-							Drop: []v1.Capability{
-								"ALL",
-							},
-						},
-						SeccompProfile: &v1.SeccompProfile{
-							Type: v1.SeccompProfileTypeRuntimeDefault,
-						},
-						AllowPrivilegeEscalation: pointer.Bool(false),
-					},
-				},
-			},
-			Volumes: []v1.Volume{
-				{
-					Name: volumeName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-						},
-					},
-				},
-			},
-		},
 	}
 }
 

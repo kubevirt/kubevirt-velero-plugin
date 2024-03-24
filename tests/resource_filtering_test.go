@@ -3498,21 +3498,21 @@ func deletePod(kvClient kubecli.KubevirtClient, namespace, podName string) {
 }
 
 func verifyFileExists(volumeName string) *v1.Pod {
-	return PodWithPvcSpec("reader-pod",
+	return framework.PodWithPvcSpec("reader-pod",
 		volumeName,
 		[]string{"sh"},
 		[]string{"-c", "test -f /pvc/test.txt"})
 }
 
 func verifyNoFile(volumeName string) *v1.Pod {
-	return PodWithPvcSpec("reader-pod",
+	return framework.PodWithPvcSpec("reader-pod",
 		volumeName,
 		[]string{"sh"},
 		[]string{"-c", "! test -e /pvc/test.txt"})
 }
 
 func writerPod(volumeName string) *v1.Pod {
-	return PodWithPvcSpec(
+	return framework.PodWithPvcSpec(
 		"writer-pod",
 		volumeName,
 		[]string{"sh"},
