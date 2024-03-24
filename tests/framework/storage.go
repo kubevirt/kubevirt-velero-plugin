@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ import (
 const (
 	pollInterval = 2 * time.Second
 	waitTime     = 180 * time.Second
+	busyboxImage = "quay.io/quay/busybox:latest"
 )
 
 func IsDataVolumeGC(kvClient kubecli.KubevirtClient) bool {
@@ -269,7 +271,6 @@ func NewPVC(pvcName, size, storageClass string) *v1.PersistentVolumeClaim {
 }
 
 func NewPod(podName, pvcName, cmd string) *v1.Pod {
-	importerImage := "quay.io/quay/busybox:latest"
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -284,7 +285,7 @@ func NewPod(podName, pvcName, cmd string) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:    "runner",
-					Image:   importerImage,
+					Image:   busyboxImage,
 					Command: []string{"/bin/sh", "-c", cmd},
 					Resources: v1.ResourceRequirements{
 						Limits: map[v1.ResourceName]resource.Quantity{
@@ -305,6 +306,61 @@ func NewPod(podName, pvcName, cmd string) *v1.Pod {
 			Volumes: []v1.Volume{
 				{
 					Name: "storage",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func PodWithPvcSpec(podName, pvcName string, cmd, args []string) *v1.Pod {
+	volumeName := "pv1"
+	const uid int64 = 107
+
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: podName,
+		},
+		Spec: v1.PodSpec{
+			SecurityContext: &v1.PodSecurityContext{
+				FSGroup: pointer.Int64(uid),
+			},
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Name:    podName,
+					Image:   busyboxImage,
+					Command: cmd,
+					Args:    args,
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      volumeName,
+							MountPath: "/pvc",
+						},
+					},
+					SecurityContext: &v1.SecurityContext{
+						RunAsNonRoot: pointer.Bool(true),
+						RunAsUser:    pointer.Int64(uid),
+						RunAsGroup:   pointer.Int64(uid),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{
+								"ALL",
+							},
+						},
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+						AllowPrivilegeEscalation: pointer.Bool(false),
+					},
+				},
+			},
+			Volumes: []v1.Volume{
+				{
+					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 							ClaimName: pvcName,
