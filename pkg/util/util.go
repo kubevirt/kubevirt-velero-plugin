@@ -32,6 +32,9 @@ const (
 	// RestoreRunStrategy indicates that the backed up VMs will be powered with the specified run strategy after restore.
 	RestoreRunStrategy = "velero.kubevirt.io/restore-run-strategy"
 
+	// ClearMacAddressLabel indicates that the MAC address should be cleared as part of the restore workflow.
+	ClearMacAddressLabel = "velero.kubevirt.io/clear-mac-address"
+
 	// VeleroExcludeLabel is used to exclude an object from Velero backups.
 	VeleroExcludeLabel = "velero.io/exclude-from-backup"
 )
@@ -327,4 +330,14 @@ func GetRestoreRunStrategy(restore *velerov1.Restore) (kvv1.VirtualMachineRunStr
 
 func IsMetadataBackup(backup *velerov1.Backup) bool {
 	return metav1.HasLabel(backup.ObjectMeta, MetadataBackupLabel)
+}
+
+func ShouldClearMacAddress(restore *velerov1.Restore) bool {
+	return metav1.HasLabel(restore.ObjectMeta, ClearMacAddressLabel)
+}
+
+func ClearMacAddress(vmiSpec *kvv1.VirtualMachineInstanceSpec) {
+	for i := 0; i < len(vmiSpec.Domain.Devices.Interfaces); i++ {
+		vmiSpec.Domain.Devices.Interfaces[i].MacAddress = ""
+	}
 }
