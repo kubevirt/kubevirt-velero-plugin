@@ -581,3 +581,42 @@ func TestAddVMIObjectGraph(t *testing.T) {
 		})
 	}
 }
+
+func TestIsMacAddressCleared(t *testing.T) {
+	testCases := []struct {
+		name     string
+		resource string
+		restore  velerov1.Restore
+		expected bool
+	}{
+		{"Clear MAC address should return false with no label",
+			"Restore",
+			velerov1.Restore{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{},
+				},
+			},
+			false,
+		},
+		{"Clear MAC address should return true with ClearMacAddressLabel label",
+			"Restore",
+			velerov1.Restore{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						ClearMacAddressLabel: "",
+					},
+				},
+			},
+			true,
+		},
+	}
+
+	logrus.SetLevel(logrus.ErrorLevel)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ShouldClearMacAddress(&tc.restore)
+
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}

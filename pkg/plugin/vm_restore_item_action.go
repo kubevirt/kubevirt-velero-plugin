@@ -71,6 +71,11 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 		vm.Spec.Running = nil
 	}
 
+	if util.ShouldClearMacAddress(input.Restore) {
+		p.log.Info("Clear virtual machine MAC addresses")
+		util.ClearMacAddress(&vm.Spec.Template.Spec)
+	}
+
 	item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
 	if err != nil {
 		return nil, errors.WithStack(err)

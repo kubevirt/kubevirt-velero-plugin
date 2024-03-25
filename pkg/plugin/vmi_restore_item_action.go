@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	kvcore "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
 // VMIRestorePlugin is a VMI restore item action plugin for Velero (duh!)
@@ -81,6 +83,11 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 	metadata, err := meta.Accessor(input.Item)
 	if err != nil {
 		return nil, err
+	}
+
+	if util.ShouldClearMacAddress(input.Restore) {
+		p.log.Info("Clear virtual machine instance MAC addresses")
+		util.ClearMacAddress(&vmi.Spec)
 	}
 
 	// Restricted labels must be cleared otherwise the VMI will be rejected.
