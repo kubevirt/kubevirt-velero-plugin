@@ -63,6 +63,10 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 		return nil, errors.WithStack(err)
 	}
 
+	for i := 0; i < len(vm.Spec.Template.Spec.Domain.Devices.Interfaces); i++ {
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces[i].MacAddress = ""
+	}
+
 	item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
 	if err != nil {
 		return nil, errors.WithStack(err)
