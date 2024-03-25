@@ -30,6 +30,8 @@ func TestVmRestoreExecute(t *testing.T) {
 						},
 						},
 					},
+					"template": map[string]interface{}{
+					},
 				},
 			},
 		},
