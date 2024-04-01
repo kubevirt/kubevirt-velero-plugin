@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
@@ -106,8 +107,34 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		})
 	}
 
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		pvcName := pvcNameFromVirtVolume(&volume)
+		if pvcName == "" {
+			continue
+		}
+		extra = append(extra, velero.ResourceIdentifier{
+			GroupResource: kuberesource.PersistentVolumeClaims,
+			Namespace:     vm.GetNamespace(),
+			Name:          pvcName,
+		})
+	}
+
 	return item, extra, nil
 }
+
+func pvcNameFromVirtVolume(volume *kvcore.Volume) string {
+	if volume.DataVolume != nil {
+		// TODO, look up the correct PVC name based on the datavolume, right now they match, but that will not always be true.
+		return volume.DataVolume.Name
+	} else if volume.PersistentVolumeClaim != nil {
+		return volume.PersistentVolumeClaim.ClaimName
+	} else if volume.MemoryDump != nil {
+		return volume.MemoryDump.ClaimName
+	}
+
+	return ""
+}
+
 
 // returns false for all cases when backup might end up with a broken PVC snapshot
 func (p *VMBackupItemAction) canBeSafelyBackedUp(vm *kvcore.VirtualMachine, backup *v1.Backup) (bool, error) {
