@@ -206,9 +206,6 @@ github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
 # github.com/openshift/custom-resource-status v1.1.2
 ## explicit; go 1.12
 github.com/openshift/custom-resource-status/conditions/v1
-# github.com/pborman/uuid v1.2.1
-## explicit
-github.com/pborman/uuid
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -738,7 +735,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
-# kubevirt.io/api v1.1.1
+# kubevirt.io/api v1.2.0
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1

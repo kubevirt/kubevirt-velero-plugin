@@ -15,7 +15,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
-	kubevirt.io/api v1.1.1
+	kubevirt.io/api v1.2.0
 	kubevirt.io/client-go v1.1.1
 	kubevirt.io/containerized-data-importer-api v1.58.0
 )
@@ -65,7 +65,6 @@ require (
 	github.com/openshift/api v0.0.0 // indirect
 	github.com/openshift/client-go v0.0.0 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
-	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/spf13/cobra v1.6.0 // indirect
