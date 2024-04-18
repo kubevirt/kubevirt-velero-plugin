@@ -581,3 +581,55 @@ func TestAddVMIObjectGraph(t *testing.T) {
 		})
 	}
 }
+
+func TestIsMacAddressCleared(t *testing.T) {
+	testCases := []struct {
+		name     string
+		resource string
+		vm       kvcore.VirtualMachine
+		expected bool
+	}{
+		{"Clear mac addres should return false",
+			"VirtualMachine",
+			kvcore.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+					},
+				},
+			},
+			false,
+		},
+		{"Clear mac addres should return false",
+			"VirtualMachine",
+			kvcore.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CLEAR_MAC_ADDRESS_ANNOTATION : "false",
+					},
+				},
+			},
+			false,
+		},
+		{"Clear mac addres should return true",
+			"VirtualMachine",
+			kvcore.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CLEAR_MAC_ADDRESS_ANNOTATION : "true",
+					},
+				},
+			},
+			true,
+		},
+	
+	}
+
+	logrus.SetLevel(logrus.ErrorLevel)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := IsMacAdressClearedByAnnotation(&tc.vm)
+
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}

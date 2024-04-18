@@ -28,6 +28,7 @@ import (
 )
 
 const VELERO_EXCLUDE_LABEL = "velero.io/exclude-from-backup"
+const CLEAR_MAC_ADDRESS_ANNOTATION = "restore.kubevirt.io/clear-mac-address"
 
 func GetK8sClient() (*kubernetes.Clientset, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -364,4 +365,13 @@ func AddVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, namespace string, ext
 
 	return extra
 
+}
+
+func IsMacAdressClearedByAnnotation(vm *v1.VirtualMachine) (bool) {
+	annotations := vm.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	annotation, ok := annotations[CLEAR_MAC_ADDRESS_ANNOTATION]
+	return ok && annotation == "true"
 }
