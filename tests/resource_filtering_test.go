@@ -396,7 +396,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Writing to PVC filesystem")
 				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "virtualmachines,datavolumes,persistentvolumeclaims,persistentvolumes"
@@ -431,7 +431,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Verifying DataVolume does not re-import content - file should exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyFileExists(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
@@ -544,7 +544,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Writing to PVC filesystem")
 				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Starting the virtual machine")
 				err = framework.StartVirtualMachine(f.KvClient, f.Namespace.Name, vmSpec.Name)
@@ -593,7 +593,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Verifying DataVolume has re-imported - file should not exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyNoFile(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 			})
 
 			It("[test_id:10192]Selecting VM but not VMI or Pod: Backing up should fail if the VM is running", func() {
@@ -774,7 +774,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Writing to PVC filesystem")
 				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "virtualmachines,persistentvolumeclaims,persistentvolumes"
@@ -802,7 +802,7 @@ var _ = Describe("Resource includes", func() {
 				// DV may not exist, so just check the PVC
 				By("Verifying PVC is NOT re-imported - file exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyFileExists(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
@@ -819,7 +819,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Writing to PVC filesystem")
 				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "virtualmachines"
@@ -846,7 +846,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Verifying DataVolume is re-imported - file should not exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyNoFile(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped)
@@ -2094,7 +2094,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Writing to PVC filesystem")
 				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Creating backup")
 				resources := "datavolume"
@@ -2118,7 +2118,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying DataVolume does not re-import content - file should exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyFileExists(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
@@ -2584,7 +2584,7 @@ var _ = Describe("Resource excludes", func() {
 		addExcludeLabelToLauncherPodForVM := func(vmName string) {
 			retryOnceOnErr(
 				func() error {
-					pod := FindLauncherPod(f.K8sClient, f.Namespace.Name, vmName)
+					pod := framework.FindLauncherPod(f.K8sClient, f.Namespace.Name, vmName)
 					pod.SetLabels(addExcludeLabel(pod.GetLabels()))
 					_, err := f.K8sClient.CoreV1().Pods(f.Namespace.Name).Update(context.TODO(), &pod, metav1.UpdateOptions{})
 					return err
@@ -2852,7 +2852,7 @@ var _ = Describe("Resource excludes", func() {
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
 				By("Writing to PVC filesystem")
 				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Adding exclude labels")
 				if !framework.IsDataVolumeGC(f.KvClient) {
@@ -2884,7 +2884,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying DataVolume has re-imported - file should not exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyNoFile(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
@@ -2901,7 +2901,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Writing to PVC filesystem")
 				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Adding exclude label to DV")
 				if !framework.IsDataVolumeGC(f.KvClient) {
@@ -2929,7 +2929,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Verifying PVC is not re-imported - file exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyFileExists(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
+				framework.DeletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 
 				By("Verifying included VM exists")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmIncluded.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
@@ -3376,21 +3376,6 @@ func addExpectedPVs(client *kubernetes.Clientset, namespace string, resources ma
 	resources["PersistentVolume"] = pvs
 }
 
-func FindLauncherPod(client *kubernetes.Clientset, namespace string, vmName string) v1.Pod {
-	var pod v1.Pod
-	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "kubevirt.io=virt-launcher",
-	})
-	Expect(err).WithOffset(1).ToNot(HaveOccurred())
-	for _, item := range pods.Items {
-		if ann, ok := item.GetAnnotations()["kubevirt.io/domain"]; ok && ann == vmName {
-			pod = item
-		}
-	}
-	Expect(pod).WithOffset(1).ToNot(BeNil())
-	return pod
-}
-
 func updateVm(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(*kvv1.VirtualMachine) *kvv1.VirtualMachine) func() error {
 	return func() error {
@@ -3456,41 +3441,7 @@ func retryOnceOnErr(f func() error) Assertion {
 }
 
 func runPodAndWaitSucceeded(kvClient kubecli.KubevirtClient, namespace string, podSpec *v1.Pod) *v1.Pod {
-	By("creating a pod")
-	pod, err := kvClient.CoreV1().Pods(namespace).Create(context.Background(), podSpec, metav1.CreateOptions{})
-	Expect(err).WithOffset(1).ToNot(HaveOccurred())
-
-	By("Wait for pod to reach a completed phase")
-	Eventually(func() error {
-		updatedPod, err := kvClient.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		if updatedPod.Status.Phase != v1.PodSucceeded {
-			return fmt.Errorf("Pod in phase %s, expected Succeeded", updatedPod.Status.Phase)
-		}
-		return nil
-	}, 3*time.Minute, 5*time.Second).WithOffset(1).Should(Succeed(), "pod should reach Succeeded state")
-
-	return pod
-}
-
-func deletePod(kvClient kubecli.KubevirtClient, namespace, podName string) {
-	By("Delete pod")
-	zero := int64(0)
-	err := kvClient.CoreV1().Pods(namespace).Delete(context.Background(), podName,
-		metav1.DeleteOptions{
-			GracePeriodSeconds: &zero,
-		})
-	Expect(err).WithOffset(1).ToNot(HaveOccurred())
-
-	By("verify deleted")
-	Eventually(func() error {
-		_, err := kvClient.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
-		return err
-	}, 3*time.Minute, 5*time.Second).
-		WithOffset(1).
-		Should(Satisfy(apierrs.IsNotFound), "pod should disappear")
+	return framework.RunPodAndWaitPhase(kvClient, namespace, podSpec, v1.PodSucceeded)
 }
 
 func verifyFileExists(volumeName string) *v1.Pod {

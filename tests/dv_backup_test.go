@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 	. "kubevirt.io/kubevirt-velero-plugin/tests/framework/matcher"
@@ -122,14 +121,7 @@ var _ = Describe("DV Backup", func() {
 			framework.EventuallyDVWith(f.KvClient, srcDv.Namespace, srcDv.Name, 180, HaveSucceeded())
 
 			By("Creating source pod")
-			podSpec := framework.NewPod("source-use-pod", sourceVolumeName, "while true; do echo hello; sleep 2; done")
-			_, err = f.KvClient.CoreV1().Pods(sourceNamespace.Name).Create(context.TODO(), podSpec, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() v1.PodPhase {
-				pod, err := f.KvClient.CoreV1().Pods(sourceNamespace.Name).Get(context.TODO(), podSpec.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return pod.Status.Phase
-			}, 90*time.Second, 2*time.Second).Should(Equal(v1.PodRunning))
+			sourcePod := framework.RunPodAndWaitPhase(f.KvClient, sourceNamespace.Name, sourcePod(sourceVolumeName), v1.PodRunning)
 
 			By("Creating clone DV - object under test")
 			dvSpec := framework.NewCloneDataVolume(dvName, "100Mi", srcDv.Namespace, srcDv.Name, f.StorageClass)
@@ -152,8 +144,7 @@ var _ = Describe("DV Backup", func() {
 			Expect(ok).To(BeTrue())
 
 			By("Deleting source pod")
-			err = f.KvClient.CoreV1().Pods(sourceNamespace.Name).Delete(context.TODO(), podSpec.Name, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			framework.DeletePod(f.KvClient, sourceNamespace.Name, sourcePod.Name)
 
 			By("Creating restore test-restore")
 			err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
@@ -167,3 +158,11 @@ var _ = Describe("DV Backup", func() {
 		})
 	})
 })
+
+func sourcePod(volumeName string) *v1.Pod {
+	return framework.PodWithPvcSpec(
+		"source-use-pod",
+		volumeName,
+		[]string{"sh"},
+		[]string{"-c", "while true; do echo hello; sleep 2; done"})
+}
