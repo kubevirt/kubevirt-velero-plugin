@@ -542,15 +542,15 @@ var _ = Describe("Resource includes", func() {
 				volumeName := vmSpec.Spec.DataVolumeTemplates[0].Name
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, volumeName, 180, HaveSucceeded())
 
+				By("Writing to PVC filesystem")
+				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
+				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
+
 				By("Starting the virtual machine")
 				err = framework.StartVirtualMachine(f.KvClient, f.Namespace.Name, vmSpec.Name)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Writing to PVC filesystem")
-				writerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, writerPod(volumeName))
-				deletePod(f.KvClient, f.Namespace.Name, writerPod.Name)
 
 				By("Pausing the virtual machine")
 				err = framework.PauseVirtualMachine(f.KvClient, f.Namespace.Name, vmSpec.Name)
@@ -566,10 +566,6 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
-				err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vmSpec.Name)
-				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusStopped)
-				Expect(err).ToNot(HaveOccurred())
 				err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vmIncluded.Name)
 				Expect(err).ToNot(HaveOccurred())
 				ok, err := framework.WaitVirtualMachineDeleted(f.KvClient, f.Namespace.Name, vmIncluded.Name)
@@ -595,7 +591,7 @@ var _ = Describe("Resource includes", func() {
 				By("Checking DataVolume import succeeds")
 				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, volumeName, 180, HaveSucceeded())
 
-				By("Verifying DataVolume is re-imported - file should not exists")
+				By("Verifying DataVolume has re-imported - file should not exists")
 				readerPod := runPodAndWaitSucceeded(f.KvClient, f.Namespace.Name, verifyNoFile(volumeName))
 				deletePod(f.KvClient, f.Namespace.Name, readerPod.Name)
 			})
