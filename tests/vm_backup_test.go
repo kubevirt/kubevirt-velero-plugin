@@ -361,10 +361,6 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
-			if err != nil {
-				fmt.Println("SLEEEEEEEEPPP")
-				time.Sleep(time.Minute * 1000)
-			}
 			Expect(err).ToNot(HaveOccurred())
 		})
 
