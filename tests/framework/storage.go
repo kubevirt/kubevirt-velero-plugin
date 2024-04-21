@@ -268,54 +268,6 @@ func NewPVC(pvcName, size, storageClass string) *v1.PersistentVolumeClaim {
 	return pvcSpec
 }
 
-func NewPod(podName, pvcName, cmd string) *v1.Pod {
-	importerImage := "quay.io/quay/busybox:latest"
-	return &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: podName,
-			Annotations: map[string]string{
-				"cdi.kubevirt.io/testing": podName,
-			},
-		},
-		Spec: v1.PodSpec{
-			// this may be causing an issue
-			TerminationGracePeriodSeconds: &[]int64{10}[0],
-			RestartPolicy:                 v1.RestartPolicyNever,
-			Containers: []v1.Container{
-				{
-					Name:    "runner",
-					Image:   importerImage,
-					Command: []string{"/bin/sh", "-c", cmd},
-					Resources: v1.ResourceRequirements{
-						Limits: map[v1.ResourceName]resource.Quantity{
-							v1.ResourceCPU:    *resource.NewQuantity(0, resource.DecimalSI),
-							v1.ResourceMemory: *resource.NewQuantity(0, resource.DecimalSI)},
-						Requests: map[v1.ResourceName]resource.Quantity{
-							v1.ResourceCPU:    *resource.NewQuantity(0, resource.DecimalSI),
-							v1.ResourceMemory: *resource.NewQuantity(0, resource.DecimalSI)},
-					},
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      "storage",
-							MountPath: "/mnt",
-						},
-					},
-				},
-			},
-			Volumes: []v1.Volume{
-				{
-					Name: "storage",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func NewCloneDataVolume(name, size, srcNamespace, srcPvcName string, storageClassName string) *cdiv1.DataVolume {
 	dv := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
