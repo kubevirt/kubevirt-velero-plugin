@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,7 +35,7 @@ func PodWithPvcSpec(podName, pvcName string, cmd, args []string) *v1.Pod {
 		},
 		Spec: v1.PodSpec{
 			SecurityContext: &v1.PodSecurityContext{
-				FSGroup: pointer.Int64(uid),
+				FSGroup: ptr.To[int64](uid),
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
@@ -59,9 +59,9 @@ func PodWithPvcSpec(podName, pvcName string, cmd, args []string) *v1.Pod {
 						},
 					},
 					SecurityContext: &v1.SecurityContext{
-						RunAsNonRoot: pointer.Bool(true),
-						RunAsUser:    pointer.Int64(uid),
-						RunAsGroup:   pointer.Int64(uid),
+						RunAsNonRoot: ptr.To(true),
+						RunAsUser:    ptr.To[int64](uid),
+						RunAsGroup:   ptr.To[int64](uid),
 						Capabilities: &v1.Capabilities{
 							Drop: []v1.Capability{
 								"ALL",
@@ -70,7 +70,7 @@ func PodWithPvcSpec(podName, pvcName string, cmd, args []string) *v1.Pod {
 						SeccompProfile: &v1.SeccompProfile{
 							Type: v1.SeccompProfileTypeRuntimeDefault,
 						},
-						AllowPrivilegeEscalation: pointer.Bool(false),
+						AllowPrivilegeEscalation: ptr.To(false),
 					},
 				},
 			},
