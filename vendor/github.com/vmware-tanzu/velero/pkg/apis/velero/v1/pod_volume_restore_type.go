@@ -19,6 +19,8 @@ package v1
 import (
 	corev1api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/vmware-tanzu/velero/pkg/apis/velero/shared"
 )
 
 // PodVolumeRestoreSpec is the specification for a PodVolumeRestore.
@@ -46,6 +48,12 @@ type PodVolumeRestoreSpec struct {
 
 	// SourceNamespace is the original namespace for namaspace mapping.
 	SourceNamespace string `json:"sourceNamespace"`
+
+	// UploaderSettings are a map of key-value pairs that should be applied to the
+	// uploader configuration.
+	// +optional
+	// +nullable
+	UploaderSettings map[string]string `json:"uploaderSettings,omitempty"`
 }
 
 // PodVolumeRestorePhase represents the lifecycle phase of a PodVolumeRestore.
@@ -86,7 +94,7 @@ type PodVolumeRestoreStatus struct {
 	// number of restored bytes. This can be used to display progress information
 	// about the restore operation.
 	// +optional
-	Progress PodVolumeOperationProgress `json:"progress,omitempty"`
+	Progress shared.DataMoveOperationProgress `json:"progress,omitempty"`
 }
 
 // TODO(2.0) After converting all resources to use the runtime-controller client, the genclient and k8s:deepcopy markers will no longer be needed and should be removed.

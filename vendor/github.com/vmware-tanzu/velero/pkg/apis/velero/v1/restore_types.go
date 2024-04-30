@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -108,7 +109,7 @@ type RestoreSpec struct {
 	// +optional
 	Hooks RestoreHooks `json:"hooks,omitempty"`
 
-	// ExistingResourcePolicy specifies the restore behavior for the kubernetes resource to be restored
+	// ExistingResourcePolicy specifies the restore behavior for the Kubernetes resource to be restored
 	// +optional
 	// +nullable
 	ExistingResourcePolicy PolicyType `json:"existingResourcePolicy,omitempty"`
@@ -117,6 +118,24 @@ type RestoreSpec struct {
 	// The default value is 1 hour.
 	// +optional
 	ItemOperationTimeout metav1.Duration `json:"itemOperationTimeout,omitempty"`
+
+	// ResourceModifier specifies the reference to JSON resource patches that should be applied to resources before restoration.
+	// +optional
+	// +nullable
+	ResourceModifier *v1.TypedLocalObjectReference `json:"resourceModifier,omitempty"`
+
+	// UploaderConfig specifies the configuration for the restore.
+	// +optional
+	// +nullable
+	UploaderConfig *UploaderConfigForRestore `json:"uploaderConfig,omitempty"`
+}
+
+// UploaderConfigForRestore defines the configuration for the restore.
+type UploaderConfigForRestore struct {
+	// WriteSparseFiles is a flag to indicate whether write files sparsely or not.
+	// +optional
+	// +nullable
+	WriteSparseFiles *bool `json:"writeSparseFiles,omitempty"`
 }
 
 // RestoreHooks contains custom behaviors that should be executed during or post restore.
@@ -208,6 +227,11 @@ type ExecRestoreHook struct {
 	// before attempting to run the command.
 	// +optional
 	WaitTimeout metav1.Duration `json:"waitTimeout,omitempty"`
+
+	// WaitForReady ensures command will be launched when container is Ready instead of Running.
+	// +optional
+	// +nullable
+	WaitForReady *bool `json:"waitForReady,omitempty"`
 }
 
 // InitRestoreHook is a hook that adds an init container to a PodSpec to run commands before the
@@ -334,6 +358,11 @@ type RestoreStatus struct {
 	// RestoreItemAction operations for this restore which ended with an error.
 	// +optional
 	RestoreItemOperationsFailed int `json:"restoreItemOperationsFailed,omitempty"`
+
+	// HookStatus contains information about the status of the hooks.
+	// +optional
+	// +nullable
+	HookStatus *HookStatus `json:"hookStatus,omitempty"`
 }
 
 // RestoreProgress stores information about the restore's execution progress

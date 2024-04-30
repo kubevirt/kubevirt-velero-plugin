@@ -41,7 +41,7 @@ const (
 	// PluginKindRestoreItemAction represents a restore item action plugin.
 	PluginKindRestoreItemAction PluginKind = "RestoreItemAction"
 
-	// PluginKindRestoreItemAction represents a v2 restore item action plugin.
+	// PluginKindRestoreItemActionV2 represents a v2 restore item action plugin.
 	PluginKindRestoreItemActionV2 PluginKind = "RestoreItemActionV2"
 
 	// PluginKindDeleteItemAction represents a delete item action plugin.
@@ -51,7 +51,7 @@ const (
 	PluginKindPluginLister PluginKind = "PluginLister"
 )
 
-// If there are plugin kinds that are adaptable to newer API versions, list them here.
+// PluginKindsAdaptableTo if there are plugin kinds that are adaptable to newer API versions, list them here.
 // The older (adaptable) version is the key, and the value is the full list of newer
 // plugin kinds that are capable of adapting it.
 var PluginKindsAdaptableTo = map[PluginKind][]PluginKind{
