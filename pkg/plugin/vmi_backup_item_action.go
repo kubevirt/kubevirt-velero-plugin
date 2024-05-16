@@ -33,6 +33,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
@@ -111,7 +112,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
 		}
 
-		util.AddAnnotation(item, AnnIsOwned, "true")
+		util.AddAnnotation(vmi, AnnIsOwned, "true")
 	} else {
 		restore, err := util.RestorePossible(vmi.Spec.Volumes, backup, vmi.Namespace, func(volume kvcore.Volume) bool { return false }, p.log)
 		if err != nil {
@@ -129,7 +130,12 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 
 	extra = util.AddVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), extra, p.log)
 
-	return item, extra, nil
+	vmiMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vmi)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	return &unstructured.Unstructured{Object: vmiMap}, extra, nil
 }
 
 func isVMIOwned(vmi *kvcore.VirtualMachineInstance) bool {
