@@ -27,5 +27,10 @@ source ./hack/config.sh
 
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 
-_kubectl delete deployment minio -n velero --ignore-not-found=true
-_kubectl delete deployment velero -n velero --ignore-not-found=true
+kvp::fetch_velero
+
+if [[ $(_kubectl get deployments -n velero | grep velero) ]]; then
+  ${VELERO_DIR}/velero uninstall \
+    --force \
+    --wait
+fi

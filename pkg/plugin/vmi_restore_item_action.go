@@ -24,10 +24,13 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
-	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kvcore "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
 // VMIRestorePlugin is a VMI restore item action plugin for Velero (duh!)
@@ -64,7 +67,7 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 	p.log.Info("Running VMIRestorePlugin")
 
 	if input == nil {
-		return nil, fmt.Errorf("input object nil!")
+		return nil, fmt.Errorf("input object nil")
 	}
 
 	vmi := new(kvcore.VirtualMachineInstance)
@@ -78,17 +81,19 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 		return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil
 	}
 
-	metadata, err := meta.Accessor(input.Item)
-	if err != nil {
-		return nil, err
-	}
-
 	// Restricted labels must be cleared otherwise the VMI will be rejected.
 	// The restricted labels contain runtime information about the underlying KVM object.
 	labels := removeRestrictedLabels(vmi.GetLabels())
-	metadata.SetLabels(labels)
+	vmi.SetLabels(labels)
 
-	return velero.NewRestoreItemActionExecuteOutput(input.Item), nil
+	clearMacs(input.Restore, vmi, &vmi.Spec)
+
+	item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vmi)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return velero.NewRestoreItemActionExecuteOutput(&unstructured.Unstructured{Object: item}), nil
 }
 
 func removeRestrictedLabels(labels map[string]string) map[string]string {
@@ -96,4 +101,13 @@ func removeRestrictedLabels(labels map[string]string) map[string]string {
 		delete(labels, label)
 	}
 	return labels
+}
+
+func clearMacs(restore *velerov1.Restore, owner metav1.Object, vmiSpec *kvcore.VirtualMachineInstanceSpec) {
+	if util.IsRestoringToDifferentNamespace(restore, owner) {
+		for i := range vmiSpec.Domain.Devices.Interfaces {
+			vmiSpec.Domain.Devices.Interfaces[i].MacAddress = ""
+			util.AddAnnotation(owner, AnnClearedMacs, "true")
+		}
+	}
 }

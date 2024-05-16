@@ -31,6 +31,10 @@ import (
 	kvcore "kubevirt.io/api/core/v1"
 )
 
+const (
+	AnnClearedMacs = "cdi.kubevirt.io/velero.clearedMacs"
+)
+
 // VIMRestorePlugin is a VMI restore item action plugin for Velero (duh!)
 type VMRestorePlugin struct {
 	log logrus.FieldLogger
@@ -55,13 +59,15 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 	p.log.Info("Running VMRestorePlugin")
 
 	if input == nil {
-		return nil, fmt.Errorf("input object nil!")
+		return nil, fmt.Errorf("input object nil")
 	}
 
 	vm := new(kvcore.VirtualMachine)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(input.Item.UnstructuredContent(), vm); err != nil {
 		return nil, errors.WithStack(err)
 	}
+
+	clearMacs(input.Restore, vm, &vm.Spec.Template.Spec)
 
 	item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
 	if err != nil {

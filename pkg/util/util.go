@@ -15,9 +15,7 @@ import (
 	corev1api "k8s.io/api/core/v1"
 	k8score "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -109,20 +107,14 @@ func IsResourceInBackup(resourceKind string, backup *velerov1.Backup) bool {
 	return IsResourceIncluded(resourceKind, backup) && !IsResourceExcluded(resourceKind, backup)
 }
 
-func AddAnnotation(item runtime.Unstructured, annotation, value string) {
-	metadata, err := meta.Accessor(item)
-	if err != nil {
-		return
-	}
-
-	annotations := metadata.GetAnnotations()
+func AddAnnotation(obj metav1.Object, annotation, value string) {
+	annotations := obj.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
 
 	annotations[annotation] = value
-
-	metadata.SetAnnotations(annotations)
+	obj.SetAnnotations(annotations)
 }
 
 func IsVMIPaused(vmi *kvv1.VirtualMachineInstance) bool {
@@ -364,4 +356,13 @@ func AddVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, namespace string, ext
 
 	return extra
 
+}
+
+func IsRestoringToDifferentNamespace(restore *velerov1.Restore, obj metav1.Object) bool {
+	for source, target := range restore.Spec.NamespaceMapping {
+		if source == obj.GetNamespace() && target != obj.GetNamespace() {
+			return true
+		}
+	}
+	return false
 }
