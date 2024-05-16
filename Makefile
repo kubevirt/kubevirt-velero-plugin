@@ -253,5 +253,5 @@ cluster-up:
 cluster-down:
 	@cluster-up/down.sh
 
-cluster-sync: local-undeploy-velero local-deploy-velero remove-plugin cluster-push-image add-plugin
+cluster-sync: local-undeploy-velero local-deploy-velero cluster-push-image add-plugin
 	@echo -e "${GREEN}Plugin redeployed${WHITE}"
