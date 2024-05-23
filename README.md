@@ -6,8 +6,6 @@ VirtualMachines, DataVolumes and other resources managed by [KubeVirt](https://k
 
 For more information on Velero check https://velero.io/.
 
-This is still a work in progress, not intended for production use.
-
 ## Plugin actions Included
 
 The plugin registers backup and restore actions that operate on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance.
@@ -51,7 +49,8 @@ Plugin versions and respective Velero/Kubevirt/CDI versions that are tested to b
 
 | Plugin Version  | Velero Version | Kubevirt Version | CDI Version  |
 |-----------------|----------------|------------------|--------------|
-| v0.2.0          | v1.6.x, v1.7.x | v0.48.x          | \>= v1.37.0  |
+| v0.2.0          | v1.6.x, v1.7.x | v0.48.x          | \>= v1.37.0  |(NOT RECOMMENDED TO USE)
+| v0.6.x          | v1.12.x        | \>= v1.0.0       | \>= v1.57.0  |
 
 ## Install
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	kubernetes "k8s.io/client-go/kubernetes"
+	"k8s.io/utils/strings/slices"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 
@@ -41,14 +42,23 @@ var _ = Describe("Resource includes", func() {
 		t := time.Now().UnixNano()
 		backupName = fmt.Sprintf("test-backup-%d", t)
 		restoreName = fmt.Sprintf("test-restore-%d", t)
-		veleroPodName = FindVeleroPodName(f.K8sClient, f.BackupNamespace)
+		if !slices.Contains(CurrentSpecReport().Labels(), "PartnerComp") {
+			veleroPodName = FindVeleroPodName(f.K8sClient, f.BackupNamespace)
+		}
 	})
 
 	AfterEach(func() {
 		// Deleting the backup also deletes all restores, volume snapshots etc.
-		err := framework.DeleteBackup(timeout, backupName, f.BackupNamespace)
-		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+		if slices.Contains(CurrentSpecReport().Labels(), "PartnerComp") {
+			err := f.RunDeleteBackupScript(timeout, backupName, f.BackupNamespace)
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
+		} else {
+			err := framework.DeleteBackup(timeout, backupName, f.BackupNamespace)
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
 		}
 
 		cancelFunc()
@@ -1074,8 +1084,6 @@ var _ = Describe("Resource includes", func() {
 		})
 
 		Context("[smoke] Standalone VMI", func() {
-			// This test tries to backup on all namespaces, on some clusters it always fails
-			// need to be improved
 			It("[test_id:10204]Selecting standalone VMI+DV+PVC+Pod: All objects should be restored", Label("PartnerComp"), func() {
 				By(fmt.Sprintf("Creating DataVolume %s", dvName))
 				err := f.CreateDataVolumeWithGuestAgentImage()
@@ -1094,9 +1102,7 @@ var _ = Describe("Resource includes", func() {
 
 				By("Creating backup")
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
-				err = framework.CreateBackupForResources(timeout, backupName, resources, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
-				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				err = f.RunBackupScript(timeout, backupName, resources, "", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMI+DV")
@@ -1109,9 +1115,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(ok).To(BeTrue())
 
 				By("Creating restore")
-				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
-				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForRestorePhase(timeout, restoreName, f.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 
 				if framework.IsDataVolumeGC(f.KvClient) {

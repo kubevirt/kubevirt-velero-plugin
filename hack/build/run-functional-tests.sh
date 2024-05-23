@@ -33,6 +33,12 @@ KUBEVIRTCI_CONFIG_PATH="$(
 BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
 KUBECONFIG=${KUBECONFIG:-$BASE_PATH/$KUBEVIRT_PROVIDER/.kubeconfig}
 
+DEFAULT_BACKUP_SCRIPT="$(
+    cd "$(dirname "$BASH_SOURCE[0]")/../../cmd/velero-backup-restore"
+    echo "$(pwd)/velero-backup-restore.sh"
+)"
+BACKUP_SCRIPT_BIN="${BACKUP_SCRIPT_BIN:-$DEFAULT_BACKUP_SCRIPT}"
+
 if [ -z "${KUBECTL+x}" ]; then
     kubevirtci_kubectl="${BASE_PATH}/${KUBEVIRT_PROVIDER}/.kubectl"
     if [ -e ${kubevirtci_kubectl} ]; then
@@ -68,11 +74,13 @@ parseTestOpts "${@}"
 
 echo $KUBECONFIG
 echo $KUBECTL
+echo $BACKUP_SCRIPT_BIN
 
 arg_kubectl="${KUBECTL:+-kubectl-path=$KUBECTL}"
 arg_kubeconfig="${KUBECONFIG:+-kubeconfig=$KUBECONFIG}"
+arg_backup_script="${BACKUP_SCRIPT_BIN:+-backup-script=$BACKUP_SCRIPT_BIN}"
 
-test_args="${test_args} -ginkgo.v ${arg_kubectl} ${arg_kubeconfig}"
+test_args="${test_args} -ginkgo.v ${arg_kubectl} ${arg_kubeconfig} ${arg_backup_script}"
 
 test_command="${TESTS_OUT_DIR}/tests.test -test.timeout 360m ${test_args}"
 kubeconfig_arg=${KUBECONFIG:-${kubeconfig}}
