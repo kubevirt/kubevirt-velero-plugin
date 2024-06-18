@@ -36,11 +36,11 @@ fi
 
 kvp::fetch_velero
 
-PLUGINS=velero/velero-plugin-for-aws:v1.7.1
+PLUGINS=velero/velero-plugin-for-aws:v1.10.0
 FEATURES=""
 
 if [[ "${USE_CSI}" == "1" ]]; then
-  PLUGINS="${PLUGINS},${CSI_PLUGIN}"
+  PLUGINS="${PLUGINS}"
   FEATURES="--features=EnableCSI"
 fi
 
@@ -58,6 +58,8 @@ if [[ ! $(_kubectl get deployments -n velero | grep velero) ]]; then
     --bucket velero \
     --secret-file ${velero_resources_dir}/credentials-velero \
     --use-volume-snapshots=true \
+    --velero-pod-mem-request 512Mi \
+    --velero-pod-mem-limit 1Gi \
     --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
     --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000 \
     --snapshot-location-config region=minio \
