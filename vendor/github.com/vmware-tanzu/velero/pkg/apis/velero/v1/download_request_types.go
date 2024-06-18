@@ -25,7 +25,7 @@ type DownloadRequestSpec struct {
 }
 
 // DownloadTargetKind represents what type of file to download.
-// +kubebuilder:validation:Enum=BackupLog;BackupContents;BackupVolumeSnapshots;BackupItemOperations;BackupResourceList;BackupResults;RestoreLog;RestoreResults;RestoreResourceList;RestoreItemOperations;CSIBackupVolumeSnapshots;CSIBackupVolumeSnapshotContents
+// +kubebuilder:validation:Enum=BackupLog;BackupContents;BackupVolumeSnapshots;BackupItemOperations;BackupResourceList;BackupResults;RestoreLog;RestoreResults;RestoreResourceList;RestoreItemOperations;CSIBackupVolumeSnapshots;CSIBackupVolumeSnapshotContents;BackupVolumeInfos;RestoreVolumeInfo
 type DownloadTargetKind string
 
 const (
@@ -41,6 +41,8 @@ const (
 	DownloadTargetKindRestoreItemOperations           DownloadTargetKind = "RestoreItemOperations"
 	DownloadTargetKindCSIBackupVolumeSnapshots        DownloadTargetKind = "CSIBackupVolumeSnapshots"
 	DownloadTargetKindCSIBackupVolumeSnapshotContents DownloadTargetKind = "CSIBackupVolumeSnapshotContents"
+	DownloadTargetKindBackupVolumeInfos               DownloadTargetKind = "BackupVolumeInfos"
+	DownloadTargetKindRestoreVolumeInfo               DownloadTargetKind = "RestoreVolumeInfo"
 )
 
 // DownloadTarget is the specification for what kind of file to download, and the name of the
@@ -49,7 +51,7 @@ type DownloadTarget struct {
 	// Kind is the type of file to download.
 	Kind DownloadTargetKind `json:"kind"`
 
-	// Name is the name of the kubernetes resource with which the file is associated.
+	// Name is the name of the Kubernetes resource with which the file is associated.
 	Name string `json:"name"`
 }
 
