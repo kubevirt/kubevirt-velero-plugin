@@ -28,4 +28,4 @@ ${OCI_BIN} tag ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}  ${LOCAL_CLUSTER_REG
 ${OCI_BIN} push ${TLS_SETTING} ${LOCAL_CLUSTER_REGISTRY_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
 
 # fetch latest version so it is available when container starts
-${_ssh} node01 "sudo podman pull ${KUBEVIRTCI_REGISTRY_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}"
+${_ssh} node01 "sudo crictl pull ${KUBEVIRTCI_REGISTRY_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}"

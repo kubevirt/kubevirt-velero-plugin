@@ -25,6 +25,6 @@ if [ -d "$GOBIN" ]; then
 else
   ginkgo_path=$(go env GOPATH)/bin/ginkgo
 fi
-(cd $test_path; go install github.com/onsi/ginkgo/v2/ginkgo@v2.11.0)
+(cd $test_path; go install github.com/onsi/ginkgo/v2/ginkgo@v2.17.1)
 (cd $test_path; $ginkgo_path build .)
 mv ${test_path}/tests.test ${TESTS_OUT_DIR}

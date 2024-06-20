@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -25,7 +26,8 @@ import (
 type RestoreSpec struct {
 	// BackupName is the unique name of the Velero backup to restore
 	// from.
-	BackupName string `json:"backupName"`
+	// +optional
+	BackupName string `json:"backupName,omitempty"`
 
 	// ScheduleName is the unique name of the Velero schedule to restore
 	// from. If specified, and BackupName is empty, Velero will restore
@@ -108,15 +110,36 @@ type RestoreSpec struct {
 	// +optional
 	Hooks RestoreHooks `json:"hooks,omitempty"`
 
-	// ExistingResourcePolicy specifies the restore behavior for the kubernetes resource to be restored
+	// ExistingResourcePolicy specifies the restore behavior for the Kubernetes resource to be restored
 	// +optional
 	// +nullable
 	ExistingResourcePolicy PolicyType `json:"existingResourcePolicy,omitempty"`
 
 	// ItemOperationTimeout specifies the time used to wait for RestoreItemAction operations
-	// The default value is 1 hour.
+	// The default value is 4 hour.
 	// +optional
 	ItemOperationTimeout metav1.Duration `json:"itemOperationTimeout,omitempty"`
+
+	// ResourceModifier specifies the reference to JSON resource patches that should be applied to resources before restoration.
+	// +optional
+	// +nullable
+	ResourceModifier *v1.TypedLocalObjectReference `json:"resourceModifier,omitempty"`
+
+	// UploaderConfig specifies the configuration for the restore.
+	// +optional
+	// +nullable
+	UploaderConfig *UploaderConfigForRestore `json:"uploaderConfig,omitempty"`
+}
+
+// UploaderConfigForRestore defines the configuration for the restore.
+type UploaderConfigForRestore struct {
+	// WriteSparseFiles is a flag to indicate whether write files sparsely or not.
+	// +optional
+	// +nullable
+	WriteSparseFiles *bool `json:"writeSparseFiles,omitempty"`
+	// ParallelFilesDownload is the concurrency number setting for restore.
+	// +optional
+	ParallelFilesDownload int `json:"parallelFilesDownload,omitempty"`
 }
 
 // RestoreHooks contains custom behaviors that should be executed during or post restore.
@@ -208,6 +231,11 @@ type ExecRestoreHook struct {
 	// before attempting to run the command.
 	// +optional
 	WaitTimeout metav1.Duration `json:"waitTimeout,omitempty"`
+
+	// WaitForReady ensures command will be launched when container is Ready instead of Running.
+	// +optional
+	// +nullable
+	WaitForReady *bool `json:"waitForReady,omitempty"`
 }
 
 // InitRestoreHook is a hook that adds an init container to a PodSpec to run commands before the
@@ -225,7 +253,7 @@ type InitRestoreHook struct {
 
 // RestorePhase is a string representation of the lifecycle phase
 // of a Velero restore
-// +kubebuilder:validation:Enum=New;FailedValidation;InProgress;WaitingForPluginOperations;WaitingForPluginOperationsPartiallyFailed;Completed;PartiallyFailed;Failed
+// +kubebuilder:validation:Enum=New;FailedValidation;InProgress;WaitingForPluginOperations;WaitingForPluginOperationsPartiallyFailed;Completed;PartiallyFailed;Failed;Finalizing;FinalizingPartiallyFailed
 type RestorePhase string
 
 const (
@@ -252,6 +280,19 @@ const (
 	// PartiallyFailed) and other plugin operations are still
 	// ongoing.  The restore is not complete yet.
 	RestorePhaseWaitingForPluginOperationsPartiallyFailed RestorePhase = "WaitingForPluginOperationsPartiallyFailed"
+
+	// RestorePhaseFinalizing means the restore of
+	// Kubernetes resources and other async plugin operations were successful and
+	// other plugin operations are now complete, but the restore is awaiting
+	// the completion of wrap-up tasks before the restore process enters terminal phase.
+	RestorePhaseFinalizing RestorePhase = "Finalizing"
+
+	// RestorePhaseFinalizingPartiallyFailed means the restore of
+	// Kubernetes resources and other async plugin operations were successful and
+	// other plugin operations are now complete, but one or more errors
+	// occurred during restore or async operation processing. The restore is awaiting
+	// the completion of wrap-up tasks before the restore process enters terminal phase.
+	RestorePhaseFinalizingPartiallyFailed RestorePhase = "FinalizingPartiallyFailed"
 
 	// RestorePhaseCompleted means the restore has run successfully
 	// without errors.
@@ -334,6 +375,11 @@ type RestoreStatus struct {
 	// RestoreItemAction operations for this restore which ended with an error.
 	// +optional
 	RestoreItemOperationsFailed int `json:"restoreItemOperationsFailed,omitempty"`
+
+	// HookStatus contains information about the status of the hooks.
+	// +optional
+	// +nullable
+	HookStatus *HookStatus `json:"hookStatus,omitempty"`
 }
 
 // RestoreProgress stores information about the restore's execution progress

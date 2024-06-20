@@ -33,18 +33,24 @@ function wait_plugin_available {
                     plugin get | grep kubevirt-velero | wc -l)
 
     wait_time=0
-    while [[ $available != "6" ]] && [[ $wait_time -lt 60 ]]; do
+    expected_actions="14"
+    while [[ $available != $expected_actions ]] && [[ $wait_time -lt 60 ]]; do
       wait_time=$((wait_time + 5))
       sleep 5
       available=$(${VELERO_DIR}/velero  \
                     --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
                     plugin get | grep kubevirt-velero  | wc -l)
     done
-  }
+
+    if [ $available != $expected_actions ]; then
+        echo "Expected $expected_actions actions for kubevirt-velero-plugin but only $available are avaliable"
+        exit 1
+    fi
+}
 
 ${VELERO_DIR}/velero  \
   --kubeconfig $(pwd)/_ci-configs/${KUBEVIRT_PROVIDER}/.kubeconfig \
-  plugin add ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
+  plugin add ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} --confirm
 
 wait_plugin_available
 

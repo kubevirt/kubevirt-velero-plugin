@@ -128,7 +128,7 @@ func NewServer() Server {
 func (s *server) BindFlags(flags *pflag.FlagSet) Server {
 	flags.Var(s.logLevelFlag, "log-level", fmt.Sprintf("The level at which to log. Valid values are %s.", strings.Join(s.logLevelFlag.AllowedValues(), ", ")))
 	s.flagSet = flags
-	s.flagSet.ParseErrorsWhitelist.UnknownFlags = true
+	s.flagSet.ParseErrorsWhitelist.UnknownFlags = true // Velero.io word list : ignore
 
 	return s
 }
@@ -232,7 +232,10 @@ func getNames(command string, kind common.PluginKind, plugin Interface) []Plugin
 func (s *server) Serve() {
 	if s.flagSet != nil && !s.flagSet.Parsed() {
 		s.log.Debugf("Parsing flags")
-		s.flagSet.Parse(os.Args[1:])
+		if err := s.flagSet.Parse(os.Args[1:]); err != nil {
+			s.log.Errorf("fail to parse the flags: %s", err.Error())
+			return
+		}
 	}
 
 	s.log.Level = s.logLevelFlag.Parse()

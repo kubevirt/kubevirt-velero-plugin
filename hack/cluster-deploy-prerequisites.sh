@@ -30,7 +30,7 @@ _kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${KUBEV
 _kubectl wait -n kubevirt deployment/virt-operator   --for=condition=Available --timeout=${KUBEVIRT_DEPLOYMENT_TIMEOUT}s
 
 
-${_ssh} node01 "sudo docker pull quay.io/kubevirtci/alpine-with-test-tooling-container-disk:2205291325-d8fc489"
+${_ssh} node01 "sudo crictl pull quay.io/kubevirtci/alpine-with-test-tooling-container-disk:2205291325-d8fc489"
 
 
 # Ensure the KubeVirt CR is created
