@@ -144,7 +144,7 @@ container-name:
 build-image: build-all
 	@echo -e "${GREEN}Building plugin image${WHITE}"
 	cp Dockerfile _output/bin/$(GOOS)/$(GOARCH)/Dockerfile
-	${OCI_BIN} build -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} -f _output/bin/$(GOOS)/$(GOARCH)/Dockerfile _output/bin/$(GOOS)/$(GOARCH)
+	${OCI_BIN} build --platform=$(GOOS)/$(GOARCH) -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} -f _output/bin/$(GOOS)/$(GOARCH)/Dockerfile _output/bin/$(GOOS)/$(GOARCH)
 
 push: build-image
 	@echo -e "${GREEN}Pushing plugin image to local registry${WHITE}"
