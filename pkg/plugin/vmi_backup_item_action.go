@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+	vmgraph "kubevirt.io/kubevirt-velero-plugin/pkg/util/graph"
 )
 
 // VMIBackupItemAction is a backup item action for backing up DataVolumes
@@ -127,7 +128,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, err
 	}
 
-	extra = util.AddVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), extra, p.log)
+	extra = vmgraph.AddVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), extra)
 
 	return item, extra, nil
 }
