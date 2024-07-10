@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	kvcore "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
@@ -45,6 +44,9 @@ func TestVMIBackupItemAction(t *testing.T) {
 				},
 			},
 		},
+		"status": map[string]interface{}{
+			"phase": "running",
+		},
 	}
 	nonOwnedVMI := map[string]interface{}{
 		"apiVersion": "kubevirt.io",
@@ -59,6 +61,9 @@ func TestVMIBackupItemAction(t *testing.T) {
 					"volumes": []map[string]interface{}{},
 				},
 			},
+		},
+		"status": map[string]interface{}{
+			"phase": "running",
 		},
 	}
 	pausedVMI := map[string]interface{}{
@@ -87,6 +92,7 @@ func TestVMIBackupItemAction(t *testing.T) {
 					"status": "True",
 				},
 			},
+			"phase": "running",
 		},
 	}
 
@@ -549,6 +555,7 @@ func TestVMIBackupItemAction(t *testing.T) {
 		isVMExcludedByLabel = func(vmi *kvcore.VirtualMachineInstance) (bool, error) { return tc.isVmExcluded(vmi) }
 		util.IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) { return tc.isPvcExcluded(namespace, pvcName) }
 		util.IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) { return returnFalse() }
+		util.ListPods = func(name, ns string) (*v1.PodList, error) { return &v1.PodList{Items: []v1.Pod{tc.pod}}, nil }
 
 		t.Run(tc.name, func(t *testing.T) {
 			output, extra, err := action.Execute(&tc.item, &tc.backup)
@@ -560,95 +567,6 @@ func TestVMIBackupItemAction(t *testing.T) {
 				assert.NoError(t, err)
 				tc.validator(output, extra)
 			}
-		})
-	}
-}
-
-func TestAddLauncherPod(t *testing.T) {
-	testCases := []struct {
-		name     string
-		vmi      kvcore.VirtualMachineInstance
-		pods     v1.Pod
-		expected []velero.ResourceIdentifier
-	}{
-		{"Should include launcher pod if present",
-			kvcore.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi",
-				},
-			},
-			v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi-launcher-pod",
-					Labels: map[string]string{
-						"kubevirt.io": "virt-launcher",
-					},
-					Annotations: map[string]string{
-						"kubevirt.io/domain": "test-vmi",
-					},
-				},
-			},
-			[]velero.ResourceIdentifier{
-				{
-					GroupResource: kuberesource.Pods,
-					Namespace:     "test-namespace",
-					Name:          "test-vmi-launcher-pod",
-				},
-			},
-		},
-		{"Should include only own launcher pod",
-			kvcore.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi",
-				},
-			},
-			v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi-launcher-pod",
-					Labels: map[string]string{
-						"kubevirt.io": "virt-launcher",
-					},
-					Annotations: map[string]string{
-						"kubevirt.io/domain": "another-vmi",
-					},
-				},
-			},
-			[]velero.ResourceIdentifier{},
-		},
-		{"Should not include other pods",
-			kvcore.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi",
-				},
-			},
-			v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi-launcher-pod",
-				},
-			},
-			[]velero.ResourceIdentifier{},
-		},
-	}
-
-	logrus.SetLevel(logrus.ErrorLevel)
-	kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
-	for _, tc := range testCases {
-		kubeobjects := []runtime.Object{}
-		kubeobjects = append(kubeobjects, &tc.pods)
-		client := k8sfake.NewSimpleClientset(kubeobjects...)
-		action := NewVMIBackupItemAction(logrus.StandardLogger(), client)
-
-		t.Run(tc.name, func(t *testing.T) {
-			output, err := action.addLauncherPod(&tc.vmi, []velero.ResourceIdentifier{})
-
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expected, output)
 		})
 	}
 }

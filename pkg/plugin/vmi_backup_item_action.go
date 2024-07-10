@@ -29,9 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
-	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	kvcore "kubevirt.io/api/core/v1"
@@ -76,8 +74,6 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, fmt.Errorf("backup object nil!")
 	}
 
-	extra := []velero.ResourceIdentifier{}
-
 	vmi := new(kvcore.VirtualMachineInstance)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vmi); err != nil {
 		return nil, nil, errors.WithStack(err)
@@ -119,13 +115,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		}
 	}
 
-	extra, err = p.addLauncherPod(vmi, extra)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	extra = vmgraph.AddVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), extra)
-
+	extra := vmgraph.NewVirtualMachineInstanceObjectGraph(vmi)
 	return item, extra, nil
 }
 
@@ -168,7 +158,7 @@ var isVMExcludedByLabel = func(vmi *kvcore.VirtualMachineInstance) (bool, error)
 }
 
 func (p *VMIBackupItemAction) isPodExcludedByLabel(vmi *kvcore.VirtualMachineInstance) (bool, error) {
-	pod, err := p.getLauncherPod(vmi)
+	pod, err := util.GetLauncherPod(vmi.GetName(), vmi.GetNamespace())
 	if err != nil {
 		return false, err
 	}
@@ -183,37 +173,4 @@ func (p *VMIBackupItemAction) isPodExcludedByLabel(vmi *kvcore.VirtualMachineIns
 
 	label, ok := labels[util.VeleroExcludeLabel]
 	return ok && label == "true", nil
-}
-
-func (p *VMIBackupItemAction) getLauncherPod(vmi *kvcore.VirtualMachineInstance) (*core.Pod, error) {
-	pods, err := p.client.CoreV1().Pods(vmi.GetNamespace()).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "kubevirt.io=virt-launcher",
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pod := range pods.Items {
-		if pod.Annotations["kubevirt.io/domain"] == vmi.GetName() {
-			return &pod, nil
-		}
-	}
-
-	return nil, nil
-}
-
-func (p *VMIBackupItemAction) addLauncherPod(vmi *kvcore.VirtualMachineInstance, extra []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
-	pod, err := p.getLauncherPod(vmi)
-	if err != nil {
-		return nil, err
-	}
-	if pod != nil {
-		extra = append(extra, velero.ResourceIdentifier{
-			GroupResource: kuberesource.Pods,
-			Namespace:     vmi.GetNamespace(),
-			Name:          pod.GetName(),
-		})
-	}
-
-	return extra, nil
 }

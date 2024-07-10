@@ -61,6 +61,21 @@ func GetK8sClient() (*kubernetes.Clientset, error) {
 	return client, nil
 }
 
+func GetLauncherPod(vmiName, vmiNamespace string) (*k8score.Pod, error) {
+	pods, err := ListPods(vmiName, vmiNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pod := range pods.Items {
+		if pod.Annotations["kubevirt.io/domain"] == vmiName {
+			return &pod, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func GetKubeVirtclient() (*kubecli.KubevirtClient, error) {
 	kubeConfig := os.Getenv("KUBECONFIG")
 	cfg, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
@@ -148,6 +163,23 @@ func IsVMIPaused(vmi *kvv1.VirtualMachineInstance) bool {
 	}
 
 	return false
+}
+
+// This is assigned to a variable so it can be replaced by a mock function in tests
+var ListPods = func(name, ns string) (*corev1api.PodList, error) {
+	client, err := GetK8sClient()
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "kubevirt.io=virt-launcher",
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get launcher pod from VMI %s/%s", ns, name)
+	}
+
+	return pods, nil
 }
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
