@@ -22,9 +22,12 @@ package vmgraph
 import (
 	"strings"
 
+	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
 // VMObjectGraph represents the graph of objects that can be potentially related to a VirtualMachine
@@ -34,12 +37,13 @@ var VMObjectGraph = map[string]schema.GroupResource{
 	"virtualmachineclusterinstancetype": {Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterinstancetype"},
 	"virtualmachinepreference":          {Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
 	"virtualmachineclusterpreference":   {Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterpreference"},
-	"controllerrevisions":               {Group: "apps", Resource: "controllerrevisions"},
 	"datavolumes":                       {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-	"persistentvolumeclaims":            {Group: "", Resource: "persistentvolumeclaims"},
-	"serviceaccounts":                   {Group: "", Resource: "serviceaccounts"},
+	"controllerrevisions":               {Group: "apps", Resource: "controllerrevisions"},
 	"configmaps":                        {Group: "", Resource: "configmaps"},
-	"secrets":                           {Group: "", Resource: "secrets"},
+	"persistentvolumeclaims":            kuberesource.PersistentVolumeClaims,
+	"serviceaccounts":                   kuberesource.ServiceAccounts,
+	"secrets":                           kuberesource.Secrets,
+	"pods":                              kuberesource.Pods,
 }
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
@@ -70,12 +74,31 @@ func NewVirtualMachineObjectGraph(vm *v1.VirtualMachine) []velero.ResourceIdenti
 		resources = addVeleroResource(vm.GetName(), namespace, "virtualmachineinstances", resources)
 	}
 
-	return AddVMIObjectGraph(vm.Spec.Template.Spec, vm.GetNamespace(), resources)
+	return addVMIObjectGraph(vm, resources)
 }
 
-func AddVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	resources = addVolumeGraph(spec.Volumes, namespace, resources)
-	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
+func addVMIObjectGraph(vm *v1.VirtualMachine, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	vmi := &v1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{Name: vm.Name, Namespace: vm.Namespace},
+		Spec:       vm.Spec.Template.Spec,
+	}
+	if vm.Status.Created {
+		// Using an arbitrary phase to signify the VMI has been created and
+		// ensure the launcher pod is included in the backup process.
+		// TODO: This might be a bit arbitrary, maybe we can find a better alternative.
+		vmi.Status.Phase = v1.Running
+	}
+	return append(resources, NewVirtualMachineInstanceObjectGraph(vmi)...)
+}
+
+func NewVirtualMachineInstanceObjectGraph(vmi *v1.VirtualMachineInstance) []velero.ResourceIdentifier {
+	var resources []velero.ResourceIdentifier
+	if vmi.Status.Phase != "" {
+		// TODO: Add error handling
+		resources, _ = addLauncherPod(vmi.GetName(), vmi.GetNamespace(), resources)
+	}
+	resources = addVolumeGraph(vmi.Spec.Volumes, vmi.GetNamespace(), resources)
+	resources = addAccessCredentials(vmi.Spec.AccessCredentials, vmi.GetNamespace(), resources)
 	return resources
 }
 
@@ -109,4 +132,13 @@ func addAccessCredentials(acs []v1.AccessCredential, namespace string, resources
 		}
 	}
 	return resources
+}
+
+func addLauncherPod(vmiName, vmiNamespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	pod, err := util.GetLauncherPod(vmiName, vmiNamespace)
+	if err != nil || pod == nil {
+		// Still return the list of the resources even if we couldn't get the launcher pod
+		return resources, err
+	}
+	return addVeleroResource(pod.GetName(), vmiNamespace, "pods", resources), nil
 }
