@@ -200,63 +200,98 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	Context("VM and VMI object graph backup", func() {
-		It("[test_id:10270]with instancetype and preference", Label("PartnerComp"), func() {
-			By("Create instancetype and preference")
-			err := f.CreateInstancetype()
-			Expect(err).ToNot(HaveOccurred())
-			err = f.CreatePreference()
-			Expect(err).ToNot(HaveOccurred())
+		Context("with instancetypes and preferences", func() {
+			nsDelFunc := func() {
+				err := f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).
+					Delete(context.Background(), instancetypeName, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = f.KvClient.VirtualMachinePreference(f.Namespace.Name).
+					Delete(context.Background(), preferenceName, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
 
-			By("Starting a VM")
-			err = f.CreateVMWithInstancetypeAndPreference()
-			Expect(err).ToNot(HaveOccurred())
-			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-instancetype-and-preference", dvName)
-			Expect(err).ToNot(HaveOccurred())
+			clusterDelFunc := func() {
+				err := f.KvClient.VirtualMachineClusterInstancetype().
+					Delete(context.Background(), instancetypeName, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = f.KvClient.VirtualMachineClusterPreference().
+					Delete(context.Background(), preferenceName, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
 
-			By("Wait instance type controller revision to be updated on VM spec")
-			Eventually(func(g Gomega) {
-				vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-				g.Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
-				_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-				_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-			}, 2*time.Minute, 2*time.Second).Should(Succeed())
-
-			By("Creating backup")
-			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Deleting VM, instancetype and preference")
-			err = f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).
-				Delete(context.Background(), instancetypeName, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			err = f.KvClient.VirtualMachinePreference(f.Namespace.Name).
-				Delete(context.Background(), preferenceName, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			ok, err := framework.DeleteVirtualMachineAndWait(f.KvClient, f.Namespace.Name, vm.Name)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ok).To(BeTrue())
-
-			// Wait until ControllerRevision is deleted
-			Eventually(func(g Gomega) metav1.StatusReason {
-				_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
-				if err != nil && errors.ReasonForError(err) != metav1.StatusReasonNotFound {
-					return errors.ReasonForError(err)
+			clusterCleanup := func() {
+				err := f.KvClient.VirtualMachineClusterInstancetype().
+					Delete(context.Background(), instancetypeName, metav1.DeleteOptions{})
+				if err != nil {
+					Expect(errors.IsNotFound(err)).To(BeTrue())
 				}
-				_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
-				return errors.ReasonForError(err)
-			}, 2*time.Minute, 2*time.Second).Should(Equal(metav1.StatusReasonNotFound))
+				err = f.KvClient.VirtualMachineClusterPreference().
+					Delete(context.Background(), preferenceName, metav1.DeleteOptions{})
+				if err != nil {
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+				}
+			}
 
-			By("Creating restore")
-			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
+			DescribeTable("with instancetype and preference", Label("PartnerComp"), func(itFunc func() error, pFunc func() error, vmFunc func() error, delFunc func(), cleanupFunc func()) {
+				if cleanupFunc != nil {
+					defer cleanupFunc()
+				}
+				By("Create instancetype and preference")
+				err := itFunc()
+				Expect(err).ToNot(HaveOccurred())
+				err = pFunc()
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Verifying VM")
-			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
-			Expect(err).ToNot(HaveOccurred())
+				By("Starting a VM")
+				err = vmFunc()
+				Expect(err).ToNot(HaveOccurred())
+				vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-instancetype-and-preference", dvName)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Wait instance type controller revision to be updated on VM spec")
+				Eventually(func(g Gomega) {
+					vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+					g.Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
+					_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+				}, 2*time.Minute, 2*time.Second).Should(Succeed())
+
+				By("Creating backup")
+				err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Deleting VM, instancetype and preference")
+				delFunc()
+
+				ok, err := framework.DeleteVirtualMachineAndWait(f.KvClient, f.Namespace.Name, vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ok).To(BeTrue())
+
+				// Wait until ControllerRevision is deleted
+				Eventually(func(g Gomega) metav1.StatusReason {
+					_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+					if err != nil && errors.ReasonForError(err) != metav1.StatusReasonNotFound {
+						return errors.ReasonForError(err)
+					}
+					_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+					return errors.ReasonForError(err)
+				}, 2*time.Minute, 2*time.Second).Should(Equal(metav1.StatusReasonNotFound))
+
+				By("Creating restore")
+				err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying VM")
+				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+				Expect(err).ToNot(HaveOccurred())
+			},
+				Entry("[test_id:10270]namespace scope", f.CreateInstancetype, f.CreatePreference, f.CreateVMWithInstancetypeAndPreference, nsDelFunc, nil),
+				Entry("[test_id:10274]cluster scope", f.CreateClusterInstancetype, f.CreateClusterPreference, f.CreateVMWithClusterInstancetypeAndClusterPreference, clusterDelFunc, clusterCleanup),
+			)
 		})
 
 		It("[test_id:10271]with configmap, secret and serviceaccount", Label("PartnerComp"), func() {

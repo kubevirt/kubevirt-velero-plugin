@@ -5,8 +5,18 @@ func (f *Framework) CreateInstancetype() error {
 	return err
 }
 
+func (f *Framework) CreateClusterInstancetype() error {
+	err := f.RunKubectlCommand("create", "-f", "manifests/cluster-instancetype.yaml", "-n", f.Namespace.Name)
+	return err
+}
+
 func (f *Framework) CreatePreference() error {
 	err := f.RunKubectlCommand("create", "-f", "manifests/preference.yaml", "-n", f.Namespace.Name)
+	return err
+}
+
+func (f *Framework) CreateClusterPreference() error {
+	err := f.RunKubectlCommand("create", "-f", "manifests/cluster-preference.yaml", "-n", f.Namespace.Name)
 	return err
 }
 
@@ -42,6 +52,11 @@ func (f *Framework) CreatePVCUsingDataVolume() error {
 
 func (f *Framework) CreateVMWithInstancetypeAndPreference() error {
 	err := f.RunKubectlCreateYamlCommand("manifests/vm_with_instancetype_and_preference.yaml")
+	return err
+}
+
+func (f *Framework) CreateVMWithClusterInstancetypeAndClusterPreference() error {
+	err := f.RunKubectlCreateYamlCommand("manifests/vm_with_clusterinstancetype_and_clusterpreference.yaml")
 	return err
 }
 
