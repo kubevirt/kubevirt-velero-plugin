@@ -93,13 +93,13 @@ create_backup() {
   local backup_cmd="$VELERO_CLI create backup $backup_name --namespace $namespace --include-namespaces $include_ns --wait"
 
   if [ -n "$selector" ]; then
-    backup_cmd+=("--selector" "$selector")
+    backup_cmd="$backup_cmd --selector $selector"
   fi
   if [ -n "$include_resources" ]; then
-    backup_cmd+=("--include-resources" "$include_resources")
+    backup_cmd="$backup_cmd --include-resources $include_resources"
   fi
   if [ -n "$snapshot_location" ]; then
-    backup_cmd+=("--volume-snapshot-locations" "$snapshot_location")
+    backup_cmd="$backup_cmd --volume-snapshot-locations $snapshot_location"
   fi
 
   # Execute backup command
@@ -257,4 +257,3 @@ case $command in
 esac
 
 echo "Exiting..."
-
