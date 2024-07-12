@@ -22,6 +22,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -141,8 +142,18 @@ func (p *VMBackupItemAction) canBeSafelyBackedUp(vm *kvcore.VirtualMachine, back
 
 func (p *VMBackupItemAction) addVMObjectGraph(vm *kvcore.VirtualMachine, extra []velero.ResourceIdentifier) []velero.ResourceIdentifier {
 	if vm.Spec.Instancetype != nil {
-		switch vm.Spec.Instancetype.Kind {
-		//TODO handle VirtualMachineClusterInstancetype
+		switch strings.ToLower(vm.Spec.Instancetype.Kind) {
+		case "virtualmachineclusterinstancetype":
+			p.log.Infof("Adding cluster instance type %s to the backup", vm.Spec.Instancetype.Name)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterinstancetype"},
+				Name:          vm.Spec.Instancetype.Name,
+			})
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+				Namespace:     vm.Namespace,
+				Name:          vm.Spec.Instancetype.RevisionName,
+			})
 		case "virtualmachineinstancetype":
 			p.log.Infof("Adding instance type %s to the backup", vm.Spec.Instancetype.Name)
 			extra = append(extra, velero.ResourceIdentifier{
@@ -159,8 +170,18 @@ func (p *VMBackupItemAction) addVMObjectGraph(vm *kvcore.VirtualMachine, extra [
 	}
 
 	if vm.Spec.Preference != nil {
-		//TODO handle VirtualMachineClusterPreference
-		switch vm.Spec.Preference.Kind {
+		switch strings.ToLower(vm.Spec.Preference.Kind) {
+		case "virtualmachineclusterpreference":
+			p.log.Infof("Adding cluster preference %s to the backup", vm.Spec.Preference.Name)
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterpreference"},
+				Name:          vm.Spec.Preference.Name,
+			})
+			extra = append(extra, velero.ResourceIdentifier{
+				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+				Namespace:     vm.Namespace,
+				Name:          vm.Spec.Preference.RevisionName,
+			})
 		case "virtualmachinepreference":
 			p.log.Infof("Adding preference %s to the backup", vm.Spec.Preference.Name)
 			extra = append(extra, velero.ResourceIdentifier{

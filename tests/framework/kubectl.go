@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//RunKubectlCommand runs a kubectl Cmd and returns output and err
+// RunKubectlCommand runs a kubectl Cmd and returns output and err
 func (f *Framework) RunKubectlCommand(args ...string) error {
 	cmd := f.CreateKubectlCommand(args...)
 	outBytes, err := cmd.CombinedOutput()
@@ -84,7 +84,7 @@ func (f *Framework) KubectlDescribeVeleroBackup(ctx context.Context, podName, ba
 	if err != nil {
 		return result, err
 	}
-	json.Unmarshal(jsonBuf, &result)
+	err = json.Unmarshal(jsonBuf, &result)
 	if err != nil {
 		return result, err
 	}
