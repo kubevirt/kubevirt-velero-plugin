@@ -25,8 +25,11 @@ import (
 )
 
 // NewVirtualMachineBackupGraph returns the backup object graph for a specific VM
-func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) []velero.ResourceIdentifier {
+func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdentifier, error) {
 	var resources []velero.ResourceIdentifier
+	var err error
+	namespace := vm.GetNamespace()
+
 	if vm.Spec.Instancetype != nil {
 		resources = addInstanceType(*vm.Spec.Instancetype, vm.GetNamespace(), resources)
 	}
@@ -34,17 +37,21 @@ func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) []velero.ResourceIdenti
 		resources = addPreferenceType(*vm.Spec.Preference, vm.GetNamespace(), resources)
 	}
 	if vm.Status.Created {
-		resources = addVeleroResource(vm.GetName(), vm.GetNamespace(), "virtualmachineinstances", resources)
-		// TODO: Add error handling
-		resources, _ = addLauncherPod(vm.GetName(), vm.GetNamespace(), resources)
+		resources = addVeleroResource(vm.GetName(), namespace, "virtualmachineinstances", resources)
+		// Returning full backup even if there was an error retrieving the launcher pod.
+		// The caller can decide wether to use the backup without launcher pod or handle the error.
+		resources, err = addLauncherPod(vm.GetName(), vm.GetNamespace(), resources)
 	}
-	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetNamespace(), true, resources)
+
+	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, namespace, true, resources), err
 }
 
 // NewVirtualMachineInstanceBackupGraph returns the backup object graph for a specific VMI
-func NewVirtualMachineInstanceBackupGraph(vmi *v1.VirtualMachineInstance) []velero.ResourceIdentifier {
+func NewVirtualMachineInstanceBackupGraph(vmi *v1.VirtualMachineInstance) ([]velero.ResourceIdentifier, error) {
 	var resources []velero.ResourceIdentifier
-	// TODO: Add error handling
-	resources, _ = addLauncherPod(vmi.GetName(), vmi.GetNamespace(), resources)
-	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), true, resources)
+	var err error
+	// Returning full backup even if there was an error retrieving the launcher pod.
+	// The caller can decide wether to use the backup without launcher pod or handle the error.
+	resources, err = addLauncherPod(vmi.GetName(), vmi.GetNamespace(), resources)
+	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), true, resources), err
 }

@@ -115,7 +115,11 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		}
 	}
 
-	extra := vmgraph.NewVirtualMachineInstanceBackupGraph(vmi)
+	extra, err := vmgraph.NewVirtualMachineInstanceBackupGraph(vmi)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
 	return item, extra, nil
 }
 
