@@ -115,7 +115,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		}
 	}
 
-	extra := vmgraph.NewVirtualMachineInstanceObjectGraph(vmi)
+	extra := vmgraph.NewVirtualMachineInstanceBackupGraph(vmi)
 	return item, extra, nil
 }
 
