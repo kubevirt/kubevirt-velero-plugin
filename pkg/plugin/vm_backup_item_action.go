@@ -92,7 +92,7 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, fmt.Errorf("VM would not be restored correctly")
 	}
 
-	extra := vmgraph.NewVirtualMachineObjectGraph(vm)
+	extra := vmgraph.NewVirtualMachineBackupGraph(vm)
 
 	return item, extra, nil
 }

@@ -30,6 +30,22 @@ func TestVmRestoreExecute(t *testing.T) {
 						},
 						},
 					},
+					"template": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"volumes": []map[string]interface{}{
+								{
+									"dataVolume": map[string]interface{}{
+										"name": "test-dv-1",
+									},
+								},
+								{
+									"dataVolume": map[string]interface{}{
+										"name": "test-dv-2",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

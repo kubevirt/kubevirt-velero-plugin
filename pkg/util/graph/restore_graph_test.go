@@ -3,7 +3,6 @@ package vmgraph
 import (
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
@@ -11,11 +10,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
-func TestNewVirtualMachineObjectGraph(t *testing.T) {
+func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 	getVM := func(created bool) kvcore.VirtualMachine {
 		return kvcore.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
@@ -93,62 +90,7 @@ func TestNewVirtualMachineObjectGraph(t *testing.T) {
 					Name:          "controller-revision-preference",
 				},
 				{
-					GroupResource: schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-					Namespace:     "",
-					Name:          "test-vm",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "", Resource: "pods"},
-					Namespace:     "",
-					Name:          "test-vmi-launcher-pod",
-				},
-				{
 					GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-					Namespace:     "",
-					Name:          "test-datavolume",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"},
-					Namespace:     "",
-					Name:          "test-datavolume",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "", Resource: "secrets"},
-					Namespace:     "",
-					Name:          "test-ssh-secret",
-				},
-			},
-		},
-		{"Should not include vmi and launcher pod",
-			getVM(false),
-			[]velero.ResourceIdentifier{
-				{
-					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
-					Namespace:     "",
-					Name:          "test-instancetype",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
-					Namespace:     "",
-					Name:          "controller-revision-instancetype",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
-					Namespace:     "",
-					Name:          "test-preference",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
-					Namespace:     "",
-					Name:          "controller-revision-preference",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-					Namespace:     "",
-					Name:          "test-datavolume",
-				},
-				{
-					GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"},
 					Namespace:     "",
 					Name:          "test-datavolume",
 				},
@@ -163,29 +105,13 @@ func TestNewVirtualMachineObjectGraph(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			util.ListPods = func(name, ns string) (*v1.PodList, error) {
-				return &v1.PodList{Items: []v1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "test-namespace",
-							Name:      "test-vmi-launcher-pod",
-							Labels: map[string]string{
-								"kubevirt.io": "virt-launcher",
-							},
-							Annotations: map[string]string{
-								"kubevirt.io/domain": "test-vm",
-							},
-						},
-					},
-				}}, nil
-			}
-			resources := NewVirtualMachineObjectGraph(&tc.vm)
+			resources := NewVirtualMachineRestoreGraph(&tc.vm)
 			assert.Equal(t, tc.expected, resources)
 		})
 	}
 }
 
-func TestNewVirtualMachineInstanceObjectGraph(t *testing.T) {
+func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 	testCases := []struct {
 		name     string
 		vmi      kvcore.VirtualMachineInstance
@@ -268,11 +194,6 @@ func TestNewVirtualMachineInstanceObjectGraph(t *testing.T) {
 				{
 					GroupResource: kuberesource.PersistentVolumeClaims,
 					Namespace:     "test-namespace",
-					Name:          "test-dv",
-				},
-				{
-					GroupResource: kuberesource.PersistentVolumeClaims,
-					Namespace:     "test-namespace",
 					Name:          "test-memoryDump",
 				},
 				{
@@ -340,101 +261,8 @@ func TestNewVirtualMachineInstanceObjectGraph(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output := NewVirtualMachineInstanceObjectGraph(&tc.vmi)
+			output := NewVirtualMachineInstanceRestoreGraph(&tc.vmi)
 
-			assert.Equal(t, tc.expected, output)
-		})
-	}
-}
-
-func TestAddLauncherPod(t *testing.T) {
-	testCases := []struct {
-		name     string
-		vmi      kvcore.VirtualMachineInstance
-		pods     []v1.Pod
-		expected []velero.ResourceIdentifier
-	}{
-		{"Should include launcher pod if present",
-			kvcore.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi",
-				},
-			},
-			[]v1.Pod{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "test-namespace",
-						Name:      "test-vmi-launcher-pod",
-						Labels: map[string]string{
-							"kubevirt.io": "virt-launcher",
-						},
-						Annotations: map[string]string{
-							"kubevirt.io/domain": "test-vmi",
-						},
-					},
-				},
-			},
-			[]velero.ResourceIdentifier{
-				{
-					GroupResource: kuberesource.Pods,
-					Namespace:     "test-namespace",
-					Name:          "test-vmi-launcher-pod",
-				},
-			},
-		},
-		{"Should include only own launcher pod",
-			kvcore.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi",
-				},
-			},
-			[]v1.Pod{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "test-namespace",
-						Name:      "test-vmi-launcher-pod",
-						Labels: map[string]string{
-							"kubevirt.io": "virt-launcher",
-						},
-						Annotations: map[string]string{
-							"kubevirt.io/domain": "another-vmi",
-						},
-					},
-				},
-			},
-			[]velero.ResourceIdentifier{},
-		},
-		{"Should not include other pods",
-			kvcore.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-namespace",
-					Name:      "test-vmi",
-				},
-			},
-			[]v1.Pod{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "test-namespace",
-						Name:      "test-vmi-launcher-pod",
-					},
-				},
-			},
-			[]velero.ResourceIdentifier{},
-		},
-	}
-
-	logrus.SetLevel(logrus.ErrorLevel)
-	kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			util.ListPods = func(name, ns string) (*v1.PodList, error) {
-				return &v1.PodList{Items: tc.pods}, nil
-			}
-			vmi := &tc.vmi
-			output, err := addLauncherPod(vmi.GetName(), vmi.GetNamespace(), []velero.ResourceIdentifier{})
-			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, output)
 		})
 	}
