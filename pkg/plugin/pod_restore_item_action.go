@@ -42,7 +42,7 @@ func (p *PodRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
 		IncludedResources: []string{
 			"Pod",
 		},
-		LabelSelector: "kubevirt.io=virt-launcher",
+		LabelSelector: "kubevirt.io in (virt-launcher, hotplug-disk)",
 	}, nil
 }
 
