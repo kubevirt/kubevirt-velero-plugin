@@ -179,7 +179,8 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 					},
 				}}, nil
 			}
-			resources := NewVirtualMachineBackupGraph(&tc.vm)
+			resources, err := NewVirtualMachineBackupGraph(&tc.vm)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, resources)
 		})
 	}
@@ -340,8 +341,8 @@ func TestNewVirtualMachineInstanceBackupGraph(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output := NewVirtualMachineInstanceBackupGraph(&tc.vmi)
-
+			output, err := NewVirtualMachineInstanceBackupGraph(&tc.vmi)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, output)
 		})
 	}

@@ -262,7 +262,6 @@ func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			output := NewVirtualMachineInstanceRestoreGraph(&tc.vmi)
-
 			assert.Equal(t, tc.expected, output)
 		})
 	}
