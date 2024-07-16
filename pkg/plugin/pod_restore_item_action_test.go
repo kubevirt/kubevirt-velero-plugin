@@ -51,6 +51,14 @@ func TestPodRestoreApplyTo(t *testing.T) {
 				},
 			},
 		},
+		{"Match hotplug pod",
+			true,
+			core.Pod{
+				ObjectMeta: v1.ObjectMeta{
+					Labels: map[string]string{"kubevirt.io": "hotplug-disk"},
+				},
+			},
+		},
 		{"Don't match non-launcher pods",
 			false,
 			core.Pod{
