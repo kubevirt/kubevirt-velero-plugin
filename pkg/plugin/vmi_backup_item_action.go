@@ -82,11 +82,13 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, errors.WithStack(err)
 	}
 
+	//zxh：vmi处于running状态时，关联的pod和关联的pvc必须要include。pod要是没有处于冻结状态呢？就不需要判断pod是否被备份了吗？
 	if !util.IsVMIPaused(vmi) {
 		if !util.IsResourceInBackup("pods", backup) && util.IsResourceInBackup("persistentvolumeclaims", backup) {
 			return nil, nil, fmt.Errorf("VM is running but launcher pod is not included in the backup")
 		}
 
+		//zxh： 检测pod上是否有 velero的exclude标签。这个pod不能被排除掉
 		excluded, err := p.isPodExcludedByLabel(vmi)
 		if err != nil {
 			return nil, nil, errors.WithStack(err)
@@ -97,6 +99,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		}
 	}
 
+	//zxh： vmi创建的vm 必须要备份vm，vm不能被排除
 	if isVMIOwned(vmi) {
 		if !util.IsResourceInBackup("virtualmachines", backup) {
 			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
@@ -111,8 +114,9 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
 		}
 
-		util.AddAnnotation(item, AnnIsOwned, "true")
+		util.AddAnnotation(item, AnnIsOwned, "true") //在vmi中添加注解 标识vmi是vm创建的
 	} else {
+		//zxh： 如果不是vm创建的vmi，这需要判断判断vmi关联的pvc和dv是否已经被备份了。，如果是vm创建的vmi 则在处理vm的是否已经做过这个判断了不需要再重复进行判断了
 		restore, err := util.RestorePossible(vmi.Spec.Volumes, backup, vmi.Namespace, func(volume kvcore.Volume) bool { return false }, p.log)
 		if err != nil {
 			return nil, nil, errors.WithStack(err)
@@ -122,16 +126,19 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		}
 	}
 
+	//zxh: 解析vmi关联的pod，这里没有解析关联的热加载pod
 	extra, err := p.addLauncherPod(vmi, extra)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// zxh： 解析vmi关联的卷和凭据信息（secret）
 	extra = util.AddVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), extra, p.log)
 
 	return item, extra, nil
 }
 
+//zxh 判断vmi是否由其他资源创建的
 func isVMIOwned(vmi *kvcore.VirtualMachineInstance) bool {
 	return len(vmi.OwnerReferences) > 0
 }
@@ -170,15 +177,17 @@ func (p *VMIBackupItemAction) isPodExcludedByLabel(vmi *kvcore.VirtualMachineIns
 	return ok && label == "true", nil
 }
 
+//zxh: 解析vmi关联的pod
 func (p *VMIBackupItemAction) getLauncherPod(vmi *kvcore.VirtualMachineInstance) (*core.Pod, error) {
 	pods, err := p.client.CoreV1().Pods(vmi.GetNamespace()).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "kubevirt.io=virt-launcher",
+		LabelSelector: "kubevirt.io=virt-launcher", //zxh: 虚拟机pod都存在这个标签, 可以根据这个标签筛选pod
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	for _, pod := range pods.Items {
+		//zxh: vmi 关联的pod存在如下标签
 		if pod.Annotations["kubevirt.io/domain"] == vmi.GetName() {
 			return &pod, nil
 		}

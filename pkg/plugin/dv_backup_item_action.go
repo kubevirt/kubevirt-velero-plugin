@@ -39,7 +39,7 @@ import (
 
 const (
 	AnnPrePopulated = "cdi.kubevirt.io/storage.prePopulated"
-	AnnPopulatedFor = "cdi.kubevirt.io/storage.populatedFor"
+	AnnPopulatedFor = "cdi.kubevirt.io/storage.populatedFor" //zxh: 标记pvc已经备份DV成功填充，成功填充之后CDI会自动给pvc上添加这个注解，可以防止重复填充
 	AnnInProgress   = "kvp.kubevirt.io/storage.inprogress"
 )
 
@@ -53,6 +53,8 @@ func NewDVBackupItemAction(log logrus.FieldLogger) *DVBackupItemAction {
 	return &DVBackupItemAction{log: log}
 }
 
+/*
+**/
 // AppliesTo returns information about which resources this action should be invoked for.
 // The IncludedResources and ExcludedResources slices can include both resources
 // and resources with group names. These work: "ingresses", "ingresses.extensions".
@@ -106,13 +108,14 @@ func (p *DVBackupItemAction) handlePVC(item runtime.Unstructured) (runtime.Unstr
 		if annotations == nil {
 			annotations = make(map[string]string)
 		}
+		 //zxh: 如果DV已经是完成状态，则表明PVC已经被成功填充了，不会再重复填充了。
+		// 这里定义注解和实际环境中和的pvc被成功填充之后的注解不一样，需要判断一下是否是因为升级导致不一致，还是就是不一样的注解呢
 		if dv.Status.Phase == cdiv1.Succeeded {
-			// make sure an object is marked as populated, so the operation will not be retried after restore
 			annotations[AnnPopulatedFor] = dv.Name
 		} else {
 			// The PVC is not finished, we mark it as inprogress, so it can be skipped during restore
 			// so it does not conflict with CDI action
-			annotations[AnnInProgress] = dv.Name
+			annotations[AnnInProgress] = dv.Name //zxh：备份的时候如果DV没有填充完成，则标记为inprogress
 		}
 		metadata.SetAnnotations(annotations)
 	}
@@ -131,12 +134,12 @@ func (p *DVBackupItemAction) handleDataVolume(backup *v1.Backup, item runtime.Un
 	extra := []velero.ResourceIdentifier{}
 	dvSucceeded := dv.Status.Phase == cdiv1.Succeeded
 	if dvSucceeded {
-		annotations := dv.GetAnnotations()
+		annotations := dv.GetAnnotations() //zxh: 标记pvc已经完成
 		if annotations == nil {
 			annotations = make(map[string]string)
 		}
 		annotations[AnnPrePopulated] = dv.GetName()
-		dv.SetAnnotations(annotations)
+		dv.SetAnnotations(annotations) 
 
 		extra = []velero.ResourceIdentifier{{
 			GroupResource: kuberesource.PersistentVolumeClaims,
@@ -145,6 +148,7 @@ func (p *DVBackupItemAction) handleDataVolume(backup *v1.Backup, item runtime.Un
 		}}
 	}
 
+	//zxh： DV如果没有处于成功填充状态也会进行备份
 	dvMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&dv)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
@@ -153,6 +157,7 @@ func (p *DVBackupItemAction) handleDataVolume(backup *v1.Backup, item runtime.Un
 	return &unstructured.Unstructured{Object: dvMap}, extra, nil
 }
 
+//zxh: 解析pvc是否是DV创建的，如果是DV创建的则返回DV
 func (p *DVBackupItemAction) getOwningDataVolume(metadata metav1.Object) (*cdiv1.DataVolume, error) {
 	for _, or := range metadata.GetOwnerReferences() {
 		p.log.Infof("or %+v", or)

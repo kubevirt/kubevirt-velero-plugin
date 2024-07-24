@@ -125,6 +125,7 @@ func AddAnnotation(item runtime.Unstructured, annotation, value string) {
 	metadata.SetAnnotations(annotations)
 }
 
+//zxh: 检查虚拟机是否处于暂停状态
 func IsVMIPaused(vmi *kvv1.VirtualMachineInstance) bool {
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == kvv1.VirtualMachineInstancePaused && c.Status == k8score.ConditionTrue {
@@ -242,6 +243,7 @@ func checkRestorePVCPossible(backup *velerov1.Backup, namespace, claimName strin
 func RestorePossible(volumes []kvv1.Volume, backup *velerov1.Backup, namespace string, skipVolume func(volume kvv1.Volume) bool, log logrus.FieldLogger) (bool, error) {
 	// Restore will not be possible if a DV or PVC volume outside VM's DVTemplates is not backed up
 	for _, volume := range volumes {
+		//zxh: 这里的dv会自动创建一个pvc，恢复的时候需要判断dv是否存在，如果dv不存在则pvc必须存在。两者都不存在就报错
 		if volume.VolumeSource.DataVolume != nil && !skipVolume(volume) {
 			possible, err := checkRestoreDataVolumePossible(backup, namespace, volume.VolumeSource.DataVolume.Name)
 			if k8serrors.IsNotFound(err) {
@@ -271,6 +273,7 @@ func RestorePossible(volumes []kvv1.Volume, backup *velerov1.Backup, namespace s
 	return true, nil
 }
 
+//azxh: 解析vmi中的卷包括了热加载卷以及configmap和secret等资源，需要注意一下这些卷是否都会挂载到pod和人热加载的pod上呢？
 func addVolumes(volumes []kvv1.Volume, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
 	for _, volume := range volumes {
 		if volume.DataVolume != nil {
@@ -336,6 +339,7 @@ func getNamespaceAndNetworkName(vmiNamespace, fullNetworkName string) (string, s
 	return vmiNamespace, fullNetworkName
 }
 
+//zxh: 解析关联的secret资源
 func addAccessCredentials(acs []kvv1.AccessCredential, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
 	for _, ac := range acs {
 		if ac.SSHPublicKey != nil && ac.SSHPublicKey.Source.Secret != nil {
@@ -357,6 +361,7 @@ func addAccessCredentials(acs []kvv1.AccessCredential, namespace string, extra [
 	return extra
 }
 
+//zxh： 解析vmi
 func AddVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, namespace string, extra []velero.ResourceIdentifier, log logrus.FieldLogger) []velero.ResourceIdentifier {
 	extra = addVolumes(spec.Volumes, namespace, extra, log)
 

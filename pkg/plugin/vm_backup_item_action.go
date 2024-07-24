@@ -76,6 +76,7 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, errors.WithStack(err)
 	}
 
+	//zxh： 检查虚拟机是否满足备份条件。处于开机的vm 还需要备份vm关联的vmi和pod，处于关机的vm则不需要备份关联的vmi和pod
 	safe, err := p.canBeSafelyBackedUp(vm, backup)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
@@ -85,8 +86,9 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 	}
 
 	skipVolume := func(volume kvcore.Volume) bool {
-		return volumeInDVTemplates(volume, vm)
+		return volumeInDVTemplates(volume, vm) //zxh: 判断DV是否是模板生成的DV
 	}
+	//zxh：DV模板生成的DV 不需要DV一定被备份了，其余DV必须要被备份，可能是因为模板DV 如果不存在会自动生成
 	restore, err := util.RestorePossible(vm.Spec.Template.Spec.Volumes, backup, vm.Namespace, skipVolume, p.log)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
@@ -95,11 +97,13 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, fmt.Errorf("VM would not be restored correctly")
 	}
 
+	//zxh： vm关联的资源
 	extra = p.addVMObjectGraph(vm, extra)
 
+	//zxh： 解析vm关联的卷和凭据信息
 	extra = util.AddVMIObjectGraph(vm.Spec.Template.Spec, vm.GetNamespace(), extra, p.log)
 
-	if vm.Status.Created {
+	if vm.Status.Created { //zxh: 处于运行状态的vm还需要备份关联的vmi
 		extra = append(extra, velero.ResourceIdentifier{
 			GroupResource: schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"},
 			Namespace:     vm.GetNamespace(),
@@ -111,12 +115,16 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 }
 
 // returns false for all cases when backup might end up with a broken PVC snapshot
+//zxh： vm处于关机状态时可以不备份vmi和pod。处于运行状态时需要备份vmi和pod
 func (p *VMBackupItemAction) canBeSafelyBackedUp(vm *kvcore.VirtualMachine, backup *v1.Backup) (bool, error) {
-	isRuning := vm.Status.PrintableStatus == kvcore.VirtualMachineStatusStarting || vm.Status.PrintableStatus == kvcore.VirtualMachineStatusRunning
-	if !isRuning {
+	//zxh： 判断虚拟机是否处于运行状态， 这里为什么做两次一模一样的判断？？
+	isRuning := vm.Status.PrintableStatus == kvcore.VirtualMachineStatusStarting || vm.Status.PrintableStatus == kvcore.VirtualMachineStatusStarting
+	if !isRuning { //zxh: 处于关机的vm就是可以安全备份的
 		return true, nil
 	}
 
+	//没有处于关机的vm，则不是可以安全备份的，需要再次判断资源中是否包含了vmi，没有包含vmi时不可以安全备份？？？、为什么没有包含vmi就不是安全备份呢？
+	// zxh： 难道是因为没有包含vmi说明环境中的虚拟机处于不正常状态吗？
 	if !util.IsResourceInBackup("virtualmachineinstances", backup) {
 		p.log.Info("Backup of a running VM does not contain VMI.")
 		return false, nil
@@ -140,6 +148,7 @@ func (p *VMBackupItemAction) canBeSafelyBackedUp(vm *kvcore.VirtualMachine, back
 	return true, nil
 }
 
+//zxh: 解析vmn关联的资源，例如virtualmachineclusterinstancetype、virtualmachineinstancetype、virtualmachineclusterpreference、virtualmachinepreference
 func (p *VMBackupItemAction) addVMObjectGraph(vm *kvcore.VirtualMachine, extra []velero.ResourceIdentifier) []velero.ResourceIdentifier {
 	if vm.Spec.Instancetype != nil {
 		switch strings.ToLower(vm.Spec.Instancetype.Kind) {
@@ -221,6 +230,7 @@ var isVMIExcludedByLabel = func(vm *kvcore.VirtualMachine) (bool, error) {
 	return ok && label == "true", nil
 }
 
+//zxh： DV模板中的dv不备份
 func volumeInDVTemplates(volume kvcore.Volume, vm *kvcore.VirtualMachine) bool {
 	for _, template := range vm.Spec.DataVolumeTemplates {
 		if template.Name == volume.VolumeSource.DataVolume.Name {

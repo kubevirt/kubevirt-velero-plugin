@@ -51,6 +51,7 @@ func (p *VMRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
 }
 
 // Execute – If VM was running, it must be restored as stopped
+//zxh： 代码中没有看到关机的动作
 func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
 	p.log.Info("Running VMRestorePlugin")
 
@@ -68,6 +69,7 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 		return nil, errors.WithStack(err)
 	}
 
+	//zxh： 返回要恢复的资源列表，恢复vm的时候需要把vm DV模板中关联的DV也都恢复
 	output := velero.NewRestoreItemActionExecuteOutput(&unstructured.Unstructured{Object: item})
 	for _, dv := range vm.Spec.DataVolumeTemplates {
 		output.AdditionalItems = append(output.AdditionalItems, velero.ResourceIdentifier{

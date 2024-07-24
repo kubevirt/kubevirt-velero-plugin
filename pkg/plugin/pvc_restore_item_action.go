@@ -47,6 +47,7 @@ func (p *PVCRestoreItemAction) AppliesTo() (velero.ResourceSelector, error) {
 		nil
 }
 
+//zxh： 备份是如果是处于正在导入的pvc，则跳过恢复
 // Execute if the PVC and the corresponding DV is not SUCCESSFULL - then skip PVC
 func (p *PVCRestoreItemAction) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
 	p.log.Info("Executing PVCRestoreItemAction")
@@ -60,7 +61,7 @@ func (p *PVCRestoreItemAction) Execute(input *velero.RestoreItemActionExecuteInp
 	}
 	p.log.Infof("handling PVC %v/%v", pvc.GetNamespace(), pvc.GetName())
 	annotations := pvc.GetAnnotations()
-	_, inProgress := annotations[AnnInProgress]
+	_, inProgress := annotations[AnnInProgress] //zxh: 备份的时候判断了如果是DV创建的PVC，并且PV处于正在导入状态，则给pvc增加该注解，恢复的是否跳过恢复该pvc
 	if inProgress {
 		return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil
 	}

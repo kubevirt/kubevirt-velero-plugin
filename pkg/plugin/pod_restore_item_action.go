@@ -42,7 +42,7 @@ func (p *PodRestorePlugin) AppliesTo() (velero.ResourceSelector, error) {
 		IncludedResources: []string{
 			"Pod",
 		},
-		LabelSelector: "kubevirt.io in (virt-launcher, hotplug-disk)",
+		LabelSelector: "kubevirt.io in (virt-launcher, hotplug-disk)", //zxh: 虚拟机pod和热加载pod
 	}, nil
 }
 
@@ -54,5 +54,5 @@ func (p *PodRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 		return nil, fmt.Errorf("input object nil!")
 	}
 
-	return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil
+	return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil //zxh：虚拟机pod和热加载pod都不做恢复
 }
