@@ -22,6 +22,7 @@ package vmgraph
 import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	v1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // NewVirtualMachineBackupGraph returns the backup object graph for a specific VM
@@ -54,4 +55,13 @@ func NewVirtualMachineInstanceBackupGraph(vmi *v1.VirtualMachineInstance) ([]vel
 	// The caller can decide wether to use the backup without launcher pod or handle the error.
 	resources, err = addLauncherPod(vmi.GetName(), vmi.GetNamespace(), resources)
 	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), true, resources), err
+}
+
+// NewDataVolumeBackupGraph returns the backup object graph for a specific DataVolume
+func NewDataVolumeBackupGraph(dv *cdiv1.DataVolume) []velero.ResourceIdentifier {
+	resources := []velero.ResourceIdentifier{}
+	if dv.Status.Phase == cdiv1.Succeeded {
+		resources = addVeleroResource(dv.Name, dv.Namespace, "persistentvolumeclaims", resources)
+	}
+	return resources
 }

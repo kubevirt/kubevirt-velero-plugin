@@ -31,9 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+	vmgraph "kubevirt.io/kubevirt-velero-plugin/pkg/util/graph"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 )
 
@@ -128,7 +128,6 @@ func (p *DVBackupItemAction) handleDataVolume(backup *v1.Backup, item runtime.Un
 	}
 
 	p.log.Infof("handling DataVolume %v/%v", dv.GetNamespace(), dv.GetName())
-	extra := []velero.ResourceIdentifier{}
 	dvSucceeded := dv.Status.Phase == cdiv1.Succeeded
 	if dvSucceeded {
 		annotations := dv.GetAnnotations()
@@ -137,18 +136,14 @@ func (p *DVBackupItemAction) handleDataVolume(backup *v1.Backup, item runtime.Un
 		}
 		annotations[AnnPrePopulated] = dv.GetName()
 		dv.SetAnnotations(annotations)
-
-		extra = []velero.ResourceIdentifier{{
-			GroupResource: kuberesource.PersistentVolumeClaims,
-			Namespace:     dv.GetNamespace(),
-			Name:          dv.GetName(),
-		}}
 	}
 
 	dvMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&dv)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
+
+	extra := vmgraph.NewDataVolumeBackupGraph(&dv)
 
 	return &unstructured.Unstructured{Object: dvMap}, extra, nil
 }
