@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
@@ -437,6 +438,57 @@ func TestAddLauncherPod(t *testing.T) {
 			output, err := addLauncherPod(vmi.GetName(), vmi.GetNamespace(), []velero.ResourceIdentifier{})
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, output)
+		})
+	}
+}
+
+func TestNewDataVolumeBackupGraph(t *testing.T) {
+	tests := []struct {
+		name           string
+		dataVolume     *cdiv1.DataVolume
+		expectedResult []velero.ResourceIdentifier
+	}{
+		{
+			name: "DataVolume Succeeded",
+			dataVolume: &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dv",
+					Namespace: "default",
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Succeeded,
+				},
+			},
+			expectedResult: []velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{
+						Group:    "",
+						Resource: "persistentvolumeclaims",
+					},
+					Namespace: "default",
+					Name:      "test-dv",
+				},
+			},
+		},
+		{
+			name: "DataVolume Not Succeeded",
+			dataVolume: &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dv",
+					Namespace: "default",
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.ImportScheduled,
+				},
+			},
+			expectedResult: []velero.ResourceIdentifier{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NewDataVolumeBackupGraph(tt.dataVolume)
+			assert.Equal(t, tt.expectedResult, result)
 		})
 	}
 }
