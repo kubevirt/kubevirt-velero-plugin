@@ -20,10 +20,42 @@
 package vmgraph
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+
+	"k8s.io/apimachinery/pkg/runtime"
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
+
+// NewObjectBackupGraph returns the backup object graph for the passed item
+func NewObjectBackupGraph(item runtime.Unstructured) ([]velero.ResourceIdentifier, error) {
+	kind := item.GetObjectKind().GroupVersionKind().Kind
+
+	switch kind {
+	case "VirtualMachine":
+		vm := new(v1.VirtualMachine)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vm); err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		return NewVirtualMachineBackupGraph(vm)
+	case "VirtualMachineInstance":
+		vmi := new(v1.VirtualMachineInstance)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vmi); err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		return NewVirtualMachineInstanceBackupGraph(vmi)
+	case "DataVolume":
+		dv := new(cdiv1.DataVolume)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), dv); err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		return NewDataVolumeBackupGraph(dv), nil
+	default:
+		// No specific backup graph for the passed object
+		return []velero.ResourceIdentifier{}, nil
+	}
+}
 
 // NewVirtualMachineBackupGraph returns the backup object graph for a specific VM
 func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdentifier, error) {

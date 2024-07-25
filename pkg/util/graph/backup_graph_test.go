@@ -9,12 +9,175 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
+
+func TestNewObjectBackupGraph(t *testing.T) {
+	// Create an Unstructured object from a given object
+	toUnstructured := func(obj interface{}) (runtime.Unstructured, error) {
+		unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			return nil, err
+		}
+		return &unstructured.Unstructured{Object: unstructuredObj}, nil
+	}
+
+	testCases := []struct {
+		name           string
+		object         interface{}
+		expectedResult func(obj interface{}) ([]velero.ResourceIdentifier, error)
+	}{
+		{
+			name: "VirtualMachine",
+			object: &kvcore.VirtualMachine{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "VirtualMachine",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-vm",
+				},
+				Spec: kvcore.VirtualMachineSpec{
+					Template: &kvcore.VirtualMachineInstanceTemplateSpec{
+						Spec: kvcore.VirtualMachineInstanceSpec{
+							Volumes: []kvcore.Volume{
+								{
+									Name: "test-volume",
+									VolumeSource: kvcore.VolumeSource{
+										DataVolume: &kvcore.DataVolumeSource{
+											Name: "test-datavolume",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: kvcore.VirtualMachineStatus{
+					Created: true,
+				},
+			},
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
+				return NewVirtualMachineBackupGraph(obj.(*kvcore.VirtualMachine))
+			},
+		},
+		{
+			name: "VirtualMachineInstance",
+			object: &kvcore.VirtualMachineInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "VirtualMachineInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Volumes: []kvcore.Volume{
+						{
+							VolumeSource: kvcore.VolumeSource{
+								PersistentVolumeClaim: &kvcore.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "test-pvc",
+									},
+								},
+							},
+						},
+						{
+							VolumeSource: kvcore.VolumeSource{
+								DataVolume: &kvcore.DataVolumeSource{
+									Name: "test-dv",
+								},
+							},
+						},
+						{
+							VolumeSource: kvcore.VolumeSource{
+								MemoryDump: &kvcore.MemoryDumpVolumeSource{
+									PersistentVolumeClaimVolumeSource: kvcore.PersistentVolumeClaimVolumeSource{
+										PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+											ClaimName: "test-memoryDump",
+										},
+									},
+								},
+							},
+						},
+					},
+					AccessCredentials: []kvcore.AccessCredential{
+						{
+							SSHPublicKey: &kvcore.SSHPublicKeyAccessCredential{
+								Source: kvcore.SSHPublicKeyAccessCredentialSource{
+									Secret: &kvcore.AccessCredentialSecretSource{
+										SecretName: "test-ssh-public-key",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
+				return NewVirtualMachineInstanceBackupGraph(obj.(*kvcore.VirtualMachineInstance))
+			},
+		},
+		{
+			name: "DataVolume",
+			object: &cdiv1.DataVolume{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "DataVolume",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dv",
+					Namespace: "default",
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Succeeded,
+				},
+			},
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
+				return NewDataVolumeBackupGraph(obj.(*cdiv1.DataVolume)), nil
+			},
+		},
+		{
+			name: "Pod",
+			object: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Pod",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-pod",
+				},
+			},
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
+				// Since there's no Pod-specific backup graph function, we return an empty list
+				return []velero.ResourceIdentifier{}, nil
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			util.ListPods = func(name, ns string) (*v1.PodList, error) {
+				return &v1.PodList{Items: []v1.Pod{}}, nil
+			}
+
+			unstructuredObj, err := toUnstructured(tc.object)
+			assert.NoError(t, err)
+
+			expected, err := tc.expectedResult(tc.object)
+			assert.NoError(t, err)
+
+			actual, err := NewObjectBackupGraph(unstructuredObj)
+			assert.NoError(t, err)
+			assert.Equal(t, expected, actual)
+		})
+	}
+}
 
 func TestNewVirtualMachineBackupGraph(t *testing.T) {
 	getVM := func(created bool) kvcore.VirtualMachine {
