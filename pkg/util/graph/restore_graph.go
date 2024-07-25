@@ -20,9 +20,35 @@
 package vmgraph
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+
+	"k8s.io/apimachinery/pkg/runtime"
 	v1 "kubevirt.io/api/core/v1"
 )
+
+// NewObjectRestoreGraph returns the restore object graph for the passed item
+func NewObjectRestoreGraph(item runtime.Unstructured) ([]velero.ResourceIdentifier, error) {
+	kind := item.GetObjectKind().GroupVersionKind().Kind
+
+	switch kind {
+	case "VirtualMachine":
+		vm := new(v1.VirtualMachine)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vm); err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		return NewVirtualMachineRestoreGraph(vm), nil
+	case "VirtualMachineInstance":
+		vmi := new(v1.VirtualMachineInstance)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vmi); err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		return NewVirtualMachineInstanceRestoreGraph(vmi), nil
+	default:
+		// No specific restore graph for the passed object
+		return []velero.ResourceIdentifier{}, nil
+	}
+}
 
 // NewVirtualMachineRestoreGraph returns the restore object graph for a specific VM
 func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) []velero.ResourceIdentifier {
