@@ -230,7 +230,8 @@ func WaitForBackupPhase(ctx context.Context, backupName string, backupNamespace 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		backup, err := GetBackup(ctx, backupName, backupNamespace)
 		if err != nil {
-			return false, err
+			ginkgo.By(fmt.Sprintf("Failed getting backup: %s", err.Error()))
+			return false, nil
 		}
 		phase := backup.Status.Phase
 		ginkgo.By(fmt.Sprintf("Waiting for backup phase %v, got %v", expectedPhase, phase))
