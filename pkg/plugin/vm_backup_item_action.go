@@ -33,7 +33,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
-	vmgraph "kubevirt.io/kubevirt-velero-plugin/pkg/util/graph"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
 // VMBackupItemAction is a backup item action for backing up DataVolumes
@@ -92,7 +92,7 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, fmt.Errorf("VM would not be restored correctly")
 	}
 
-	extra, err := vmgraph.NewVirtualMachineBackupGraph(vm)
+	extra, err := kvgraph.NewVirtualMachineBackupGraph(vm)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}

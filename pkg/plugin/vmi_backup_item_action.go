@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
-	vmgraph "kubevirt.io/kubevirt-velero-plugin/pkg/util/graph"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
 // VMIBackupItemAction is a backup item action for backing up DataVolumes
@@ -119,7 +119,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		}
 	}
 
-	extra, err := vmgraph.NewVirtualMachineInstanceBackupGraph(vmi)
+	extra, err := kvgraph.NewVirtualMachineInstanceBackupGraph(vmi)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}

@@ -17,7 +17,7 @@
  *
  */
 
-package vmgraph
+package kvgraph
 
 import (
 	"strings"
@@ -29,8 +29,8 @@ import (
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
-// VMObjectGraph represents the graph of objects that can be potentially related to a VirtualMachine
-var VMObjectGraph = map[string]schema.GroupResource{
+// KVObjectGraph represents the graph of objects that can be potentially related to a KubeVirt resource
+var KVObjectGraph = map[string]schema.GroupResource{
 	"virtualmachineinstances":           {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
 	"virtualmachineinstancetype":        {Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
 	"virtualmachineclusterinstancetype": {Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterinstancetype"},
@@ -46,7 +46,7 @@ var VMObjectGraph = map[string]schema.GroupResource{
 }
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	if groupResource, ok := VMObjectGraph[resource]; ok {
+	if groupResource, ok := KVObjectGraph[resource]; ok {
 		resources = append(resources, velero.ResourceIdentifier{
 			GroupResource: groupResource,
 			Namespace:     namespace,

@@ -1,4 +1,4 @@
-package vmgraph
+package kvgraph
 
 import (
 	"testing"

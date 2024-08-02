@@ -17,7 +17,7 @@
  *
  */
 
-package vmgraph
+package kvgraph
 
 import (
 	"github.com/pkg/errors"

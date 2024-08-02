@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
-	vmgraph "kubevirt.io/kubevirt-velero-plugin/pkg/util/graph"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
@@ -143,7 +143,7 @@ func (p *DVBackupItemAction) handleDataVolume(backup *v1.Backup, item runtime.Un
 		return nil, nil, errors.WithStack(err)
 	}
 
-	extra := vmgraph.NewDataVolumeBackupGraph(&dv)
+	extra := kvgraph.NewDataVolumeBackupGraph(&dv)
 
 	return &unstructured.Unstructured{Object: dvMap}, extra, nil
 }
