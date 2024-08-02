@@ -30,7 +30,7 @@ import (
 	"k8s.io/utils/ptr"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
-	vmgraph "kubevirt.io/kubevirt-velero-plugin/pkg/util/graph"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
 // VIMRestorePlugin is a VMI restore item action plugin for Velero (duh!)
@@ -87,6 +87,6 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 	}
 
 	output := velero.NewRestoreItemActionExecuteOutput(&unstructured.Unstructured{Object: item})
-	output.AdditionalItems = vmgraph.NewVirtualMachineRestoreGraph(vm)
+	output.AdditionalItems = kvgraph.NewVirtualMachineRestoreGraph(vm)
 	return output, nil
 }
