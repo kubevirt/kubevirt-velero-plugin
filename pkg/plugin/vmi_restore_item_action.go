@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	kvcore "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
 // VMIRestorePlugin is a VMI restore item action plugin for Velero (duh!)
@@ -88,7 +90,9 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 	labels := removeRestrictedLabels(vmi.GetLabels())
 	metadata.SetLabels(labels)
 
-	return velero.NewRestoreItemActionExecuteOutput(input.Item), nil
+	output := velero.NewRestoreItemActionExecuteOutput(input.Item)
+	output.AdditionalItems = kvgraph.NewVirtualMachineInstanceRestoreGraph(vmi)
+	return output, nil
 }
 
 func removeRestrictedLabels(labels map[string]string) map[string]string {
