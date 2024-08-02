@@ -16,22 +16,22 @@ require (
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/utils v0.0.0-20240423183400-0849a56e8f22
 	kubevirt.io/api v1.2.0
-	kubevirt.io/client-go v1.1.1
+	kubevirt.io/client-go v1.2.2
 	kubevirt.io/containerized-data-importer-api v1.59.0
 )
 
 require (
-	github.com/coreos/prometheus-operator v0.38.3 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/color v1.16.0 // indirect
-	github.com/go-kit/kit v0.10.0 // indirect
-	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/go-kit/kit v0.13.0 // indirect
+	github.com/go-kit/log v0.2.1 // indirect
+	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
-	github.com/go-openapi/jsonpointer v0.19.6 // indirect
+	github.com/go-openapi/jsonpointer v0.20.0 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
-	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/go-openapi/swag v0.22.4 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -44,10 +44,10 @@ require (
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/hashicorp/go-hclog v0.14.1 // indirect
+	github.com/hashicorp/go-hclog v1.2.2 // indirect
 	github.com/hashicorp/go-plugin v1.6.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
-	github.com/imdario/mergo v0.3.15 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -64,8 +64,8 @@ require (
 	github.com/openshift/api v0.0.0 // indirect
 	github.com/openshift/client-go v0.0.0 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rogpeppe/go-internal v1.11.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/oauth2 v0.19.0 // indirect
