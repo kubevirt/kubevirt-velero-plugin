@@ -139,6 +139,7 @@ func TestVMIBackupItemAction(t *testing.T) {
 			},
 			velerov1.Backup{
 				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachineinstances", "virtualmachines"},
 					ExcludedResources: []string{"pods"},
 				},
 			},
@@ -169,7 +170,11 @@ func TestVMIBackupItemAction(t *testing.T) {
 			unstructured.Unstructured{
 				Object: pausedVMI,
 			},
-			velerov1.Backup{},
+			velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachineinstances", "virtualmachines", "pods"},
+				},
+			},
 			excludedPod,
 			returnFalse,
 			returnFalse,
@@ -199,6 +204,7 @@ func TestVMIBackupItemAction(t *testing.T) {
 			},
 			velerov1.Backup{
 				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachineinstances", "virtualmachines", "persistentvolumeclaims"},
 					ExcludedResources: []string{"pods"},
 				},
 			},
@@ -213,10 +219,14 @@ func TestVMIBackupItemAction(t *testing.T) {
 			unstructured.Unstructured{
 				Object: ownedVMI,
 			},
-			velerov1.Backup{},
+			velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachineinstances", "virtualmachines"},
+				},
+			},
 			excludedPod,
 			returnFalse,
-			returnTrue,
+			returnFalse,
 			true,
 			"VM is running but launcher pod is not included in the backup",
 			nullValidator,
@@ -243,6 +253,7 @@ func TestVMIBackupItemAction(t *testing.T) {
 			},
 			velerov1.Backup{
 				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachineinstances", "virtualmachines"},
 					ExcludedResources: []string{"pods", "persistentvolumeclaims"},
 				},
 			},
@@ -253,48 +264,37 @@ func TestVMIBackupItemAction(t *testing.T) {
 			"",
 			nullValidator,
 		},
-		{"Owned VMI: backup must include VM",
+		{"Owned VMI: Won't backup VMI if VMs are excluded",
 			unstructured.Unstructured{
 				Object: ownedVMI,
 			},
 			velerov1.Backup{
 				Spec: velerov1.BackupSpec{
 					IncludedResources: []string{"virtualmachineinstances"},
-				},
-			},
-			launcherPod,
-			returnFalse,
-			returnFalse,
-			true,
-			"VMI owned by a VM and the VM is not included in the backup",
-			nullValidator,
-		},
-		{"Owned VMI: VM must not be excluded from backup",
-			unstructured.Unstructured{
-				Object: ownedVMI,
-			},
-			velerov1.Backup{
-				Spec: velerov1.BackupSpec{
 					ExcludedResources: []string{"virtualmachines"},
 				},
 			},
 			launcherPod,
 			returnFalse,
 			returnFalse,
-			true,
-			"VMI owned by a VM and the VM is not included in the backup",
+			false,
+			"",
 			nullValidator,
 		},
-		{"Owned VMI: VM must not be excluded by label",
+		{"Owned VMI: Will ignore VMI if VM is excluded by label",
 			unstructured.Unstructured{
 				Object: ownedVMI,
 			},
-			velerov1.Backup{},
+			velerov1.Backup{
+				Spec: velerov1.BackupSpec{
+					IncludedResources: []string{"virtualmachineinstances", "virtualmachines"},
+				},
+			},
 			launcherPod,
 			returnFalse,
 			returnTrue,
-			true,
-			"VMI owned by a VM and the VM is not included in the backup",
+			false,
+			"",
 			nullValidator,
 		},
 		{"Owned VMI must add 'is owned' annotation",
