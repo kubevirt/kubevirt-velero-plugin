@@ -1,4 +1,6 @@
-package v1
+package v1beta1
+
+// following copied from github.com/openshift/api/config/v1
 
 // TLSSecurityProfile defines the schema for a TLS security profile. This object
 // is used by operators to apply TLS security settings to operands.
@@ -56,7 +58,7 @@ type TLSSecurityProfile struct {
 	//     - AES128-SHA
 	//     - AES256-SHA
 	//     - DES-CBC3-SHA
-	//   minTLSVersion: TLSv1.0
+	//   minTLSVersion: VersionTLS10
 	//
 	// +optional
 	// +nullable
@@ -79,7 +81,7 @@ type TLSSecurityProfile struct {
 	//     - ECDHE-RSA-CHACHA20-POLY1305
 	//     - DHE-RSA-AES128-GCM-SHA256
 	//     - DHE-RSA-AES256-GCM-SHA384
-	//   minTLSVersion: TLSv1.2
+	//   minTLSVersion: VersionTLS12
 	//
 	// +optional
 	// +nullable
@@ -94,7 +96,7 @@ type TLSSecurityProfile struct {
 	//     - TLS_AES_128_GCM_SHA256
 	//     - TLS_AES_256_GCM_SHA384
 	//     - TLS_CHACHA20_POLY1305_SHA256
-	//   minTLSVersion: TLSv1.3
+	//   minTLSVersion: VersionTLS13
 	//
 	// NOTE: Currently unsupported.
 	//
@@ -110,7 +112,7 @@ type TLSSecurityProfile struct {
 	//     - ECDHE-RSA-CHACHA20-POLY1305
 	//     - ECDHE-RSA-AES128-GCM-SHA256
 	//     - ECDHE-ECDSA-AES128-GCM-SHA256
-	//   minTLSVersion: TLSv1.1
+	//   minTLSVersion: VersionTLS11
 	//
 	// +optional
 	// +nullable
@@ -140,16 +142,16 @@ type CustomTLSProfile struct {
 type TLSProfileType string
 
 const (
-	// Old is a TLS security profile based on:
+	// TLSProfileOldType is a TLS security profile based on:
 	// https://wiki.mozilla.org/Security/Server_Side_TLS#Old_backward_compatibility
 	TLSProfileOldType TLSProfileType = "Old"
-	// Intermediate is a TLS security profile based on:
+	// TLSProfileIntermediateType is a TLS security profile based on:
 	// https://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28default.29
 	TLSProfileIntermediateType TLSProfileType = "Intermediate"
-	// Modern is a TLS security profile based on:
+	// TLSProfileModernType is a TLS security profile based on:
 	// https://wiki.mozilla.org/Security/Server_Side_TLS#Modern_compatibility
 	TLSProfileModernType TLSProfileType = "Modern"
-	// Custom is a TLS security profile that allows for user-defined parameters.
+	// TLSProfileCustomType is a TLS security profile that allows for user-defined parameters.
 	TLSProfileCustomType TLSProfileType = "Custom"
 )
 
@@ -167,7 +169,7 @@ type TLSProfileSpec struct {
 	// that is negotiated during the TLS handshake. For example, to use TLS
 	// versions 1.1, 1.2 and 1.3 (yaml):
 	//
-	//   minTLSVersion: TLSv1.1
+	//   minTLSVersion: VersionTLS11
 	//
 	// NOTE: currently the highest minTLSVersion allowed is VersionTLS12
 	//
@@ -177,7 +179,7 @@ type TLSProfileSpec struct {
 // TLSProtocolVersion is a way to specify the protocol version used for TLS connections.
 // Protocol versions are based on the following most common TLS configurations:
 //
-//   https://ssl-config.mozilla.org/
+//	https://ssl-config.mozilla.org/
 //
 // Note that SSLv3.0 is not a supported protocol version due to well known
 // vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE
@@ -185,13 +187,13 @@ type TLSProfileSpec struct {
 type TLSProtocolVersion string
 
 const (
-	// VersionTLSv10 is version 1.0 of the TLS security protocol.
+	// VersionTLS10 is version 1.0 of the TLS security protocol.
 	VersionTLS10 TLSProtocolVersion = "VersionTLS10"
-	// VersionTLSv11 is version 1.1 of the TLS security protocol.
+	// VersionTLS11 is version 1.1 of the TLS security protocol.
 	VersionTLS11 TLSProtocolVersion = "VersionTLS11"
-	// VersionTLSv12 is version 1.2 of the TLS security protocol.
+	// VersionTLS12 is version 1.2 of the TLS security protocol.
 	VersionTLS12 TLSProtocolVersion = "VersionTLS12"
-	// VersionTLSv13 is version 1.3 of the TLS security protocol.
+	// VersionTLS13 is version 1.3 of the TLS security protocol.
 	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
 )
 
@@ -199,7 +201,7 @@ const (
 //
 // NOTE: The caller needs to make sure to check that these constants are valid for their binary. Not all
 // entries map to values for all binaries.  In the case of ties, the kube-apiserver wins.  Do not fail,
-// just be sure to whitelist only and everything will be ok.
+// just be sure to allowlist only and everything will be ok.
 var TLSProfiles = map[TLSProfileType]*TLSProfileSpec{
 	TLSProfileOldType: {
 		Ciphers: []string{
