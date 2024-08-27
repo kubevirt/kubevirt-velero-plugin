@@ -1,0 +1,7 @@
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  name: test-vm-preference
+spec:
+  cpu:
+    preferredCPUTopology: "preferSockets"

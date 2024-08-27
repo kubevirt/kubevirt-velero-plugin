@@ -1,0 +1,9 @@
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  name: test-vm-instancetype
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 256Mi
