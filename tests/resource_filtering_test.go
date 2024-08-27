@@ -3383,13 +3383,13 @@ func addExpectedPVs(client *kubernetes.Clientset, namespace string, resources ma
 func updateVm(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(*kvv1.VirtualMachine) *kvv1.VirtualMachine) func() error {
 	return func() error {
-		vm, err := kvClient.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vm, err := kvClient.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		vm = update(vm)
 
-		_, err = kvClient.VirtualMachine(namespace).Update(context.Background(), vm)
+		_, err = kvClient.VirtualMachine(namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 		return err
 	}
 }
@@ -3397,13 +3397,13 @@ func updateVm(kvClient kubecli.KubevirtClient, namespace string, name string,
 func updateVmi(kvClient kubecli.KubevirtClient, namespace string, name string,
 	update func(*kvv1.VirtualMachineInstance) *kvv1.VirtualMachineInstance) func() error {
 	return func() error {
-		vmi, err := kvClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vmi, err := kvClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		vmi = update(vmi)
 
-		_, err = kvClient.VirtualMachineInstance(namespace).Update(context.Background(), vmi)
+		_, err = kvClient.VirtualMachineInstance(namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		return err
 	}
 }
