@@ -42,7 +42,7 @@ func NewDataVolumeForVmWithGuestAgentImage(dataVolumeName string, storageClass s
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
 				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-				Resources: k8sv1.ResourceRequirements{
+				Resources: k8sv1.VolumeResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
 					},
@@ -69,7 +69,7 @@ func NewDataVolumeForBlankRawImage(dataVolumeName, size string, storageClass str
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
 				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-				Resources: k8sv1.ResourceRequirements{
+				Resources: k8sv1.VolumeResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceStorage: resource.MustParse(size),
 					},
@@ -211,7 +211,7 @@ version: 2`
 						},
 						PVC: &k8sv1.PersistentVolumeClaimSpec{
 							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-							Resources: k8sv1.ResourceRequirements{
+							Resources: k8sv1.VolumeResourceRequirements{
 								Requests: k8sv1.ResourceList{
 									k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
 								},
@@ -232,7 +232,7 @@ func CreateVirtualMachineFromDefinition(client kubecli.KubevirtClient, namespace
 	var virtualMachine *v1.VirtualMachine
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		var err error
-		virtualMachine, err = client.VirtualMachine(namespace).Create(context.Background(), def)
+		virtualMachine, err = client.VirtualMachine(namespace).Create(context.Background(), def, metav1.CreateOptions{})
 		if err == nil || errors.IsAlreadyExists(err) {
 			return true, nil
 		}
@@ -281,7 +281,7 @@ func CreateVirtualMachineInstanceFromDefinition(client kubecli.KubevirtClient, n
 	var virtualMachineInstance *v1.VirtualMachineInstance
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		var err error
-		virtualMachineInstance, err = client.VirtualMachineInstance(namespace).Create(context.Background(), def)
+		virtualMachineInstance, err = client.VirtualMachineInstance(namespace).Create(context.Background(), def, metav1.CreateOptions{})
 		if err == nil || errors.IsAlreadyExists(err) {
 			return true, nil
 		}
@@ -296,11 +296,11 @@ func CreateVirtualMachineInstanceFromDefinition(client kubecli.KubevirtClient, n
 func DeleteVirtualMachineAndWait(client kubecli.KubevirtClient, namespace, name string) (bool, error) {
 	var result bool
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		err := client.VirtualMachine(namespace).Delete(context.Background(), name, &metav1.DeleteOptions{})
+		err := client.VirtualMachine(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
 		}
-		_, err = client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		_, err = client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				result = true
@@ -316,7 +316,7 @@ func DeleteVirtualMachineAndWait(client kubecli.KubevirtClient, namespace, name 
 func DeleteVirtualMachine(client kubecli.KubevirtClient, namespace, name string) error {
 	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		propagationForeground := metav1.DeletePropagationForeground
-		err := client.VirtualMachine(namespace).Delete(context.Background(), name, &metav1.DeleteOptions{
+		err := client.VirtualMachine(namespace).Delete(context.Background(), name, metav1.DeleteOptions{
 			PropagationPolicy: &propagationForeground,
 		})
 		if errors.IsNotFound(err) {
@@ -328,7 +328,7 @@ func DeleteVirtualMachine(client kubecli.KubevirtClient, namespace, name string)
 
 func DeleteVirtualMachineInstance(client kubecli.KubevirtClient, namespace, name string) error {
 	return wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		err := client.VirtualMachineInstance(namespace).Delete(context.Background(), name, &metav1.DeleteOptions{})
+		err := client.VirtualMachineInstance(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return true, nil
 		}
@@ -341,7 +341,7 @@ func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, names
 	var result bool
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		vmi, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vmi, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -362,7 +362,7 @@ func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, names
 
 func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace, name string, phase v1.VirtualMachineInstancePhase) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		vmi, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vmi, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false, nil
 		}
@@ -381,7 +381,7 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 	ginkgo.By(fmt.Sprintf("Waiting for any of %s statuses", statuses))
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false, nil
 		}
@@ -405,7 +405,7 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 
 func WaitForVirtualMachineInstanceStatus(client kubecli.KubevirtClient, namespace, name string, phase v1.VirtualMachineInstancePhase) error {
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		vm, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vm, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false, nil
 		}
@@ -422,7 +422,7 @@ func WaitForVirtualMachineInstanceStatus(client kubecli.KubevirtClient, namespac
 func WaitVirtualMachineDeleted(client kubecli.KubevirtClient, namespace, name string) (bool, error) {
 	var result bool
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		_, err := client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		_, err := client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				result = true
@@ -448,9 +448,9 @@ func StopVirtualMachine(client kubecli.KubevirtClient, namespace, name string) e
 }
 
 func GetVirtualMachine(client kubecli.KubevirtClient, namespace, name string) (*v1.VirtualMachine, error) {
-	return client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+	return client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func GetVirtualMachineInstance(client kubecli.KubevirtClient, namespace, name string) (*v1.VirtualMachineInstance, error) {
-	return client.VirtualMachineInstance(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+	return client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }

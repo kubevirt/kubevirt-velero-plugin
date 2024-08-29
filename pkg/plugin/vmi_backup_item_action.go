@@ -152,7 +152,7 @@ var isVMExcludedByLabel = func(vmi *kvcore.VirtualMachineInstance) (bool, error)
 		return false, err
 	}
 
-	vm, err := (*client).VirtualMachine(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	vm, err := (*client).VirtualMachine(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}

@@ -250,7 +250,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 				By("Wait instance type controller revision to be updated on VM spec")
 				Eventually(func(g Gomega) {
-					vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
 					g.Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
@@ -431,6 +431,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = framework.StartVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
 			Expect(err).ToNot(HaveOccurred())
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking PVC exists")
 			err = framework.WaitForPVCPhase(f.K8sClient, f.Namespace.Name, dvForPVCName, v1.ClaimBound)
@@ -544,7 +545,7 @@ func addVolumeAndVerify(kvClient kubecli.KubevirtClient, vm *kvv1.VirtualMachine
 
 func verifyVolumeAndDiskAdded(kvClient kubecli.KubevirtClient, namespace, name, volumeName string) {
 	Eventually(func() error {
-		updatedVM, err := kvClient.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		updatedVM, err := kvClient.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

@@ -253,7 +253,7 @@ func NewPVC(pvcName, size, storageClass string) *v1.PersistentVolumeClaim {
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-			Resources: v1.ResourceRequirements{
+			Resources: v1.VolumeResourceRequirements{
 				Requests: v1.ResourceList{
 					v1.ResourceName(v1.ResourceStorage): resource.MustParse(size),
 				},
@@ -283,7 +283,7 @@ func NewCloneDataVolume(name, size, srcNamespace, srcPvcName string, storageClas
 			},
 			PVC: &v1.PersistentVolumeClaimSpec{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				Resources: v1.ResourceRequirements{
+				Resources: v1.VolumeResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceName(v1.ResourceStorage): resource.MustParse(size),
 					},
