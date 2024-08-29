@@ -863,7 +863,7 @@ var _ = Describe("Resource includes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:10198]Selecting VMI (with DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
+			It("[test_id:10198]Selecting VMI (with DV+PVC+Pod) but not VM: Empty backup without failure", func() {
 				By("Creating VirtualMachine")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -880,11 +880,25 @@ var _ = Describe("Resource includes", func() {
 				resources := "datavolumes,virtualmachineinstances,pods,persistentvolumeclaims,persistentvolumes,volumesnapshots,volumesnapshotcontents"
 				err = framework.CreateBackupForResources(timeout, backupName, resources, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Deleting VirtualMachineInstance")
+				err = framework.DeleteVirtualMachineInstance(f.KvClient, f.Namespace.Name, includedVMName)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating restore")
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForRestorePhase(timeout, restoreName, f.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying VMI not present")
+				_, err = framework.GetVirtualMachineInstance(f.KvClient, f.Namespace.Name, "test-vmi")
+				Expect(err).To(HaveOccurred())
 			})
 
-			It("[test_id:10199]Selecting VMI (without DV+PVC+Pod) but not VM: Backing up VMI should fail", func() {
+			It("[test_id:10199]Selecting VMI (without DV+PVC+Pod) but not VM: Empty backup without failure", func() {
 				By("Creating VirtualMachine")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -901,8 +915,22 @@ var _ = Describe("Resource includes", func() {
 				resources := "virtualmachineinstances"
 				err = framework.CreateBackupForResources(timeout, backupName, resources, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Deleting VirtualMachineInstance")
+				err = framework.DeleteVirtualMachineInstance(f.KvClient, f.Namespace.Name, includedVMName)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating restore")
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForRestorePhase(timeout, restoreName, f.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying VMI not present")
+				_, err = framework.GetVirtualMachineInstance(f.KvClient, f.Namespace.Name, "test-vmi")
+				Expect(err).To(HaveOccurred())
 			})
 		})
 
@@ -2129,7 +2157,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:10227]Running VM excluded: backup should fail", func() {
+			It("[test_id:10227]Running VM excluded: empty backup without failure", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate(includedVMName, "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2145,8 +2173,22 @@ var _ = Describe("Resource excludes", func() {
 				resources := "virtualmachine"
 				err = framework.CreateBackupForNamespaceExcludeResources(timeout, backupName, f.Namespace.Name, resources, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Deleting VirtualMachineInstance")
+				err = framework.DeleteVirtualMachineInstance(f.KvClient, f.Namespace.Name, includedVMName)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating restore")
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForRestorePhase(timeout, restoreName, f.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying VMI not present")
+				_, err = framework.GetVirtualMachineInstance(f.KvClient, f.Namespace.Name, "test-vmi")
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("[test_id:10228]Stopped VM excluded: DV+PVC should be restored", func() {
@@ -2940,7 +2982,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:10254]VMI included, VM excluded: backup should fail", func() {
+			It("[test_id:10254]VMI included, VM excluded: empty backup without failure", func() {
 				By("Creating VirtualMachines")
 				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
 				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2959,8 +3001,22 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating backup")
 				err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Deleting VirtualMachineInstance")
+				err = framework.DeleteVirtualMachineInstance(f.KvClient, f.Namespace.Name, includedVMName)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating restore")
+				err = framework.CreateRestoreForBackup(timeout, backupName, restoreName, f.BackupNamespace, true)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForRestorePhase(timeout, restoreName, f.BackupNamespace, velerov1api.RestorePhaseCompleted)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying VMI not present")
+				_, err = framework.GetVirtualMachineInstance(f.KvClient, f.Namespace.Name, "test-vmi")
+				Expect(err).To(HaveOccurred())
 			})
 		})
 

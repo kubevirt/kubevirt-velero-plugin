@@ -79,6 +79,15 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, errors.WithStack(err)
 	}
 
+	// There's no point in backing up a VMI when it's owned by a VM excluded from the backup
+	shouldExclude, err := shouldExcludeVMI(vmi, backup)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+	if shouldExclude {
+		return nil, nil, nil
+	}
+
 	if !util.IsVMIPaused(vmi) {
 		if !util.IsResourceInBackup("pods", backup) && util.IsResourceInBackup("persistentvolumeclaims", backup) {
 			return nil, nil, fmt.Errorf("VM is running but launcher pod is not included in the backup")
@@ -95,19 +104,6 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 	}
 
 	if isVMIOwned(vmi) {
-		if !util.IsResourceInBackup("virtualmachines", backup) {
-			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
-		}
-
-		excluded, err := isVMExcludedByLabel(vmi)
-		if err != nil {
-			return nil, nil, errors.WithStack(err)
-		}
-
-		if excluded {
-			return nil, nil, fmt.Errorf("VMI owned by a VM and the VM is not included in the backup")
-		}
-
 		util.AddAnnotation(item, AnnIsOwned, "true")
 	} else {
 		restore, err := util.RestorePossible(vmi.Spec.Volumes, backup, vmi.Namespace, func(volume kvcore.Volume) bool { return false }, p.log)
@@ -125,6 +121,24 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 	}
 
 	return item, extra, nil
+}
+
+// shouldExcludeVMI checks wether a VMI owned by VM should be backed up or ignored
+func shouldExcludeVMI(vmi *kvcore.VirtualMachineInstance, backup *v1.Backup) (bool, error) {
+	if !isVMIOwned(vmi) {
+		return false, nil
+	}
+
+	if !util.IsResourceInBackup("virtualmachines", backup) {
+		return true, nil
+	}
+
+	excluded, err := isVMExcludedByLabel(vmi)
+	if err != nil {
+		return false, err
+	}
+
+	return excluded, nil
 }
 
 func isVMIOwned(vmi *kvcore.VirtualMachineInstance) bool {
