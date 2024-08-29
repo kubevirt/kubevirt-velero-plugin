@@ -13,7 +13,7 @@ require (
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/klog/v2 v2.120.1
+	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20240423183400-0849a56e8f22
 	kubevirt.io/api v1.3.1
 	kubevirt.io/client-go v1.3.1
