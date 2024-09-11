@@ -368,6 +368,41 @@ func TestVMIBackupItemAction(t *testing.T) {
 			"VM has DataVolume or PVC volumes and DataVolumes/PVCs is not included in the backup",
 			nullValidator,
 		},
+		{"Not owned VMI with DV volumes can exclude DataVolumes from backup when using metadataBackup label",
+			unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "kubevirt.io",
+					"kind":       "VirtualMachineInterface",
+					"metadata": map[string]interface{}{
+						"name":      "test-vmi",
+						"namespace": "test-namespace",
+					},
+					"spec": map[string]interface{}{
+						"volumes": []interface{}{
+							map[string]interface{}{
+								"dataVolume": map[string]interface{}{},
+							},
+						},
+					},
+				},
+			},
+			velerov1.Backup{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"velero.kubevirt.io/metadataBackup": "true",
+					},
+				},
+				Spec: velerov1.BackupSpec{
+					ExcludedResources: []string{"datavolumes"},
+				},
+			},
+			launcherPod,
+			returnFalse,
+			returnFalse,
+			false,
+			"",
+			nullValidator,
+		},
 		{"Not owned VMI with PVC volumes must include PVCs in backup",
 			unstructured.Unstructured{
 				Object: map[string]interface{}{

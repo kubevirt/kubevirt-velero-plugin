@@ -8,6 +8,7 @@ import (
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
@@ -316,6 +317,67 @@ func TestVMBackupAction(t *testing.T) {
 			}},
 			true,
 			[]velero.ResourceIdentifier{},
+		},
+		{"Action should succeed when VM with excluded volumes has metadataBackup label",
+			unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "kubevirt.io",
+					"kind":       "VirtualMachine",
+					"metadata": map[string]interface{}{
+						"name":      "test-vm",
+						"namespace": testNamespace,
+					},
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"volumes": []map[string]interface{}{
+									map[string]interface{}{
+										"name": "vol",
+										"dataVolume": map[string]interface{}{
+											"name": "test-dv",
+										},
+									},
+								},
+							},
+						},
+					},
+					"status": map[string]interface{}{
+						"created":         true,
+						"printableStatus": "Running",
+					},
+				},
+			},
+			v1.Backup{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"velero.kubevirt.io/metadataBackup": "true",
+					},
+				},
+				Spec: v1.BackupSpec{
+					ExcludedResources: []string{"datavolumes", "persistentvolumeclaims"},
+					IncludedResources: []string{"virtualmachineinstances"},
+				},
+			},
+			false,
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"},
+					Namespace:     testNamespace,
+					Name:          "test-vm",
+				},
+				// Our plugin still returns the PVC and DV even though they are excluded.
+				// Velero will filter them during backup.
+				{
+					GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+					Namespace:     testNamespace,
+					Name:          "test-dv",
+				},
+				{
+					GroupResource: kuberesource.PersistentVolumeClaims,
+					Namespace:     testNamespace,
+					Name:          "test-dv",
+				},
+			},
 		},
 		{"Created VM needs to include VMI",
 			unstructured.Unstructured{
