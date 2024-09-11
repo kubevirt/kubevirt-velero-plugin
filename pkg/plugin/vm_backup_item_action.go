@@ -41,6 +41,12 @@ type VMBackupItemAction struct {
 	log logrus.FieldLogger
 }
 
+const (
+	// AnnMetadataBackup indicates that the object will be backed up for metadata purposes.
+	// This allows skipping restore and consistency-specific checks while ensuring the object is backed up.
+	AnnMetadataBackup = "velero.kubevirt.io/metadataBackup"
+)
+
 // NewVMBackupItemAction instantiates a VMBackupItemAction.
 func NewVMBackupItemAction(log logrus.FieldLogger) *VMBackupItemAction {
 	return &VMBackupItemAction{log: log}
@@ -81,21 +87,27 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, fmt.Errorf("VM cannot be safely backed up")
 	}
 
-	skipVolume := func(volume kvcore.Volume) bool {
-		return volumeInDVTemplates(volume, vm)
-	}
-	restore, err := util.RestorePossible(vm.Spec.Template.Spec.Volumes, backup, vm.Namespace, skipVolume, p.log)
-	if err != nil {
-		return nil, nil, errors.WithStack(err)
-	}
-	if !restore {
-		return nil, nil, fmt.Errorf("VM would not be restored correctly")
+	// we can skip all checks that ensure consistency
+	// if we just want to backup for metadata purposes
+	if !metav1.HasAnnotation(backup.ObjectMeta, AnnMetadataBackup) {
+		skipVolume := func(volume kvcore.Volume) bool {
+			return volumeInDVTemplates(volume, vm)
+		}
+
+		restore, err := util.RestorePossible(vm.Spec.Template.Spec.Volumes, backup, vm.Namespace, skipVolume, p.log)
+		if err != nil {
+			return nil, nil, errors.WithStack(err)
+		}
+		if !restore {
+			return nil, nil, fmt.Errorf("VM would not be restored correctly")
+		}
 	}
 
 	extra, err := kvgraph.NewVirtualMachineBackupGraph(vm)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
+	extra = kvgraph.FilterExcludedResources(extra, backup)
 
 	return item, extra, nil
 }

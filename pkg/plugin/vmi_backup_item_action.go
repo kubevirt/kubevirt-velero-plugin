@@ -105,7 +105,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 
 	if isVMIOwned(vmi) {
 		util.AddAnnotation(item, AnnIsOwned, "true")
-	} else {
+	} else if !metav1.HasAnnotation(backup.ObjectMeta, AnnMetadataBackup) {
 		restore, err := util.RestorePossible(vmi.Spec.Volumes, backup, vmi.Namespace, func(volume kvcore.Volume) bool { return false }, p.log)
 		if err != nil {
 			return nil, nil, errors.WithStack(err)
@@ -119,6 +119,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
+	extra = kvgraph.FilterExcludedResources(extra, backup)
 
 	return item, extra, nil
 }
