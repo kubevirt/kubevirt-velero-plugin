@@ -225,8 +225,8 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.9.0
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
-# github.com/vmware-tanzu/velero v1.14.0
-## explicit; go 1.22.2
+# github.com/vmware-tanzu/velero v1.14.1
+## explicit; go 1.22.6
 github.com/vmware-tanzu/velero/pkg/apis/velero/shared
 github.com/vmware-tanzu/velero/pkg/apis/velero/v1
 github.com/vmware-tanzu/velero/pkg/cmd/util/flag
