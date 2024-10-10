@@ -22,6 +22,7 @@ package kvgraph
 import (
 	"strings"
 
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -127,4 +128,18 @@ func addPreferenceType(preference v1.PreferenceMatcher, namespace string, resour
 	}
 	resources = addVeleroResource(preference.RevisionName, namespace, "controllerrevisions", resources)
 	return resources
+}
+
+// FilterExcludedResources removes the resources from the object graph that are excluded by the Velero backup
+func FilterExcludedResources(resources []velero.ResourceIdentifier, backup *velerov1.Backup) []velero.ResourceIdentifier {
+	var filteredResources []velero.ResourceIdentifier
+
+	for _, resource := range resources {
+		if util.IsResourceExcluded(resource.GroupResource.Resource, backup) {
+			continue
+		}
+		filteredResources = append(filteredResources, resource)
+	}
+
+	return filteredResources
 }
