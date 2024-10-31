@@ -105,7 +105,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 
 	if isVMIOwned(vmi) {
 		util.AddAnnotation(item, AnnIsOwned, "true")
-	} else {
+	} else if !metav1.HasLabel(backup.ObjectMeta, MetadataBackupLabel) {
 		restore, err := util.RestorePossible(vmi.Spec.Volumes, backup, vmi.Namespace, func(volume kvcore.Volume) bool { return false }, p.log)
 		if err != nil {
 			return nil, nil, errors.WithStack(err)
@@ -119,7 +119,6 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
-
 	return item, extra, nil
 }
 
