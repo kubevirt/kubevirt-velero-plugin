@@ -21,143 +21,64 @@ const (
 )
 
 // TODO: change this to resource not a command!!!
-func CreateBackupForNamespace(ctx context.Context, backupName string, namespace string, snapshotLocation string, backupNamespace string, wait bool) error {
+func executeBackupCommand(ctx context.Context, backupName, includedNamespace, excludedNamespace, excludedResources, includedResources, selector, snapshotLocation, backupNamespace string, wait, metadataBackup bool) error {
 	args := []string{
 		"create", "backup", backupName,
-		"--include-namespaces", namespace,
+		"--include-namespaces", includedNamespace,
 		"--namespace", backupNamespace,
 	}
 
+	if excludedNamespace != "" {
+		args = append(args, "--exclude-namespaces", excludedNamespace)
+	}
+	if excludedResources != "" {
+		args = append(args, "--exclude-resources", excludedResources)
+	}
+	if includedResources != "" {
+		args = append(args, "--include-resources", includedResources)
+	}
+	if selector != "" {
+		args = append(args, "--selector", selector)
+	}
 	if snapshotLocation != "" {
 		args = append(args, "--volume-snapshot-locations", snapshotLocation)
 	}
-
 	if wait {
 		args = append(args, "--wait")
+	}
+	if metadataBackup {
+		args = append(args, "--labels", "velero.kubevirt.io/metadataBackup=true")
 	}
 
 	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
-	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
-	err := backupCmd.Run()
-	if err != nil {
-		return err
-	}
+	ginkgo.By(fmt.Sprintf("backup cmd = %v\n", backupCmd))
+	return backupCmd.Run()
+}
 
-	return nil
+func CreateBackupForNamespace(ctx context.Context, backupName, namespace, snapshotLocation, backupNamespace string, wait bool) error {
+	return executeBackupCommand(ctx, backupName, namespace, "", "", "", "", snapshotLocation, backupNamespace, wait, false)
 }
 
 func CreateBackupForNamespaceExcludeNamespace(ctx context.Context, backupName, includedNamespace, excludedNamespace, snapshotLocation string, backupNamespace string, wait bool) error {
-	args := []string{
-		"create", "backup", backupName,
-		"--include-namespaces", includedNamespace,
-		"--exclude-namespaces", excludedNamespace,
-		"--namespace", backupNamespace,
-	}
-
-	if snapshotLocation != "" {
-		args = append(args, "--volume-snapshot-locations", snapshotLocation)
-	}
-
-	if wait {
-		args = append(args, "--wait")
-	}
-
-	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
-	backupCmd.Stdout = os.Stdout
-	backupCmd.Stderr = os.Stderr
-	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
-	err := backupCmd.Run()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return executeBackupCommand(ctx, backupName, includedNamespace, excludedNamespace, "", "", "", snapshotLocation, backupNamespace, wait, false)
 }
 
-func CreateBackupForNamespaceExcludeResources(ctx context.Context, backupName, namespace, resources, snapshotLocation string, backupNamespace string, wait bool) error {
-	args := []string{
-		"create", "backup", backupName,
-		"--include-namespaces", namespace,
-		"--exclude-resources", resources,
-		"--namespace", backupNamespace,
-	}
+func CreateBackupForNamespaceExcludeResources(ctx context.Context, backupName, namespace, resources, snapshotLocation, backupNamespace string, wait bool) error {
+	return executeBackupCommand(ctx, backupName, namespace, "", resources, "", "", snapshotLocation, backupNamespace, wait, false)
+}
 
-	if snapshotLocation != "" {
-		args = append(args, "--volume-snapshot-locations", snapshotLocation)
-	}
-
-	if wait {
-		args = append(args, "--wait")
-	}
-
-	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
-	backupCmd.Stdout = os.Stdout
-	backupCmd.Stderr = os.Stderr
-	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
-	err := backupCmd.Run()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func CreateMetadataBackupForNamespaceExcludeResources(ctx context.Context, backupName, namespace, resources, snapshotLocation, backupNamespace string, wait bool) error {
+	return executeBackupCommand(ctx, backupName, namespace, "", resources, "", "", snapshotLocation, backupNamespace, wait, true)
 }
 
 func CreateBackupForSelector(ctx context.Context, backupName, selector, includedNamespace, snapshotLocation, backupNamespace string, wait bool) error {
-	args := []string{
-		"create", "backup", backupName,
-		"--include-namespaces", includedNamespace,
-		"--selector", selector,
-		"--namespace", backupNamespace,
-	}
-
-	if snapshotLocation != "" {
-		args = append(args, "--volume-snapshot-locations", snapshotLocation)
-	}
-
-	if wait {
-		args = append(args, "--wait")
-	}
-
-	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
-	backupCmd.Stdout = os.Stdout
-	backupCmd.Stderr = os.Stderr
-	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
-	err := backupCmd.Run()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return executeBackupCommand(ctx, backupName, includedNamespace, "", "", "", selector, snapshotLocation, backupNamespace, wait, false)
 }
 
-func CreateBackupForResources(ctx context.Context, backupName, resources, includedNamespace, snapshotLocation string, backupNamespace string, wait bool) error {
-	args := []string{
-		"create", "backup", backupName,
-		"--include-namespaces", includedNamespace,
-		"--include-resources", resources,
-		"--namespace", backupNamespace,
-	}
-
-	if snapshotLocation != "" {
-		args = append(args, "--volume-snapshot-locations", snapshotLocation)
-	}
-
-	if wait {
-		args = append(args, "--wait")
-	}
-
-	backupCmd := exec.CommandContext(ctx, veleroCLI, args...)
-	backupCmd.Stdout = os.Stdout
-	backupCmd.Stderr = os.Stderr
-	ginkgo.By(fmt.Sprintf("backup cmd =%v\n", backupCmd))
-	err := backupCmd.Run()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func CreateBackupForResources(ctx context.Context, backupName, resources, includedNamespace, snapshotLocation, backupNamespace string, wait bool) error {
+	return executeBackupCommand(ctx, backupName, includedNamespace, "", "", resources, "", snapshotLocation, backupNamespace, wait, false)
 }
 
 func DeleteBackup(ctx context.Context, backupName string, backupNamespace string) error {
