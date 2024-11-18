@@ -476,7 +476,7 @@ func (r *KubernetesReporter) logBackups(kubeCli kubernetes.Interface) {
 }
 
 func (r *KubernetesReporter) logRestores(kubeCli kubernetes.Interface) {
-	r.dumpK8sEntityToFile(kubeCli, veleroRestore, fmt.Sprintf(veleroEntityUriTemplate, v1.NamespaceAll, veleroBackup))
+	r.dumpK8sEntityToFile(kubeCli, veleroRestore, fmt.Sprintf(veleroEntityUriTemplate, v1.NamespaceAll, veleroRestore))
 }
 
 func (r *KubernetesReporter) logVolumeSnapshots(kubeCli kubernetes.Interface) {
