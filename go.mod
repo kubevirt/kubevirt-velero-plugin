@@ -17,7 +17,7 @@ require (
 	k8s.io/utils v0.0.0-20240423183400-0849a56e8f22
 	kubevirt.io/api v1.3.1
 	kubevirt.io/client-go v1.3.1
-	kubevirt.io/containerized-data-importer-api v1.60.2
+	kubevirt.io/containerized-data-importer-api v1.61.0
 )
 
 require (
