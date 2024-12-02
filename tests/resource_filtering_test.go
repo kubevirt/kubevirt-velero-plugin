@@ -1816,6 +1816,26 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
+			It("DV/PVC excluded, VM running: backup should succeed if MetadataBackupLabel is used", func() {
+				By("Creating VirtualMachines")
+				vmSpec := newVMSpecBlankDVTemplate("test-vm", "100Mi")
+				_, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
+				Expect(err).ToNot(HaveOccurred())
+				framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, vmSpec.Spec.DataVolumeTemplates[0].Name, 180, HaveSucceeded())
+
+				err = framework.StartVirtualMachine(f.KvClient, f.Namespace.Name, vmSpec.Name)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vmSpec.Name, kvv1.VirtualMachineStatusRunning)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating backup")
+				resources := "persistentvolumeclaims,datavolumes"
+				err = framework.CreateMetadataBackupForNamespaceExcludeResources(timeout, backupName, f.Namespace.Name, resources, snapshotLocation, f.BackupNamespace, true)
+				Expect(err).ToNot(HaveOccurred())
+				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
 			It("[test_id:10219][negative][no-gc] Pods+PVC excluded, VM running: VM+DV restored, PVC not re-imported", func() {
 				if framework.IsDataVolumeGC(f.KvClient) {
 					// gc case in test:
