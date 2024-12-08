@@ -148,7 +148,7 @@ func GetBackupPhase(ctx context.Context, backupName string, backupNamespace stri
 }
 
 func WaitForBackupPhase(ctx context.Context, backupName string, backupNamespace string, expectedPhase v1.BackupPhase) error {
-	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, pollInterval, waitTime, false, func(context.Context) (bool, error) {
 		backup, err := GetBackup(ctx, backupName, backupNamespace)
 		if err != nil {
 			ginkgo.By(fmt.Sprintf("Failed getting backup: %s", err.Error()))
@@ -273,7 +273,7 @@ func GetRestorePhase(ctx context.Context, restoreName string, backupNamespace st
 }
 
 func WaitForRestorePhase(ctx context.Context, restoreName string, backupNamespace string, expectedPhase v1.RestorePhase) error {
-	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, pollInterval, waitTime, false, func(context.Context) (bool, error) {
 		phase, err := GetRestorePhase(ctx, restoreName, backupNamespace)
 		ginkgo.By(fmt.Sprintf("Waiting for restore phase %v, got %v", expectedPhase, phase))
 		if err != nil || phase != expectedPhase {
