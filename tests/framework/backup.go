@@ -189,7 +189,7 @@ func CreateSnapshotLocation(ctx context.Context, locationName, provider, region 
 	return nil
 }
 
-func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string, backupNamespace string, wait bool) error {
+func createRestore(ctx context.Context, backupName, restoreName, backupNamespace string, wait, clearMacAddress bool) error {
 	args := []string{
 		"restore", "create", restoreName,
 		"--from-backup", backupName,
@@ -198,6 +198,9 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string,
 
 	if wait {
 		args = append(args, "--wait")
+	}
+	if clearMacAddress {
+		args = append(args, "--labels", "velero.kubevirt.io/clear-mac-address=true")
 	}
 
 	restoreCmd := exec.CommandContext(ctx, veleroCLI, args...)
@@ -210,6 +213,14 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string,
 	}
 
 	return nil
+}
+
+func CreateRestoreForBackup(ctx context.Context, backupName, restoreName, backupNamespace string, wait bool) error {
+	return createRestore(ctx, backupName, restoreName, backupNamespace, wait, false)
+}
+
+func CreateRestoreWithClearedMACAddress(ctx context.Context, backupName, restoreName, backupNamespace string, wait bool) error {
+	return createRestore(ctx, backupName, restoreName, backupNamespace, wait, true)
 }
 
 func GetRestore(ctx context.Context, restoreName string, backupNamespace string) (*v1.Restore, error) {
