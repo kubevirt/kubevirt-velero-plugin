@@ -5,7 +5,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -47,6 +49,15 @@ func TestVmRestoreExecute(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		Restore: &velerov1.Restore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-restore",
+				Namespace: "default",
+			},
+			Spec: velerov1.RestoreSpec{
+				IncludedNamespaces: []string{"default"},
 			},
 		},
 	}

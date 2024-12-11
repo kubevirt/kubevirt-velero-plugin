@@ -24,8 +24,17 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-const VELERO_EXCLUDE_LABEL = "velero.io/exclude-from-backup"
-const CLEAR_MAC_ADDRESS_ANNOTATION = "restore.kubevirt.io/clear-mac-address"
+const (
+	// MetadataBackupLabel indicates that the object will be backed up for metadata purposes.
+	// This allows skipping restore and consistency-specific checks while ensuring the object is backed up.
+	MetadataBackupLabel = "velero.kubevirt.io/metadataBackup"
+
+	// ClearMacAddressLabel indicates that the MAC address should be cleared as part of the restore workflow.
+	ClearMacAddressLabel = "velero.kubevirt.io/clear-mac-address"
+
+	// VeleroExcludeLabel is used to exclude an object from Velero backups.
+	VeleroExcludeLabel = "velero.io/exclude-from-backup"
+)
 
 func GetK8sClient() (*kubernetes.Clientset, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -210,7 +219,7 @@ var IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) {
 		return false, nil
 	}
 
-	label, ok := labels[VELERO_EXCLUDE_LABEL]
+	label, ok := labels[VeleroExcludeLabel]
 	return ok && label == "true", nil
 }
 
@@ -231,7 +240,7 @@ var IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) {
 		return false, nil
 	}
 
-	label, ok := labels[VELERO_EXCLUDE_LABEL]
+	label, ok := labels[VeleroExcludeLabel]
 	return ok && label == "true", nil
 }
 
@@ -309,11 +318,10 @@ func getNamespaceAndNetworkName(vmiNamespace, fullNetworkName string) (string, s
 	return vmiNamespace, fullNetworkName
 }
 
-func IsMacAdressClearedByAnnotation(vm *v1.VirtualMachine) bool {
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-	annotation, ok := annotations[CLEAR_MAC_ADDRESS_ANNOTATION]
-	return ok && annotation == "true"
+func ShouldClearMacAddress(restore *velerov1.Restore) bool {
+	return metav1.HasLabel(restore.ObjectMeta, ClearMacAddressLabel)
+}
+
+func IsMetadataBackup(backup *velerov1.Backup) bool {
+	return metav1.HasLabel(backup.ObjectMeta, MetadataBackupLabel)
 }

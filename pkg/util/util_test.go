@@ -8,6 +8,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
 )
@@ -421,35 +422,24 @@ func TestIsMacAddressCleared(t *testing.T) {
 	testCases := []struct {
 		name     string
 		resource string
-		vm       kvcore.VirtualMachine
+		restore  velerov1.Restore
 		expected bool
 	}{
-		{"Clear mac addres should return false",
-			"VirtualMachine",
-			kvcore.VirtualMachine{
+		{"Clear MAC address should return false",
+			"Restore",
+			velerov1.Restore{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
+					Labels: map[string]string{},
 				},
 			},
 			false,
 		},
-		{"Clear mac addres should return false",
-			"VirtualMachine",
-			kvcore.VirtualMachine{
+		{"Clear MAC address should return true",
+			"Restore",
+			velerov1.Restore{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						CLEAR_MAC_ADDRESS_ANNOTATION: "false",
-					},
-				},
-			},
-			false,
-		},
-		{"Clear mac addres should return true",
-			"VirtualMachine",
-			kvcore.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						CLEAR_MAC_ADDRESS_ANNOTATION: "true",
+					Labels: map[string]string{
+						ClearMacAddressLabel: "",
 					},
 				},
 			},
@@ -460,7 +450,7 @@ func TestIsMacAddressCleared(t *testing.T) {
 	logrus.SetLevel(logrus.ErrorLevel)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := IsMacAdressClearedByAnnotation(&tc.vm)
+			result := ShouldClearMacAddress(&tc.restore)
 
 			assert.Equal(t, tc.expected, result)
 		})

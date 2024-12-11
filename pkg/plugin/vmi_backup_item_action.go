@@ -105,7 +105,7 @@ func (p *VMIBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 
 	if isVMIOwned(vmi) {
 		util.AddAnnotation(item, AnnIsOwned, "true")
-	} else if !metav1.HasLabel(backup.ObjectMeta, MetadataBackupLabel) {
+	} else if !util.IsMetadataBackup(backup) {
 		restore, err := util.RestorePossible(vmi.Spec.Volumes, backup, vmi.Namespace, func(volume kvcore.Volume) bool { return false }, p.log)
 		if err != nil {
 			return nil, nil, errors.WithStack(err)
@@ -156,7 +156,7 @@ var isVMExcludedByLabel = func(vmi *kvcore.VirtualMachineInstance) (bool, error)
 		return false, err
 	}
 
-	label, ok := vm.GetLabels()[util.VELERO_EXCLUDE_LABEL]
+	label, ok := vm.GetLabels()[util.VeleroExcludeLabel]
 	return ok && label == "true", nil
 }
 
@@ -174,6 +174,6 @@ func (p *VMIBackupItemAction) isPodExcludedByLabel(vmi *kvcore.VirtualMachineIns
 		return false, nil
 	}
 
-	label, ok := labels[util.VELERO_EXCLUDE_LABEL]
+	label, ok := labels[util.VeleroExcludeLabel]
 	return ok && label == "true", nil
 }

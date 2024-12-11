@@ -64,7 +64,7 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 		return nil, errors.WithStack(err)
 	}
 
-	if util.IsMacAdressClearedByAnnotation(vm) {
+	if util.ShouldClearMacAddress(input.Restore) {
 		p.log.Info("Clear virtual machine MAC addresses")
 		for i := 0; i < len(vm.Spec.Template.Spec.Domain.Devices.Interfaces); i++ {
 			vm.Spec.Template.Spec.Domain.Devices.Interfaces[i].MacAddress = ""
