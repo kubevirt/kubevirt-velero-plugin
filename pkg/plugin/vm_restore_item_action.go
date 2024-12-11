@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kvcore "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
@@ -61,6 +62,13 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 	vm := new(kvcore.VirtualMachine)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(input.Item.UnstructuredContent(), vm); err != nil {
 		return nil, errors.WithStack(err)
+	}
+
+	if util.ShouldClearMacAddress(input.Restore) {
+		p.log.Info("Clear virtual machine MAC addresses")
+		for i := 0; i < len(vm.Spec.Template.Spec.Domain.Devices.Interfaces); i++ {
+			vm.Spec.Template.Spec.Domain.Devices.Interfaces[i].MacAddress = ""
+		}
 	}
 
 	item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
