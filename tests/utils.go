@@ -9,6 +9,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+
 	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -39,14 +41,13 @@ func PrintEvents(client kubecli.KubevirtClient, namespace, name string) {
 }
 
 var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
-	no := false
 	var zero int64 = 0
 	return &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vmName,
 		},
 		Spec: kvv1.VirtualMachineSpec{
-			Running: &no,
+			RunStrategy: ptr.To(kvv1.RunStrategyHalted),
 			Template: &kvv1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: vmName,
@@ -112,14 +113,13 @@ var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
 }
 
 var newVMSpec = func(vmName, size string, volumeSource kvv1.VolumeSource) *kvv1.VirtualMachine {
-	no := false
 	var zero int64 = 0
 	return &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vmName,
 		},
 		Spec: kvv1.VirtualMachineSpec{
-			Running: &no,
+			RunStrategy: ptr.To(kvv1.RunStrategyHalted),
 			Template: &kvv1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: vmName,
