@@ -19,7 +19,7 @@ spec:
         registry:
           pullMethod: node
           url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk
-  running: true
+  runStrategy: Always
   template:
     metadata:
       creationTimestamp: null
