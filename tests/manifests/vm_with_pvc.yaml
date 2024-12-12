@@ -5,7 +5,7 @@ metadata:
   labels:
     a.test.label: included
 spec:
-  running: true
+  runStrategy: Always
   template:
     metadata:
       creationTimestamp: null
