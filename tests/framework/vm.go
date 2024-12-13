@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -98,7 +99,6 @@ func CreateFedoraVmWithGuestAgent(vmName string, storageClassName string) *v1.Vi
 }
 
 func CreateVm(vmName string, storageClassName string, containerDiskUrl string, size string) *v1.VirtualMachine {
-	no := false
 	var zero int64 = 0
 	dataVolumeName := vmName + "-dv"
 
@@ -190,7 +190,7 @@ version: 2`
 			Name: vmName,
 		},
 		Spec: v1.VirtualMachineSpec{
-			Running: &no,
+			RunStrategy: ptr.To(v1.RunStrategyHalted),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: vmName,

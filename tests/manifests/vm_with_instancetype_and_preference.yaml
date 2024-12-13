@@ -27,7 +27,7 @@ spec:
         registry:
           pullMethod: node
           url: docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1
-  running: true
+  runStrategy: Always
   template:
     metadata:
       creationTimestamp: null
