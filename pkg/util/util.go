@@ -24,7 +24,17 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-const VELERO_EXCLUDE_LABEL = "velero.io/exclude-from-backup"
+const (
+	// MetadataBackupLabel indicates that the object will be backed up for metadata purposes.
+	// This allows skipping restore and consistency-specific checks while ensuring the object is backed up.
+	MetadataBackupLabel = "velero.kubevirt.io/metadataBackup"
+
+	// RestoreRunStrategy indicates that the backed up VMs will be powered with the specified run strategy after restore.
+	RestoreRunStrategy = "velero.kubevirt.io/restore-run-strategy"
+
+	// VeleroExcludeLabel is used to exclude an object from Velero backups.
+	VeleroExcludeLabel = "velero.io/exclude-from-backup"
+)
 
 func GetK8sClient() (*kubernetes.Clientset, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -209,7 +219,7 @@ var IsDVExcludedByLabel = func(namespace, dvName string) (bool, error) {
 		return false, nil
 	}
 
-	label, ok := labels[VELERO_EXCLUDE_LABEL]
+	label, ok := labels[VeleroExcludeLabel]
 	return ok && label == "true", nil
 }
 
@@ -230,7 +240,7 @@ var IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) {
 		return false, nil
 	}
 
-	label, ok := labels[VELERO_EXCLUDE_LABEL]
+	label, ok := labels[VeleroExcludeLabel]
 	return ok && label == "true", nil
 }
 
@@ -306,4 +316,15 @@ func getNamespaceAndNetworkName(vmiNamespace, fullNetworkName string) (string, s
 		return res[0], res[1]
 	}
 	return vmiNamespace, fullNetworkName
+}
+
+func GetRestoreRunStrategy(restore *velerov1.Restore) (kvv1.VirtualMachineRunStrategy, bool) {
+	if metav1.HasLabel(restore.ObjectMeta, RestoreRunStrategy) {
+		return kvv1.VirtualMachineRunStrategy(restore.Labels[RestoreRunStrategy]), true
+	}
+	return "", false
+}
+
+func IsMetadataBackup(backup *velerov1.Backup) bool {
+	return metav1.HasLabel(backup.ObjectMeta, MetadataBackupLabel)
 }
