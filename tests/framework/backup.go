@@ -189,7 +189,7 @@ func CreateSnapshotLocation(ctx context.Context, locationName, provider, region 
 	return nil
 }
 
-func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string, backupNamespace string, wait bool) error {
+func CreateRestoreWithLabels(ctx context.Context, backupName, restoreName, backupNamespace string, wait bool, labels map[string]string) error {
 	args := []string{
 		"restore", "create", restoreName,
 		"--from-backup", backupName,
@@ -198,6 +198,13 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string,
 
 	if wait {
 		args = append(args, "--wait")
+	}
+	if len(labels) > 0 {
+		labelPairs := []string{}
+		for key, value := range labels {
+			labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", key, value))
+		}
+		args = append(args, "--labels", strings.Join(labelPairs, ","))
 	}
 
 	restoreCmd := exec.CommandContext(ctx, veleroCLI, args...)
@@ -210,6 +217,10 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName string,
 	}
 
 	return nil
+}
+
+func CreateRestoreForBackup(ctx context.Context, backupName, restoreName, backupNamespace string, wait bool) error {
+	return CreateRestoreWithLabels(ctx, backupName, restoreName, backupNamespace, wait, nil)
 }
 
 func GetRestore(ctx context.Context, restoreName string, backupNamespace string) (*v1.Restore, error) {

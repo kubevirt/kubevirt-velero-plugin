@@ -199,6 +199,67 @@ var _ = Describe("[smoke] VM Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	DescribeTable("should respect power state configuration after restore", func(startVM bool, restoreLabel map[string]string, expectedState kvv1.VirtualMachinePrintableStatus) {
+		By("Creating a VM")
+		var err error
+		vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, framework.CreateVmWithGuestAgent("test-vm", f.StorageClass))
+		Expect(err).ToNot(HaveOccurred())
+
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		if !startVM {
+			By("Stopping VM")
+			err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		By("Creating a backup for the VM")
+		err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
+		Expect(err).ToNot(HaveOccurred())
+
+		phase, err := framework.GetBackupPhase(timeout, backupName, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
+
+		if startVM {
+			By("Stopping VM")
+			err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		By("Deleting the VM")
+		err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating restore with specific label")
+		err = framework.CreateRestoreWithLabels(timeout, backupName, restoreName, f.BackupNamespace, true, restoreLabel)
+		Expect(err).ToNot(HaveOccurred())
+
+		rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
+
+		By("Validating the restored VM state")
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, expectedState)
+		Expect(err).ToNot(HaveOccurred())
+	},
+		Entry("Restore with Always run strategy label should start the VM",
+			false,
+			map[string]string{"velero.kubevirt.io/restore-run-strategy": "Always"},
+			kvv1.VirtualMachineStatusRunning,
+		),
+		Entry("Restore with Halted run strategy label should stop the VM",
+			true,
+			map[string]string{"velero.kubevirt.io/restore-run-strategy": "Halted"},
+			kvv1.VirtualMachineStatusStopped,
+		),
+	)
+
 	Context("VM and VMI object graph backup", func() {
 		Context("with instancetypes and preferences", func() {
 			nsDelFunc := func() {
