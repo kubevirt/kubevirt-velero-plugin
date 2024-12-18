@@ -223,6 +223,10 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName, backup
 	return CreateRestoreWithLabels(ctx, backupName, restoreName, backupNamespace, wait, nil)
 }
 
+func CreateRestoreWithClearedMACAddress(ctx context.Context, backupName, restoreName, backupNamespace string, wait bool) error {
+	return CreateRestoreWithLabels(ctx, backupName, restoreName, backupNamespace, wait, map[string]string{"velero.kubevirt.io/clear-mac-address": "true"})
+}
+
 func GetRestore(ctx context.Context, restoreName string, backupNamespace string) (*v1.Restore, error) {
 	checkCMD := exec.CommandContext(ctx, veleroCLI, "restore", "get", "-n", backupNamespace, "-o", "json", restoreName)
 

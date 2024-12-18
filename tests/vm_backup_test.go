@@ -260,6 +260,64 @@ var _ = Describe("[smoke] VM Backup", func() {
 		),
 	)
 
+	It("started VM should be restored with new MAC address", func() {
+		// creating a started VM, so it works correctly also on WFFC storage
+		var err error
+		By("Starting a VM")
+		vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, framework.CreateVmWithGuestAgent("test-vm", f.StorageClass))
+		Expect(err).ToNot(HaveOccurred())
+
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Retrieving the original MAC address")
+		vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		originalMAC := vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress
+		if originalMAC == "" {
+			// This means there is no KubeMacPool running. We can simply choose a random address
+			originalMAC = "DE-AD-00-00-BE-AF"
+			update := func(vm *kvv1.VirtualMachine) *kvv1.VirtualMachine {
+				vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress = originalMAC
+				return vm
+			}
+			retryOnceOnErr(updateVm(f.KvClient, f.Namespace.Name, vm.Name, update)).Should(BeNil())
+
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		By("Creating backup")
+		err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
+		Expect(err).ToNot(HaveOccurred())
+
+		phase, err := framework.GetBackupPhase(timeout, backupName, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
+
+		By("Deleting VM")
+		err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating restore")
+		err = framework.CreateRestoreWithClearedMACAddress(timeout, backupName, restoreName, f.BackupNamespace, true)
+		Expect(err).ToNot(HaveOccurred())
+
+		rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
+
+		By("Verifying restored VM")
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Retrieving the restored MAC address")
+		vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		restoredMAC := vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress
+		Expect(restoredMAC).ToNot(Equal(originalMAC))
+	})
+
 	Context("VM and VMI object graph backup", func() {
 		Context("with instancetypes and preferences", func() {
 			nsDelFunc := func() {

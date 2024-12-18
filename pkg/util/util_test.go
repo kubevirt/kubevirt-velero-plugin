@@ -8,6 +8,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
 )
@@ -413,6 +414,45 @@ func TestRestorePossible(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, possible)
+		})
+	}
+}
+
+func TestIsMacAddressCleared(t *testing.T) {
+	testCases := []struct {
+		name     string
+		resource string
+		restore  velerov1.Restore
+		expected bool
+	}{
+		{"Clear MAC address should return false with no label",
+			"Restore",
+			velerov1.Restore{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{},
+				},
+			},
+			false,
+		},
+		{"Clear MAC address should return true with ClearMacAddressLabel label",
+			"Restore",
+			velerov1.Restore{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						ClearMacAddressLabel: "",
+					},
+				},
+			},
+			true,
+		},
+	}
+
+	logrus.SetLevel(logrus.ErrorLevel)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ShouldClearMacAddress(&tc.restore)
+
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
