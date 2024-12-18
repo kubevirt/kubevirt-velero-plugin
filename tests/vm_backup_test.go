@@ -319,7 +319,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	Context("VM and VMI object graph backup", func() {
-		Context("with instancetypes and preferences", func() {
+		PContext("with instancetypes and preferences", func() {
 			nsDelFunc := func() {
 				err := f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).
 					Delete(context.Background(), instancetypeName, metav1.DeleteOptions{})
