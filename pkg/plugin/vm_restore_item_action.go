@@ -28,7 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 	kvcore "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
 // VIMRestorePlugin is a VMI restore item action plugin for Velero (duh!)
@@ -61,6 +63,12 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 	vm := new(kvcore.VirtualMachine)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(input.Item.UnstructuredContent(), vm); err != nil {
 		return nil, errors.WithStack(err)
+	}
+
+	if runStrategy, ok := util.GetRestoreRunStrategy(input.Restore); ok {
+		p.log.Infof("Setting virtual machine run strategy to %s", runStrategy)
+		vm.Spec.RunStrategy = ptr.To(runStrategy)
+		vm.Spec.Running = nil
 	}
 
 	item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
