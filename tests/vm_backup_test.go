@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/strings/slices"
 	kvv1 "kubevirt.io/api/core/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
@@ -259,6 +260,50 @@ var _ = Describe("[smoke] VM Backup", func() {
 			kvv1.VirtualMachineStatusStopped,
 		),
 	)
+
+	It("VM should be restored with new firmware UUID when using appropriate label", func() {
+		By("Starting a VM")
+		var err error
+		vm = framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
+		vm.Spec.Template.Spec.Domain.Firmware = &kvv1.Firmware{
+			// Choosing arbitrary UUID
+			UUID: types.UID("123e4567-e89b-12d3-a456-426614174000"),
+		}
+		vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, vm)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating backup")
+		err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
+		Expect(err).ToNot(HaveOccurred())
+
+		phase, err := framework.GetBackupPhase(timeout, backupName, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
+
+		By("Deleting VM")
+		err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating restore with new firmware UUID label")
+		err = framework.CreateRestoreWithLabels(timeout, backupName, restoreName, f.BackupNamespace, true, map[string]string{"velero.kubevirt.io/generate-new-firmware-uuid": "true"})
+		Expect(err).ToNot(HaveOccurred())
+
+		rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rPhase).To(Equal(velerov1api.RestorePhaseCompleted))
+
+		By("Verifying restored VM")
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Checking new firmware UUID")
+		restoredVM, err := f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.TODO(), vm.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(restoredVM.Spec.Template.Spec.Domain.Firmware.UUID).ToNot(Equal(vm.Spec.Template.Spec.Domain.Firmware.UUID))
+	})
 
 	It("started VM should be restored with new MAC address", func() {
 		// creating a started VM, so it works correctly also on WFFC storage
