@@ -32,6 +32,27 @@ func TestVmRestoreExecute(t *testing.T) {
 						},
 						},
 					},
+					"template": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"volumes": []map[string]interface{}{
+								{
+									"dataVolume": map[string]interface{}{
+										"name": "test-dv-1",
+									},
+								},
+								{
+									"dataVolume": map[string]interface{}{
+										"name": "test-dv-2",
+									},
+								},
+							},
+							"domain": map[string]interface{}{
+								"firmware": map[string]interface{}{
+									"uuid": "original-uuid",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -99,6 +120,21 @@ func TestVmRestoreExecute(t *testing.T) {
 		spec = output.UpdatedItem.UnstructuredContent()["spec"].(map[string]interface{})
 		assert.Equal(t, "Halted", spec["runStrategy"])
 		assert.Nil(t, spec["running"])
+	})
+
+	t.Run("New firmware UUID should be generated when using appropriate label", func(t *testing.T) {
+		input.Restore.Labels = map[string]string{"velero.kubevirt.io/generate-new-firmware-uuid": "true"}
+		originalUUID := input.Item.UnstructuredContent()["spec"].(map[string]interface{})["template"].(map[string]interface{})["spec"].(map[string]interface{})["domain"].(map[string]interface{})["firmware"].(map[string]interface{})["uuid"].(string)
+		output, err := action.Execute(&input)
+		assert.Nil(t, err)
+
+		spec := output.UpdatedItem.UnstructuredContent()["spec"].(map[string]interface{})
+		domain := spec["template"].(map[string]interface{})["spec"].(map[string]interface{})["domain"].(map[string]interface{})
+		firmware := domain["firmware"].(map[string]interface{})
+		newUUID := firmware["uuid"].(string)
+
+		assert.NotEqual(t, originalUUID, newUUID)
+		assert.NotEmpty(t, newUUID)
 	})
 
 	t.Run("VM should return DVs as additional items", func(t *testing.T) {
