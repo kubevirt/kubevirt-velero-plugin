@@ -91,6 +91,11 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 		util.ClearMacAddress(&vmi.Spec)
 	}
 
+	if util.ShouldGenerateNewFirmwareUUID(input.Restore) {
+		p.log.Info("Generate new firmware UUID")
+		util.GenerateNewFirmwareUUID(&vmi.Spec, vmi.Name, vmi.Namespace, string(vmi.UID))
+	}
+
 	// Restricted labels must be cleared otherwise the VMI will be rejected.
 	// The restricted labels contain runtime information about the underlying KVM object.
 	labels := removeRestrictedLabels(vmi.GetLabels())

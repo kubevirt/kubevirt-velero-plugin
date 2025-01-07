@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
@@ -17,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	kvv1 "kubevirt.io/api/core/v1"
@@ -34,6 +36,9 @@ const (
 
 	// ClearMacAddressLabel indicates that the MAC address should be cleared as part of the restore workflow.
 	ClearMacAddressLabel = "velero.kubevirt.io/clear-mac-address"
+
+	// GenerateNewFirmwareUUIDLabel indicates that a new firmware UUID should be generated for VMs as part of the restore workflow.
+	GenerateNewFirmwareUUIDLabel = "velero.kubevirt.io/generate-new-firmware-uuid"
 
 	// VeleroExcludeLabel is used to exclude an object from Velero backups.
 	VeleroExcludeLabel = "velero.io/exclude-from-backup"
@@ -340,4 +345,16 @@ func ClearMacAddress(vmiSpec *kvv1.VirtualMachineInstanceSpec) {
 	for i := 0; i < len(vmiSpec.Domain.Devices.Interfaces); i++ {
 		vmiSpec.Domain.Devices.Interfaces[i].MacAddress = ""
 	}
+}
+
+func ShouldGenerateNewFirmwareUUID(restore *velerov1.Restore) bool {
+	return metav1.HasLabel(restore.ObjectMeta, GenerateNewFirmwareUUIDLabel)
+}
+
+// GenerateNewFirmwareUUID generates a new random firmware UUID for the restored VM
+func GenerateNewFirmwareUUID(vmiSpec *kvv1.VirtualMachineInstanceSpec, name, namespace, uid string) {
+	if vmiSpec.Domain.Firmware == nil {
+		vmiSpec.Domain.Firmware = &kvv1.Firmware{}
+	}
+	vmiSpec.Domain.Firmware.UUID = types.UID(uuid.New().String())
 }
