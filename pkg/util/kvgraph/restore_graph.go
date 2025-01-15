@@ -37,13 +37,13 @@ func NewObjectRestoreGraph(item runtime.Unstructured) ([]velero.ResourceIdentifi
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vm); err != nil {
 			return []velero.ResourceIdentifier{}, errors.WithStack(err)
 		}
-		return NewVirtualMachineRestoreGraph(vm), nil
+		return NewVirtualMachineRestoreGraph(vm)
 	case "VirtualMachineInstance":
 		vmi := new(v1.VirtualMachineInstance)
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vmi); err != nil {
 			return []velero.ResourceIdentifier{}, errors.WithStack(err)
 		}
-		return NewVirtualMachineInstanceRestoreGraph(vmi), nil
+		return NewVirtualMachineInstanceRestoreGraph(vmi)
 	default:
 		// No specific restore graph for the passed object
 		return []velero.ResourceIdentifier{}, nil
@@ -51,7 +51,7 @@ func NewObjectRestoreGraph(item runtime.Unstructured) ([]velero.ResourceIdentifi
 }
 
 // NewVirtualMachineRestoreGraph returns the restore object graph for a specific VM
-func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) []velero.ResourceIdentifier {
+func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdentifier, error) {
 	var resources []velero.ResourceIdentifier
 	if vm.Spec.Instancetype != nil {
 		resources = addInstanceType(*vm.Spec.Instancetype, vm.GetNamespace(), resources)
@@ -59,10 +59,10 @@ func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) []velero.ResourceIdent
 	if vm.Spec.Preference != nil {
 		resources = addPreferenceType(*vm.Spec.Preference, vm.GetNamespace(), resources)
 	}
-	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetNamespace(), false, resources)
+	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetName(), vm.GetNamespace(), false, resources)
 }
 
 // NewVirtualMachineInstanceRestoreGraph returns the restore object graph for a specific VMI
-func NewVirtualMachineInstanceRestoreGraph(vmi *v1.VirtualMachineInstance) []velero.ResourceIdentifier {
-	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), false, []velero.ResourceIdentifier{})
+func NewVirtualMachineInstanceRestoreGraph(vmi *v1.VirtualMachineInstance) ([]velero.ResourceIdentifier, error) {
+	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetName(), vmi.GetNamespace(), false, []velero.ResourceIdentifier{})
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	k8serrors "k8s.io/apimachinery/pkg/util/errors"
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -69,24 +70,49 @@ func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdent
 	if vm.Spec.Preference != nil {
 		resources = addPreferenceType(*vm.Spec.Preference, vm.GetNamespace(), resources)
 	}
+
+	var errs []error
 	if vm.Status.Created {
 		resources = addVeleroResource(vm.GetName(), namespace, "virtualmachineinstances", resources)
 		// Returning full backup even if there was an error retrieving the launcher pod.
-		// The caller can decide wether to use the backup without launcher pod or handle the error.
+		// The caller can decide whether to use the backup without launcher pod or handle the error.
 		resources, err = addLauncherPod(vm.GetName(), vm.GetNamespace(), resources)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
-	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, namespace, true, resources), err
+	resources, err = addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetName(), namespace, true, resources)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return resources, k8serrors.NewAggregate(errs)
+	}
+
+	return resources, nil
 }
 
 // NewVirtualMachineInstanceBackupGraph returns the backup object graph for a specific VMI
 func NewVirtualMachineInstanceBackupGraph(vmi *v1.VirtualMachineInstance) ([]velero.ResourceIdentifier, error) {
 	var resources []velero.ResourceIdentifier
-	var err error
+	var errs []error
 	// Returning full backup even if there was an error retrieving the launcher pod.
 	// The caller can decide wether to use the backup without launcher pod or handle the error.
-	resources, err = addLauncherPod(vmi.GetName(), vmi.GetNamespace(), resources)
-	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetNamespace(), true, resources), err
+	resources, err := addLauncherPod(vmi.GetName(), vmi.GetNamespace(), resources)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	resources, err = addCommonVMIObjectGraph(vmi.Spec, vmi.GetName(), vmi.GetNamespace(), true, resources)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return resources, k8serrors.NewAggregate(errs)
+	}
+
+	return resources, nil
 }
 
 // NewDataVolumeBackupGraph returns the backup object graph for a specific DataVolume
