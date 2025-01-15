@@ -87,6 +87,10 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 	}
 
 	output := velero.NewRestoreItemActionExecuteOutput(&unstructured.Unstructured{Object: item})
-	output.AdditionalItems = kvgraph.NewVirtualMachineRestoreGraph(vm)
+	output.AdditionalItems, err = kvgraph.NewVirtualMachineRestoreGraph(vm)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return output, nil
 }

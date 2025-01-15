@@ -20,6 +20,7 @@
 package kvgraph
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
@@ -27,6 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+)
+
+const (
+	backendStoragePrefix = "persistent-state-for"
 )
 
 // KVObjectGraph represents the graph of objects that can be potentially related to a KubeVirt resource
@@ -56,14 +61,14 @@ func addVeleroResource(name, namespace, resource string, resources []velero.Reso
 	return resources
 }
 
-func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, namespace string, isBackup bool, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	resources = addVolumeGraph(spec.Volumes, namespace, isBackup, resources)
+func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespace string, isBackup bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	resources, err := addVolumeGraph(spec, vmName, namespace, isBackup, resources)
 	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
-	return resources
+	return resources, err
 }
 
-func addVolumeGraph(volumes []v1.Volume, namespace string, isBackup bool, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	for _, volume := range volumes {
+func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, isBackup bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	for _, volume := range vmiSpec.Volumes {
 		switch {
 		case volume.DataVolume != nil:
 			resources = addVeleroResource(volume.DataVolume.Name, namespace, "datavolumes", resources)
@@ -82,7 +87,13 @@ func addVolumeGraph(volumes []v1.Volume, namespace string, isBackup bool, resour
 			resources = addVeleroResource(volume.ServiceAccount.ServiceAccountName, namespace, "serviceaccounts", resources)
 		}
 	}
-	return resources
+	// Returning full backup even if there was an error retrieving the backend PVC.
+	// The caller can decide wether to use the backup or handle the error.
+	var err error
+	if IsBackendStorageNeededForVMI(&vmiSpec) {
+		resources, err = addBackendPVC(vmName, namespace, resources)
+	}
+	return resources, err
 }
 
 func addAccessCredentials(acs []v1.AccessCredential, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
@@ -127,4 +138,44 @@ func addPreferenceType(preference v1.PreferenceMatcher, namespace string, resour
 	}
 	resources = addVeleroResource(preference.RevisionName, namespace, "controllerrevisions", resources)
 	return resources
+}
+
+func addBackendPVC(vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	labelSelector := fmt.Sprintf("%s=%s", backendStoragePrefix, vmName)
+	pvcs, err := util.ListPVCs(labelSelector, namespace)
+	if err != nil {
+		return resources, err
+	}
+	if len(pvcs.Items) == 0 {
+		// Kubevirt introduced the backend PVC labeling in 1.4.0.
+		// If backend PVC is no labeled, let's fallback to the old naming convention.
+		// TODO: Stop supporting the old naming convention in the future.
+		resources = addVeleroResource(fmt.Sprintf("%s-%s", backendStoragePrefix, vmName), namespace, "persistentvolumeclaims", resources)
+		return resources, nil
+	}
+	for _, pvc := range pvcs.Items {
+		// Should only be one PVC with the label.
+		// Still range to be agnostic to Kubevirt's internal logic.
+		resources = addVeleroResource(pvc.Name, namespace, "persistentvolumeclaims", resources)
+	}
+
+	return resources, nil
+}
+
+func IsBackendStorageNeededForVMI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return HasPersistentTPMDevice(vmiSpec) || HasPersistentEFI(vmiSpec)
+}
+
+func HasPersistentTPMDevice(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Domain.Devices.TPM != nil &&
+		vmiSpec.Domain.Devices.TPM.Persistent != nil &&
+		*vmiSpec.Domain.Devices.TPM.Persistent
+}
+
+func HasPersistentEFI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Domain.Firmware != nil &&
+		vmiSpec.Domain.Firmware.Bootloader != nil &&
+		vmiSpec.Domain.Firmware.Bootloader.EFI != nil &&
+		vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent != nil &&
+		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
 }

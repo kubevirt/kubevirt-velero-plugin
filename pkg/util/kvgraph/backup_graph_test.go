@@ -180,7 +180,7 @@ func TestNewObjectBackupGraph(t *testing.T) {
 }
 
 func TestNewVirtualMachineBackupGraph(t *testing.T) {
-	getVM := func(created bool) kvcore.VirtualMachine {
+	getVM := func(created, backend bool) kvcore.VirtualMachine {
 		return kvcore.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "",
@@ -209,6 +209,13 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 								},
 							},
 						},
+						Domain: kvcore.DomainSpec{
+							Devices: kvcore.Devices{
+								TPM: &kvcore.TPMDevice{
+									Persistent: &backend,
+								},
+							},
+						},
 						AccessCredentials: []kvcore.AccessCredential{
 							{
 								SSHPublicKey: &kvcore.SSHPublicKeyAccessCredential{
@@ -234,7 +241,7 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 		expected []velero.ResourceIdentifier
 	}{
 		{"Should include all related resources",
-			getVM(true),
+			getVM(true, false),
 			[]velero.ResourceIdentifier{
 				{
 					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
@@ -284,7 +291,7 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 			},
 		},
 		{"Should not include vmi and launcher pod",
-			getVM(false),
+			getVM(false, false),
 			[]velero.ResourceIdentifier{
 				{
 					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
@@ -323,6 +330,61 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 				},
 			},
 		},
+		{"Should include backend PVC",
+			getVM(true, true),
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
+					Namespace:     "",
+					Name:          "test-instancetype",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+					Namespace:     "",
+					Name:          "controller-revision-instancetype",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
+					Namespace:     "",
+					Name:          "test-preference",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
+					Namespace:     "",
+					Name:          "controller-revision-preference",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"},
+					Namespace:     "",
+					Name:          "test-vm",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "", Resource: "pods"},
+					Namespace:     "",
+					Name:          "test-vmi-launcher-pod",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+					Namespace:     "",
+					Name:          "test-datavolume",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"},
+					Namespace:     "",
+					Name:          "test-datavolume",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"},
+					Namespace:     "",
+					Name:          "backend-pvc",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "", Resource: "secrets"},
+					Namespace:     "",
+					Name:          "test-ssh-secret",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -338,6 +400,19 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 							},
 							Annotations: map[string]string{
 								"kubevirt.io/domain": "test-vm",
+							},
+						},
+					},
+				}}, nil
+			}
+			util.ListPVCs = func(labelSelector, ns string) (*v1.PersistentVolumeClaimList, error) {
+				return &v1.PersistentVolumeClaimList{Items: []v1.PersistentVolumeClaim{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: ns,
+							Name:      "backend-pvc",
+							Labels: map[string]string{
+								"persistent-state-for": "test-vm",
 							},
 						},
 					},

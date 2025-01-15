@@ -102,7 +102,11 @@ func (p *VMIRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 	metadata.SetLabels(labels)
 
 	output := velero.NewRestoreItemActionExecuteOutput(input.Item)
-	output.AdditionalItems = kvgraph.NewVirtualMachineInstanceRestoreGraph(vmi)
+	output.AdditionalItems, err = kvgraph.NewVirtualMachineInstanceRestoreGraph(vmi)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return output, nil
 }
 

@@ -198,6 +198,20 @@ var GetPVC = func(ns, name string) (*corev1api.PersistentVolumeClaim, error) {
 }
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
+var ListPVCs = func(labelSelector, namespace string) (*corev1api.PersistentVolumeClaimList, error) {
+	client, err := GetK8sClient()
+	if err != nil {
+		return nil, err
+	}
+
+	pvcs, err := (*client).CoreV1().PersistentVolumeClaims(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+
+	return pvcs, nil
+}
+
+// This is assigned to a variable so it can be replaced by a mock function in tests
 var GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
 	client, err := GetKubeVirtclient()
 	if err != nil {
