@@ -122,12 +122,12 @@ shell: build-dirs
 		-u $$(id -u):$$(id -g) \
 		$(PODMAN_SPECIFIC_FLAG) \
 		-v "$$(pwd)/_output/bin:/output:delegated" \
-		-v $$(pwd)/.go/pkg:/go/pkg \
-		-v $$(pwd)/.go/src:/go/src \
-		-v $$(pwd)/.go/std:/go/std \
-		-v $$(pwd)/.go/bin:/go/bin \
-		-v $$(pwd):/go/src/kubevirt-velero-plugin \
-		-v $$(pwd)/.go/std/$(GOOS)_$(GOARCH):/usr/local/go/pkg/$(GOOS)_$(GOARCH)_static \
+		-v $$(pwd)/.go/pkg:/go/pkg:Z \
+		-v $$(pwd)/.go/src:/go/src:Z \
+		-v $$(pwd)/.go/std:/go/std:Z \
+		-v $$(pwd)/.go/bin:/go/bin:Z \
+		-v $$(pwd):/go/src/kubevirt-velero-plugin:Z \
+		-v $$(pwd)/.go/std/$(GOOS)_$(GOARCH):/usr/local/go/pkg/$(GOOS)_$(GOARCH)_static:Z \
 		-v "$$(pwd)/.go/go-build:/.cache/go-build:delegated" \
 		-e CGO_ENABLED=0 \
 		-w /go/src/kubevirt-velero-plugin \
