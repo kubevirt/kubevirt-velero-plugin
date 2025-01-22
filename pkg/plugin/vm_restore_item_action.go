@@ -76,6 +76,11 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 		util.ClearMacAddress(&vm.Spec.Template.Spec)
 	}
 
+	if util.ShouldGenerateNewFirmwareUUID(input.Restore) {
+		p.log.Info("Generate new firmware UUID")
+		util.GenerateNewFirmwareUUID(&vm.Spec.Template.Spec, vm.Name, vm.Namespace, string(vm.UID))
+	}
+
 	item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
 	if err != nil {
 		return nil, errors.WithStack(err)
