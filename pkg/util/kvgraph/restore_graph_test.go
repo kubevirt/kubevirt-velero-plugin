@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
 func TestNewObjectRestoreGraph(t *testing.T) {
@@ -27,7 +28,7 @@ func TestNewObjectRestoreGraph(t *testing.T) {
 	testCases := []struct {
 		name           string
 		object         interface{}
-		expectedResult func(obj interface{}) []velero.ResourceIdentifier
+		expectedResult func(obj interface{}) ([]velero.ResourceIdentifier, error)
 	}{
 		{
 			name: "VirtualMachine",
@@ -75,7 +76,7 @@ func TestNewObjectRestoreGraph(t *testing.T) {
 					Created: true,
 				},
 			},
-			expectedResult: func(obj interface{}) []velero.ResourceIdentifier {
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
 				return NewVirtualMachineRestoreGraph(obj.(*kvcore.VirtualMachine))
 			},
 		},
@@ -120,7 +121,7 @@ func TestNewObjectRestoreGraph(t *testing.T) {
 					},
 				},
 			},
-			expectedResult: func(obj interface{}) []velero.ResourceIdentifier {
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
 				return NewVirtualMachineInstanceRestoreGraph(obj.(*kvcore.VirtualMachineInstance))
 			},
 		},
@@ -135,9 +136,9 @@ func TestNewObjectRestoreGraph(t *testing.T) {
 					Name:      "test-pod",
 				},
 			},
-			expectedResult: func(obj interface{}) []velero.ResourceIdentifier {
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
 				// Since there's no Pod-specific restore graph function, we return an empty list
-				return []velero.ResourceIdentifier{}
+				return []velero.ResourceIdentifier{}, nil
 			},
 		},
 	}
@@ -147,7 +148,8 @@ func TestNewObjectRestoreGraph(t *testing.T) {
 			unstructuredObj, err := toUnstructured(tc.object)
 			assert.NoError(t, err)
 
-			expected := tc.expectedResult(tc.object)
+			expected, err := tc.expectedResult(tc.object)
+			assert.NoError(t, err)
 			actual, err := NewObjectRestoreGraph(unstructuredObj)
 			assert.NoError(t, err)
 			assert.Equal(t, expected, actual)
@@ -156,7 +158,7 @@ func TestNewObjectRestoreGraph(t *testing.T) {
 }
 
 func TestNewVirtualMachineRestoreGraph(t *testing.T) {
-	getVM := func(created bool) kvcore.VirtualMachine {
+	getVM := func(created, backend bool) kvcore.VirtualMachine {
 		return kvcore.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "",
@@ -185,6 +187,13 @@ func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 								},
 							},
 						},
+						Domain: kvcore.DomainSpec{
+							Devices: kvcore.Devices{
+								TPM: &kvcore.TPMDevice{
+									Persistent: &backend,
+								},
+							},
+						},
 						AccessCredentials: []kvcore.AccessCredential{
 							{
 								SSHPublicKey: &kvcore.SSHPublicKeyAccessCredential{
@@ -210,7 +219,7 @@ func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 		expected []velero.ResourceIdentifier
 	}{
 		{"Should include all related resources",
-			getVM(true),
+			getVM(true, true),
 			[]velero.ResourceIdentifier{
 				{
 					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
@@ -238,6 +247,11 @@ func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 					Name:          "test-datavolume",
 				},
 				{
+					GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"},
+					Namespace:     "",
+					Name:          "backend-pvc",
+				},
+				{
 					GroupResource: schema.GroupResource{Group: "", Resource: "secrets"},
 					Namespace:     "",
 					Name:          "test-ssh-secret",
@@ -248,7 +262,21 @@ func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resources := NewVirtualMachineRestoreGraph(&tc.vm)
+			util.ListPVCs = func(labelSelector, ns string) (*v1.PersistentVolumeClaimList, error) {
+				return &v1.PersistentVolumeClaimList{Items: []v1.PersistentVolumeClaim{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: ns,
+							Name:      "backend-pvc",
+							Labels: map[string]string{
+								"persistent-state-for": "test-vm",
+							},
+						},
+					},
+				}}, nil
+			}
+			resources, err := NewVirtualMachineRestoreGraph(&tc.vm)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, resources)
 		})
 	}
@@ -404,7 +432,8 @@ func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output := NewVirtualMachineInstanceRestoreGraph(&tc.vmi)
+			output, err := NewVirtualMachineInstanceRestoreGraph(&tc.vmi)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, output)
 		})
 	}
