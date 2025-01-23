@@ -1,0 +1,8 @@
+v0.7.1
+Update object graphs to include all extra objects during backup and restore
+Add label to optionally generate new firmware UUID during restore
+Bugfix: Ignore VMIs from backup when owner VM is excluded
+Support clearing MAC address by label
+Allow switching VM run strategy during restore
+Allow skipping restore-specific checks during backup
+Support VirtualMachineClusterInstancetype and VirtualMachineClusterPreference
