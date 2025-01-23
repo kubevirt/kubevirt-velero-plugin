@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"k8s.io/utils/strings/slices"
 	kvv1 "kubevirt.io/api/core/v1"
 	kubecli "kubevirt.io/client-go/kubecli"
@@ -303,6 +304,53 @@ var _ = Describe("[smoke] VM Backup", func() {
 		restoredVM, err := f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.TODO(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(restoredVM.Spec.Template.Spec.Domain.Firmware.UUID).ToNot(Equal(vm.Spec.Template.Spec.Domain.Firmware.UUID))
+	})
+
+	It("VM with backend storage PVC should be backed up and restored appropriately", func() {
+		By("Creating a VM with backend storage PVC")
+		var err error
+		vm = framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
+		vm.Spec.Template.Spec.Domain.Devices.TPM = &kvv1.TPMDevice{Persistent: ptr.To(true)}
+		vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, vm)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Expecting the creation of a backend storage PVC")
+		pvc, err := getPersistentStatePVC(f.KvClient, vm)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Stopping the VM")
+		err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating backup")
+		err = f.RunBackupScript(timeout, backupName, "", "", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Deleting VM")
+		err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating restore")
+		err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verifying VM")
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+		Expect(err).ToNot(HaveOccurred())
+		err = framework.StartVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+		Expect(err).ToNot(HaveOccurred())
+		err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Checking backend storage PVC exists")
+		pvc2, err := getPersistentStatePVC(f.KvClient, vm)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pvc2.Name).To(Equal(pvc.Name))
 	})
 
 	It("started VM should be restored with new MAC address", func() {
@@ -742,4 +790,26 @@ func verifyVolumeAndDiskAdded(kvClient kubecli.KubevirtClient, namespace, name, 
 
 		return nil
 	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+func getPersistentStatePVC(kvClient kubecli.KubevirtClient, vm *kvv1.VirtualMachine) (*v1.PersistentVolumeClaim, error) {
+	const pvcPrefix = "persistent-state-for"
+	pvcs, err := kvClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: pvcPrefix + "=" + vm.Name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	pvc := &v1.PersistentVolumeClaim{}
+	if len(pvcs.Items) == 0 {
+		// Kubevirt introduced the backend PVC labeling in 1.4.0.
+		// If backend PVC is no labeled, let's fallback to the old naming convention.
+		pvc, err = kvClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.TODO(), pvcPrefix+"-"+vm.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		pvc = &pvcs.Items[0]
+	}
+	return pvc, nil
 }

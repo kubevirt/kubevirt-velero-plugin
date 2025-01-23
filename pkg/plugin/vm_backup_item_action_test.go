@@ -8,6 +8,7 @@ import (
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -565,6 +566,9 @@ func TestVMBackupAction(t *testing.T) {
 		util.IsDVExcludedByLabel = func(namespace, pvcName string) (bool, error) { return false, nil }
 		util.IsPVCExcludedByLabel = func(namespace, pvcName string) (bool, error) { return false, nil }
 		t.Run(tc.name, func(t *testing.T) {
+			util.ListPods = func(name, ns string) (*k8sv1.PodList, error) {
+				return &k8sv1.PodList{}, nil
+			}
 			_, extra, err := action.Execute(&tc.vm, &tc.backup)
 
 			if tc.errorExpected {

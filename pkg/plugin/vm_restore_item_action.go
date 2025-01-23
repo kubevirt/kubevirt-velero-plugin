@@ -27,10 +27,10 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
 // VIMRestorePlugin is a VMI restore item action plugin for Velero (duh!)
@@ -87,15 +87,9 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 	}
 
 	output := velero.NewRestoreItemActionExecuteOutput(&unstructured.Unstructured{Object: item})
-	for _, dv := range vm.Spec.DataVolumeTemplates {
-		output.AdditionalItems = append(output.AdditionalItems, velero.ResourceIdentifier{
-			GroupResource: schema.GroupResource{
-				Group:    "cdi.kubevirt.io",
-				Resource: "datavolumes",
-			},
-			Name:      dv.Name,
-			Namespace: vm.Namespace,
-		})
+	output.AdditionalItems, err = kvgraph.NewVirtualMachineRestoreGraph(vm)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	return output, nil

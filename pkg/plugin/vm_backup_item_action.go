@@ -22,19 +22,18 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	kvcore "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
 // VMBackupItemAction is a backup item action for backing up DataVolumes
@@ -69,8 +68,6 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, fmt.Errorf("backup object nil!")
 	}
 
-	extra := []velero.ResourceIdentifier{}
-
 	vm := new(kvcore.VirtualMachine)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vm); err != nil {
 		return nil, nil, errors.WithStack(err)
@@ -100,17 +97,11 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		}
 	}
 
-	extra = p.addVMObjectGraph(vm, extra)
-
-	extra = util.AddVMIObjectGraph(vm.Spec.Template.Spec, vm.GetNamespace(), extra, p.log)
-
-	if vm.Status.Created {
-		extra = append(extra, velero.ResourceIdentifier{
-			GroupResource: schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-			Namespace:     vm.GetNamespace(),
-			Name:          vm.GetName(),
-		})
+	extra, err := kvgraph.NewVirtualMachineBackupGraph(vm)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
 	}
+
 	return item, extra, nil
 }
 
@@ -142,66 +133,6 @@ func (p *VMBackupItemAction) canBeSafelyBackedUp(vm *kvcore.VirtualMachine, back
 	}
 
 	return true, nil
-}
-
-func (p *VMBackupItemAction) addVMObjectGraph(vm *kvcore.VirtualMachine, extra []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	if vm.Spec.Instancetype != nil {
-		switch strings.ToLower(vm.Spec.Instancetype.Kind) {
-		case "virtualmachineclusterinstancetype":
-			p.log.Infof("Adding cluster instance type %s to the backup", vm.Spec.Instancetype.Name)
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterinstancetype"},
-				Name:          vm.Spec.Instancetype.Name,
-			})
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
-				Namespace:     vm.Namespace,
-				Name:          vm.Spec.Instancetype.RevisionName,
-			})
-		case "virtualmachineinstancetype":
-			p.log.Infof("Adding instance type %s to the backup", vm.Spec.Instancetype.Name)
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
-				Namespace:     vm.Namespace,
-				Name:          vm.Spec.Instancetype.Name,
-			})
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
-				Namespace:     vm.Namespace,
-				Name:          vm.Spec.Instancetype.RevisionName,
-			})
-		}
-	}
-
-	if vm.Spec.Preference != nil {
-		switch strings.ToLower(vm.Spec.Preference.Kind) {
-		case "virtualmachineclusterpreference":
-			p.log.Infof("Adding cluster preference %s to the backup", vm.Spec.Preference.Name)
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterpreference"},
-				Name:          vm.Spec.Preference.Name,
-			})
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
-				Namespace:     vm.Namespace,
-				Name:          vm.Spec.Preference.RevisionName,
-			})
-		case "virtualmachinepreference":
-			p.log.Infof("Adding preference %s to the backup", vm.Spec.Preference.Name)
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
-				Namespace:     vm.Namespace,
-				Name:          vm.Spec.Preference.Name,
-			})
-			extra = append(extra, velero.ResourceIdentifier{
-				GroupResource: schema.GroupResource{Group: "apps", Resource: "controllerrevisions"},
-				Namespace:     vm.Namespace,
-				Name:          vm.Spec.Preference.RevisionName,
-			})
-		}
-	}
-
-	return extra
 }
 
 // This is assigned to a variable so it can be replaced by a mock function in tests
