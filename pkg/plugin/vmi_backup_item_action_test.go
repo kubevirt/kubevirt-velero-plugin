@@ -539,10 +539,7 @@ func TestVMIBackupItemAction(t *testing.T) {
 					Name:      "test-dv",
 				}
 				dvPVCResource := velero.ResourceIdentifier{
-					GroupResource: schema.GroupResource{
-						Group:    "cdi.kubevirt.io",
-						Resource: "datavolumes",
-					},
+					GroupResource: kuberesource.PersistentVolumeClaims
 					Namespace: "test-namespace",
 					Name:      "test-dv",
 				}
