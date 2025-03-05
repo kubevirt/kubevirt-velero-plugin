@@ -72,9 +72,7 @@ func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace str
 		switch {
 		case volume.DataVolume != nil:
 			resources = addVeleroResource(volume.DataVolume.Name, namespace, "datavolumes", resources)
-			// if isBackup {
-				resources = addVeleroResource(volume.DataVolume.Name, namespace, "persistentvolumeclaims", resources)
-			// }
+			resources = addVeleroResource(volume.DataVolume.Name, namespace, "persistentvolumeclaims", resources)			
 		case volume.PersistentVolumeClaim != nil:
 			resources = addVeleroResource(volume.PersistentVolumeClaim.ClaimName, namespace, "persistentvolumeclaims", resources)
 		case volume.MemoryDump != nil:
