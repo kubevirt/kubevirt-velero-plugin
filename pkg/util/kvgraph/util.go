@@ -62,12 +62,12 @@ func addVeleroResource(name, namespace, resource string, resources []velero.Reso
 }
 
 func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespace string, isBackup bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
-	resources, err := addVolumeGraph(spec, vmName, namespace, isBackup, resources)
+	resources, err := addVolumeGraph(spec, vmName, namespace, resources)
 	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
 	return resources, err
 }
 
-func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, isBackup bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
 	for _, volume := range vmiSpec.Volumes {
 		switch {
 		case volume.DataVolume != nil:

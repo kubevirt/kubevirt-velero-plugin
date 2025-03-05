@@ -538,9 +538,18 @@ func TestVMIBackupItemAction(t *testing.T) {
 					Namespace: "test-namespace",
 					Name:      "test-dv",
 				}
+				dvPVCResource := velero.ResourceIdentifier{
+					GroupResource: schema.GroupResource{
+						Group:    "cdi.kubevirt.io",
+						Resource: "datavolumes",
+					},
+					Namespace: "test-namespace",
+					Name:      "test-dv",
+				}
 
 				assert.Contains(t, extra, pvcResource)
 				assert.Contains(t, extra, dvResource)
+				assert.Contains(t, extra, dvPVCResource)
 				return true
 			},
 		},
