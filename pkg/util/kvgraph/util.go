@@ -52,6 +52,14 @@ var KVObjectGraph = map[string]schema.GroupResource{
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
 	if groupResource, ok := KVObjectGraph[resource]; ok {
+		// Check if the exact same (GroupResource, Namespace, Name) already exists
+		for _, r := range resources {
+			if r.GroupResource == groupResource && r.Namespace == namespace && r.Name == name {
+				// Exact match found, do not add again
+				return resources
+			}
+		}
+		// Append if not found
 		resources = append(resources, velero.ResourceIdentifier{
 			GroupResource: groupResource,
 			Namespace:     namespace,
@@ -60,6 +68,7 @@ func addVeleroResource(name, namespace, resource string, resources []velero.Reso
 	}
 	return resources
 }
+
 
 func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespace string, isBackup bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
 	resources, err := addVolumeGraph(spec, vmName, namespace, resources)
