@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+	corev1 "k8s.io/api/core/v1"
+
 )
 
 const (
@@ -48,6 +50,7 @@ var KVObjectGraph = map[string]schema.GroupResource{
 	"serviceaccounts":                   kuberesource.ServiceAccounts,
 	"secrets":                           kuberesource.Secrets,
 	"pods":                              kuberesource.Pods,
+	"volumesnapshots":                   {Group: "snapshot.storage.k8s.io", Resource: "volumesnapshots"},
 }
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
@@ -74,6 +77,17 @@ func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespa
 	resources, err := addVolumeGraph(spec, vmName, namespace, resources)
 	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
 	return resources, err
+}
+
+func addPVCGraph(pvc corev1.PersistentVolumeClaim, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+    // Extract the volume snapshot name from the annotations
+    volumeSnapshotName, snapshotExists := pvc.Annotations["velero.io/volume-snapshot-name"]
+    if snapshotExists {
+        // Add the volume snapshot to the graph
+		return addVeleroResource(volumeSnapshotName, pvc.Namespace, "volumesnapshot", resources), nil
+    }
+
+	return resources, nil
 }
 
 func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {

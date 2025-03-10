@@ -539,14 +539,13 @@ func TestVMIBackupItemAction(t *testing.T) {
 					Name:      "test-dv",
 				}
 				dvPVCResource := velero.ResourceIdentifier{
-					GroupResource: kuberesource.PersistentVolumeClaims
+					GroupResource: kuberesource.PersistentVolumeClaims,
 					Namespace: "test-namespace",
 					Name:      "test-dv",
 				}
-
-				assert.Contains(t, extra, pvcResource)
-				assert.Contains(t, extra, dvResource)
-				assert.Contains(t, extra, dvPVCResource)
+				expected := []velero.ResourceIdentifier{pvcResource, dvResource, dvPVCResource}
+				assert.ElementsMatch(t, expected, extra, "extra contains unexpected items")
+				
 				return true
 			},
 		},

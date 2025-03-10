@@ -21,9 +21,11 @@ package plugin
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 
 	corev1api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,7 +49,7 @@ func (p *PVCRestoreItemAction) AppliesTo() (velero.ResourceSelector, error) {
 		nil
 }
 
-// Execute if the PVC and the corresponding DV is not SUCCESSFULL - then skip PVC
+// Skip restoring the PVC if it has the 'AnnInProgress' annotation.
 func (p *PVCRestoreItemAction) Execute(input *velero.RestoreItemActionExecuteInput) (*velero.RestoreItemActionExecuteOutput, error) {
 	p.log.Info("Executing PVCRestoreItemAction")
 	if input == nil {
@@ -65,5 +67,16 @@ func (p *PVCRestoreItemAction) Execute(input *velero.RestoreItemActionExecuteInp
 		return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil
 	}
 
-	return velero.NewRestoreItemActionExecuteOutput(input.Item), nil
+	newRIAExeOutput := velero.NewRestoreItemActionExecuteOutput(input.Item)
+	additionalItems, err := kvgraph.NewPVCRestoreGraph(pvc)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	newRIAExeOutput.AdditionalItems = additionalItems
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	  
+	return newRIAExeOutput, nil	
+
 }

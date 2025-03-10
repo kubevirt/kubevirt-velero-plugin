@@ -249,6 +249,11 @@ func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 				{
 					GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"},
 					Namespace:     "",
+					Name:          "test-datavolume",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"},
+					Namespace:     "",
 					Name:          "backend-pvc",
 				},
 				{
@@ -300,6 +305,15 @@ func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 								PersistentVolumeClaim: &kvcore.PersistentVolumeClaimVolumeSource{
 									PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
 										ClaimName: "test-pvc",
+									},
+								},
+							},
+						},
+						{
+							VolumeSource: kvcore.VolumeSource{
+								PersistentVolumeClaim: &kvcore.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "test-dv",
 									},
 								},
 							},
@@ -361,6 +375,11 @@ func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 					},
 					Namespace: "test-namespace",
 					Name:      "test-dv",
+				},
+				{
+					GroupResource: kuberesource.PersistentVolumeClaims,
+					Namespace:     "test-namespace",
+					Name:          "test-dv",
 				},
 				{
 					GroupResource: kuberesource.PersistentVolumeClaims,
