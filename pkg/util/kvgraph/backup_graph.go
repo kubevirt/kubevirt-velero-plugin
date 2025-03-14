@@ -63,13 +63,8 @@ func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdent
 	var resources []velero.ResourceIdentifier
 	var err error
 	namespace := vm.GetNamespace()
-
-	if vm.Spec.Instancetype != nil {
-		resources = addInstanceType(*vm.Spec.Instancetype, vm.GetNamespace(), resources)
-	}
-	if vm.Spec.Preference != nil {
-		resources = addPreferenceType(*vm.Spec.Preference, vm.GetNamespace(), resources)
-	}
+	resources = addInstanceType(vm, resources)
+	resources = addPreference(vm, resources)
 
 	var errs []error
 	if vm.Status.Created {

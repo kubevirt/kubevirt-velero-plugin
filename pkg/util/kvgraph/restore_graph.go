@@ -53,12 +53,9 @@ func NewObjectRestoreGraph(item runtime.Unstructured) ([]velero.ResourceIdentifi
 // NewVirtualMachineRestoreGraph returns the restore object graph for a specific VM
 func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdentifier, error) {
 	var resources []velero.ResourceIdentifier
-	if vm.Spec.Instancetype != nil {
-		resources = addInstanceType(*vm.Spec.Instancetype, vm.GetNamespace(), resources)
-	}
-	if vm.Spec.Preference != nil {
-		resources = addPreferenceType(*vm.Spec.Preference, vm.GetNamespace(), resources)
-	}
+
+	resources = addInstanceType(vm, resources)
+	resources = addPreference(vm, resources)
 	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetName(), vm.GetNamespace(), resources)
 }
 

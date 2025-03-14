@@ -27,6 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -101,7 +102,21 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
-	return item, extra, nil
+
+	if vm.Spec.Instancetype != nil && vm.Status.InstancetypeRef != nil && vm.Status.InstancetypeRef.ControllerRevisionRef != nil {
+		vm.Spec.Instancetype.RevisionName = vm.Status.InstancetypeRef.ControllerRevisionRef.Name
+	}
+
+	if vm.Spec.Preference != nil && vm.Status.PreferenceRef != nil && vm.Status.PreferenceRef.ControllerRevisionRef != nil {
+		vm.Spec.Preference.RevisionName = vm.Status.PreferenceRef.ControllerRevisionRef.Name
+	}
+
+	vmMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	return &unstructured.Unstructured{Object: vmMap}, extra, nil
 }
 
 // returns false for all cases when backup might end up with a broken PVC snapshot

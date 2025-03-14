@@ -188,14 +188,12 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 			},
 			Spec: kvcore.VirtualMachineSpec{
 				Instancetype: &kvcore.InstancetypeMatcher{
-					Name:         "test-instancetype",
-					Kind:         "virtualmachineinstancetype",
-					RevisionName: "controller-revision-instancetype",
+					Name: "test-instancetype",
+					Kind: "virtualmachineinstancetype",
 				},
 				Preference: &kvcore.PreferenceMatcher{
-					Name:         "test-preference",
-					Kind:         "virtualmachinepreference",
-					RevisionName: "controller-revision-preference",
+					Name: "test-preference",
+					Kind: "virtualmachinepreference",
 				},
 				Template: &kvcore.VirtualMachineInstanceTemplateSpec{
 					Spec: kvcore.VirtualMachineInstanceSpec{
@@ -232,6 +230,20 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 			},
 			Status: kvcore.VirtualMachineStatus{
 				Created: created,
+				InstancetypeRef: &kvcore.InstancetypeStatusRef{
+					Name: "test-instancetype",
+					Kind: "virtualmachineinstancetype",
+					ControllerRevisionRef: &kvcore.ControllerRevisionRef{
+						Name: "controller-revision-instancetype",
+					},
+				},
+				PreferenceRef: &kvcore.InstancetypeStatusRef{
+					Name: "test-preference",
+					Kind: "virtualmachinepreference",
+					ControllerRevisionRef: &kvcore.ControllerRevisionRef{
+						Name: "controller-revision-preference",
+					},
+				},
 			},
 		}
 	}
