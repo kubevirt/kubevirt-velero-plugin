@@ -10,6 +10,7 @@ import (
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -446,7 +447,25 @@ var _ = Describe("[smoke] VM Backup", func() {
 				}
 			}
 
-			DescribeTable("with instancetype and preference", Label("PartnerComp"), func(itFunc func() error, pFunc func() error, vmFunc func() error, delFunc func(), cleanupFunc func()) {
+			updateInstancetypeFunc := func() {
+				instancetype, err := f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).Get(context.Background(), instancetypeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				instancetype.Spec.CPU.Guest = instancetype.Spec.CPU.Guest + 1
+				instancetype.Spec.Memory.Guest.Add(resource.MustParse("128Mi"))
+				_, err = f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			updateClusterInstancetypeFunc := func() {
+				instancetype, err := f.KvClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetypeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				instancetype.Spec.CPU.Guest = instancetype.Spec.CPU.Guest + 1
+				instancetype.Spec.Memory.Guest.Add(resource.MustParse("128Mi"))
+				_, err = f.KvClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			DescribeTable("with instancetype and preference", Label("PartnerComp"), func(itFunc, pFunc, vmFunc func() error, instancetypeUpdateFunc, delFunc, cleanupFunc func()) {
 				if cleanupFunc != nil {
 					defer cleanupFunc()
 				}
@@ -474,6 +493,20 @@ var _ = Describe("[smoke] VM Backup", func() {
 					g.Expect(err).ToNot(HaveOccurred())
 				}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
+				By("Fetching the vCPU and memory configuration from the VMI")
+				originalVMI, err := f.KvClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Fetching copies of the original ControllerRevisions")
+				itControllerRevision, err := f.KvClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				pControllerRevision, err := f.KvClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Mutating the existing instance type and preference objects")
+				instancetypeUpdateFunc()
+
 				By("Creating backup")
 				err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
@@ -499,12 +532,24 @@ var _ = Describe("[smoke] VM Backup", func() {
 				err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Verifying VM")
+				By("Verifying VM is running")
 				err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Ensuring the original ControllerRevisions are referenced by the VirtualMachine")
+				vm, err := f.KvClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(itControllerRevision.Name))
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(pControllerRevision.Name))
+
+				By("Ensuring the restored VMI is using the same vCPU and memory configuration as the original")
+				restoredVMI, err := f.KvClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoredVMI.Spec.Domain.CPU).To(Equal(originalVMI.Spec.Domain.CPU))
+				Expect(restoredVMI.Spec.Domain.Memory.Guest.Equal(*originalVMI.Spec.Domain.Memory.Guest)).To(BeTrue())
 			},
-				Entry("[test_id:10270]namespace scope", f.CreateInstancetype, f.CreatePreference, f.CreateVMWithInstancetypeAndPreference, nsDelFunc, nil),
-				Entry("[test_id:10274]cluster scope", f.CreateClusterInstancetype, f.CreateClusterPreference, f.CreateVMWithClusterInstancetypeAndClusterPreference, clusterDelFunc, clusterCleanup),
+				Entry("[test_id:10270]namespace scope", f.CreateInstancetype, f.CreatePreference, f.CreateVMWithInstancetypeAndPreference, updateInstancetypeFunc, nsDelFunc, nil),
+				Entry("[test_id:10274]cluster scope", f.CreateClusterInstancetype, f.CreateClusterPreference, f.CreateVMWithClusterInstancetypeAndClusterPreference, updateClusterInstancetypeFunc, clusterDelFunc, clusterCleanup),
 			)
 		})
 
