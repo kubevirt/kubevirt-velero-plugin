@@ -307,6 +307,9 @@ var _ = Describe("[smoke] VM Backup", func() {
 	})
 
 	It("VM with backend storage PVC should be backed up and restored appropriately", func() {
+		By("Updating VM state storage class")
+		framework.UpdateVMStateStorageClass(f.KvClient)
+
 		By("Creating a VM with backend storage PVC")
 		var err error
 		vm = framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)

@@ -16,11 +16,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	kv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
@@ -487,4 +489,30 @@ func (r *KubernetesReporter) logVolumeSnapshots(kubeCli kubernetes.Interface) {
 func (r *KubernetesReporter) logVolumeSnapshotContents(kubeCli kubernetes.Interface) {
 	entityName := "volumesnapshotcontents"
 	r.dumpK8sEntityToFile(kubeCli, entityName, fmt.Sprintf(volumeSnapshotEntityClusterUriTemplate, entityName))
+}
+
+func UpdateVMStateStorageClass(kvClient kubecli.KubevirtClient) {
+	kv := GetKubevirt(kvClient)
+	kv.Spec.Configuration.VMStateStorageClass = getStorageClassFromEnv()
+
+	data, err := json.Marshal(kv.Spec)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
+	_, err = kvClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
+func GetKubevirt(kvClient kubecli.KubevirtClient) *kv1.KubeVirt {
+	var kvList *kv1.KubeVirtList
+	var err error
+	const eventualTimeout = 10
+
+	gomega.Eventually(func() error {
+		kvList, err = kvClient.KubeVirt(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+
+		return err
+	}, eventualTimeout*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())
+
+	gomega.Expect(kvList.Items).To(gomega.HaveLen(1))
+	return &kvList.Items[0]
 }
