@@ -3,6 +3,7 @@ module kubevirt.io/kubevirt-velero-plugin
 go 1.22.3
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
 	github.com/pkg/errors v0.9.1
@@ -42,7 +43,6 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/go-hclog v0.14.1 // indirect
 	github.com/hashicorp/go-plugin v1.6.0 // indirect
