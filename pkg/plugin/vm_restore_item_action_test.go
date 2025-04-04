@@ -139,10 +139,36 @@ func TestVmRestoreExecute(t *testing.T) {
 
 	t.Run("VM should return DVs as additional items", func(t *testing.T) {
 		output, _ := action.Execute(&input)
+		dvsAndTherePVCs := output.AdditionalItems
+		assert.Equal(t, 4, len(dvsAndTherePVCs)) // dv's pvc is also added to the graph
+		dvResource1 := velero.ResourceIdentifier{
+			GroupResource: schema.GroupResource{
+				Group:    "cdi.kubevirt.io",
+				Resource: "datavolumes",
+			},
+			Namespace: "test-namespace",
+			Name:      "test-dv-1",
+		}
+		dvPVCResource1 := velero.ResourceIdentifier{
+			GroupResource: kuberesource.PersistentVolumeClaims,
+			Namespace: "test-namespace",
+			Name:      "test-dv-1",
+		}
+		dvResource2 := velero.ResourceIdentifier{
+			GroupResource: schema.GroupResource{
+				Group:    "cdi.kubevirt.io",
+				Resource: "datavolumes",
+			},
+			Namespace: "test-namespace",
+			Name:      "test-dv-2",
+		}
+		dvPVCResource2 := velero.ResourceIdentifier{
+			GroupResource: kuberesource.PersistentVolumeClaims,
+			Namespace: "test-namespace",
+			Name:      "test-dv-2",
+		}
+		expected := []velero.ResourceIdentifier{dvResource1, dvPVCResource1, dvResource2, dvPVCResource2}
+		assert.ElementsMatch(t, expected, extra, "extra contains unexpected items")
 
-		dvs := output.AdditionalItems
-		assert.Equal(t, 2, len(dvs))
-		assert.Equal(t, "test-dv-1", dvs[0].Name)
-		assert.Equal(t, "test-dv-2", dvs[1].Name)
 	})
 }
