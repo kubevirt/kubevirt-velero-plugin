@@ -4,4 +4,4 @@ metadata:
   name: test-vm-preference
 spec:
   cpu:
-    preferredCPUTopology: "preferSockets"
+    preferredCPUTopology: "sockets"
