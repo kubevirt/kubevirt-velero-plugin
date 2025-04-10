@@ -54,7 +54,7 @@ Plugin versions and respective Velero/Kubevirt/CDI versions that are tested to b
 
 ## Install
 
-To install the plugin check current velero documentation https://velero.io/docs/v1.7/overview-plugins/.
+To install the plugin check current velero documentation https://velero.io/docs/v1.14/overview-plugins/.
 Below example for kubevirt-velero-plugin version v0.2.0 on Velero 1.7.0
 
 ```bash
