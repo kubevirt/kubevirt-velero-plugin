@@ -25,6 +25,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "kubevirt.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	
 )
 
 // NewObjectRestoreGraph returns the restore object graph for the passed item
@@ -66,3 +68,11 @@ func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) ([]velero.ResourceIden
 func NewVirtualMachineInstanceRestoreGraph(vmi *v1.VirtualMachineInstance) ([]velero.ResourceIdentifier, error) {
 	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetName(), vmi.GetNamespace(), false, []velero.ResourceIdentifier{})
 }
+
+// NewVirtualMachineRestoreGraph returns the restore object graph for a specific VM
+func NewPVCRestoreGraph(pvc corev1.PersistentVolumeClaim) ([]velero.ResourceIdentifier, error) {
+	var resources []velero.ResourceIdentifier
+	return addPVCGraph(pvc, resources)
+
+}
+
