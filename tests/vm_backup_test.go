@@ -488,11 +488,15 @@ var _ = Describe("[smoke] VM Backup", func() {
 				Eventually(func(g Gomega) {
 					vm, err = f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-					g.Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
-					_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+					g.Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+					g.Expect(vm.Status.InstancetypeRef.ControllerRevisionRef).ToNot(BeNil())
+					g.Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(BeEmpty())
+					g.Expect(vm.Status.PreferenceRef).ToNot(BeNil())
+					g.Expect(vm.Status.PreferenceRef.ControllerRevisionRef).ToNot(BeNil())
+					g.Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(BeEmpty())
+					_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 					g.Expect(err).ToNot(HaveOccurred())
-					_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+					_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 					g.Expect(err).ToNot(HaveOccurred())
 				}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
@@ -501,10 +505,10 @@ var _ = Describe("[smoke] VM Backup", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Fetching copies of the original ControllerRevisions")
-				itControllerRevision, err := f.KvClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+				itControllerRevision, err := f.KvClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				pControllerRevision, err := f.KvClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+				pControllerRevision, err := f.KvClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Mutating the existing instance type and preference objects")
@@ -523,11 +527,11 @@ var _ = Describe("[smoke] VM Backup", func() {
 
 				// Wait until ControllerRevision is deleted
 				Eventually(func(g Gomega) metav1.StatusReason {
-					_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+					_, err := f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 					if err != nil && errors.ReasonForError(err) != metav1.StatusReasonNotFound {
 						return errors.ReasonForError(err)
 					}
-					_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+					_, err = f.KvClient.AppsV1().ControllerRevisions(f.Namespace.Name).Get(context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 					return errors.ReasonForError(err)
 				}, 2*time.Minute, 2*time.Second).Should(Equal(metav1.StatusReasonNotFound))
 
@@ -544,6 +548,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(itControllerRevision.Name))
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(pControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(itControllerRevision.Name))
+				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(pControllerRevision.Name))
 
 				By("Ensuring the restored VMI is using the same vCPU and memory configuration as the original")
 				restoredVMI, err := f.KvClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
