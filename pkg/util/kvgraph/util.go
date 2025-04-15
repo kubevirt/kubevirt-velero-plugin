@@ -61,20 +61,18 @@ func addVeleroResource(name, namespace, resource string, resources []velero.Reso
 	return resources
 }
 
-func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespace string, isBackup bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
-	resources, err := addVolumeGraph(spec, vmName, namespace, isBackup, resources)
+func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	resources, err := addVolumeGraph(spec, vmName, namespace, resources)
 	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
 	return resources, err
 }
 
-func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, isBackup bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
 	for _, volume := range vmiSpec.Volumes {
 		switch {
 		case volume.DataVolume != nil:
 			resources = addVeleroResource(volume.DataVolume.Name, namespace, "datavolumes", resources)
-			if isBackup {
-				resources = addVeleroResource(volume.DataVolume.Name, namespace, "persistentvolumeclaims", resources)
-			}
+			resources = addVeleroResource(volume.DataVolume.Name, namespace, "persistentvolumeclaims", resources)
 		case volume.PersistentVolumeClaim != nil:
 			resources = addVeleroResource(volume.PersistentVolumeClaim.ClaimName, namespace, "persistentvolumeclaims", resources)
 		case volume.MemoryDump != nil:

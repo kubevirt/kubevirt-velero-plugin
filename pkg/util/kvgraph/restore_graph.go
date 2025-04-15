@@ -59,10 +59,10 @@ func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) ([]velero.ResourceIden
 	if vm.Spec.Preference != nil {
 		resources = addPreferenceType(*vm.Spec.Preference, vm.GetNamespace(), resources)
 	}
-	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetName(), vm.GetNamespace(), false, resources)
+	return addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetName(), vm.GetNamespace(), resources)
 }
 
 // NewVirtualMachineInstanceRestoreGraph returns the restore object graph for a specific VMI
 func NewVirtualMachineInstanceRestoreGraph(vmi *v1.VirtualMachineInstance) ([]velero.ResourceIdentifier, error) {
-	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetName(), vmi.GetNamespace(), false, []velero.ResourceIdentifier{})
+	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetName(), vmi.GetNamespace(), []velero.ResourceIdentifier{})
 }

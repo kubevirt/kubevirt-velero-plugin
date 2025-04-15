@@ -141,8 +141,10 @@ func TestVmRestoreExecute(t *testing.T) {
 		output, _ := action.Execute(&input)
 
 		dvs := output.AdditionalItems
-		assert.Equal(t, 2, len(dvs))
+		assert.Equal(t, 4, len(dvs))
 		assert.Equal(t, "test-dv-1", dvs[0].Name)
-		assert.Equal(t, "test-dv-2", dvs[1].Name)
+		assert.Equal(t, "test-dv-1", dvs[1].Name)
+		assert.Equal(t, "test-dv-2", dvs[2].Name)
+		assert.Equal(t, "test-dv-2", dvs[3].Name)
 	})
 }
