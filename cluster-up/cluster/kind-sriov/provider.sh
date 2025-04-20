@@ -21,9 +21,11 @@ function print_available_nics() {
 }
 
 function set_kind_params() {
-    export KIND_VERSION="${KIND_VERSION:-0.18.0}"
-    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.27.1@sha256:9915f5629ef4d29f35b478e819249e89cfaffcbfeebda4324e5c01d53d937b09}"
-    export KUBECTL_PATH="${KUBECTL_PATH:-/bin/kubectl}"
+    version=$(cat "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/version")
+    export KIND_VERSION="${KIND_VERSION:-$version}"
+
+    image=$(cat "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/image")
+    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-$image}"
 }
 
 function print_sriov_data() {
@@ -60,6 +62,7 @@ function deploy_sriov() {
 function up() {
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
     export CONFIG_WORKER_CPU_MANAGER=true
+    export CONFIG_TOPOLOGY_MANAGER_POLICY="single-numa-node"
     kind_up
 
     configure_registry_proxy
