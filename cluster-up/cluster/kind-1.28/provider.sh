@@ -14,9 +14,11 @@ else
 fi
 
 function set_kind_params() {
-    export KIND_VERSION="${KIND_VERSION:-0.20.0}"
-    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.28.0@sha256:b7a4cad12c197af3ba43202d3efe03246b3f0793f162afb40a33c923952d5b31}"
-    export KUBECTL_PATH="${KUBECTL_PATH:-/usr/bin/kubectl}"
+    version=$(cat "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/version")
+    export KIND_VERSION="${KIND_VERSION:-$version}"
+
+    image=$(cat "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/image")
+    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-$image}"
 }
 
 function configure_registry_proxy() {
@@ -35,6 +37,7 @@ function up() {
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
     _add_kubeadm_cpu_manager_config_patch
     _add_extra_mounts
+    _add_extra_portmapping
     export CONFIG_WORKER_CPU_MANAGER=true
     kind_up
 

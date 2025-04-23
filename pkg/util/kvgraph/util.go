@@ -114,27 +114,34 @@ func addLauncherPod(vmiName, vmiNamespace string, resources []velero.ResourceIde
 	return addVeleroResource(pod.GetName(), vmiNamespace, "pods", resources), nil
 }
 
-func addInstanceType(instanceType v1.InstancetypeMatcher, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	instanceKind := strings.ToLower(instanceType.Kind)
-	switch instanceKind {
-	case "virtualmachineclusterinstancetype":
-		resources = addVeleroResource(instanceType.Name, "", instanceKind, resources)
-	case "virtualmachineinstancetype":
-		resources = addVeleroResource(instanceType.Name, namespace, instanceKind, resources)
+func addInstanceType(vm *v1.VirtualMachine, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	if vm.Spec.Instancetype != nil {
+		return addInstanceTypeMatcherResource(vm.Spec.Instancetype, vm.Status.InstancetypeRef, vm.GetNamespace(), resources)
 	}
-	resources = addVeleroResource(instanceType.RevisionName, namespace, "controllerrevisions", resources)
 	return resources
 }
 
-func addPreferenceType(preference v1.PreferenceMatcher, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	preferenceKind := strings.ToLower(preference.Kind)
-	switch preferenceKind {
-	case "virtualmachineclusterpreference":
-		resources = addVeleroResource(preference.Name, "", preferenceKind, resources)
-	case "virtualmachinepreference":
-		resources = addVeleroResource(preference.Name, namespace, preferenceKind, resources)
+func addPreference(vm *v1.VirtualMachine, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	if vm.Spec.Preference != nil {
+		return addInstanceTypeMatcherResource(vm.Spec.Preference, vm.Status.PreferenceRef, vm.GetNamespace(), resources)
 	}
-	resources = addVeleroResource(preference.RevisionName, namespace, "controllerrevisions", resources)
+	return resources
+}
+
+func addInstanceTypeMatcherResource(matcher v1.Matcher, statusRef *v1.InstancetypeStatusRef, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	switch kind := strings.ToLower(matcher.GetKind()); kind {
+	case "virtualmachineclusterinstancetype", "virtualmachineclusterpreference":
+		resources = addVeleroResource(matcher.GetName(), "", kind, resources)
+	case "virtualmachineinstancetype", "virtualmachinepreference":
+		resources = addVeleroResource(matcher.GetName(), namespace, kind, resources)
+	}
+	if statusRef != nil && statusRef.ControllerRevisionRef != nil {
+		resources = addVeleroResource(statusRef.ControllerRevisionRef.Name, namespace, "controllerrevisions", resources)
+	}
+	// Handle cases where the VM Status hasn't been populated yet by falling back to any spec provided RevisionName
+	if statusRef == nil && matcher.GetRevisionName() != "" {
+		resources = addVeleroResource(matcher.GetRevisionName(), namespace, "controllerrevisions", resources)
+	}
 	return resources
 }
 
