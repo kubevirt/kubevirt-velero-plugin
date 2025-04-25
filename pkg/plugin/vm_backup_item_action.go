@@ -103,6 +103,15 @@ func (p *VMBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Backu
 		return nil, nil, errors.WithStack(err)
 	}
 
+	// By default velero will remove the status field of an object before restore:
+	//
+	// https://velero.io/docs/main/restore-reference/#restore-status-field-of-objects
+	//
+	// To workaround this we need to copy references to instance type and
+	// preference controller revisions from the status of the original
+	// VirtualMachine into the core spec of the backed up VirtualMachine. These
+	// values are then repopulated into the status of the restored VirtualMachine
+	// by the VM controller allowing future velero backups to work as expected.
 	if vm.Spec.Instancetype != nil && vm.Status.InstancetypeRef != nil && vm.Status.InstancetypeRef.ControllerRevisionRef != nil {
 		vm.Spec.Instancetype.RevisionName = vm.Status.InstancetypeRef.ControllerRevisionRef.Name
 	}
