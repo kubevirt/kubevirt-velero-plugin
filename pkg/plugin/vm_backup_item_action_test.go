@@ -536,7 +536,7 @@ func TestVMBackupAction(t *testing.T) {
 			false,
 			[]velero.ResourceIdentifier{
 				{
-					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"},
 					Namespace:     testNamespace,
 					Name:          "test-instancetype",
 				},
@@ -546,7 +546,7 @@ func TestVMBackupAction(t *testing.T) {
 					Name:          "test-revision1",
 				},
 				{
-					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"},
 					Namespace:     testNamespace,
 					Name:          "test-preference",
 				},

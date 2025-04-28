@@ -222,7 +222,7 @@ func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 			getVM(true, true),
 			[]velero.ResourceIdentifier{
 				{
-					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetype"},
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"},
 					Namespace:     "",
 					Name:          "test-instancetype",
 				},
@@ -232,7 +232,7 @@ func TestNewVirtualMachineRestoreGraph(t *testing.T) {
 					Name:          "controller-revision-instancetype",
 				},
 				{
-					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreference"},
+					GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"},
 					Namespace:     "",
 					Name:          "test-preference",
 				},
