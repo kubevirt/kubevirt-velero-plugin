@@ -1,0 +1,54 @@
+This release follows v0.7.0 and consists of 28 changes, contributed by
+11 people, leading to 3769 files changed, 310333 insertions(+), 119014 deletions(-).
+
+The source code and selected binaries are available for download at:
+<https://github.com/kubevirt/kubevirt-velero-plugin/releases/tag/v0.8.0>.
+
+Pre-built kubevirt-velero-plugin container is published on Quay.io and can be viewed at:
+<https://quay.io/repository/kubevirt/kubevirt-velero-plugin/>
+
+
+Notable changes
+---------------
+
+v0.8.0
+Bump github.com/vmware-tanzu/velero from 1.14.0 to 1.16.0 (#355)
+Use `vm.Status.{Instancetype,Preference}Ref` to backup and restore instance type related ControllerRevisions (#333)
+Do not skip PVC when building VMIs resources graph (#349)
+VM Object graph: Include backend PVC (#321)
+Generate new firmware UUID during restore (#317)
+MAC address cleanup (#304)
+Allow switching VM power state during restore  (#306)
+Remove usage of deprecated .spec.running field (#305)
+Fix report of velero restores (#295)
+Ignore VMIs from backup when owner VMs are excluded (#273)
+Implement KVGraph package to allow retrieving a defined list of vm-related objects (#260)
+Support VirtualMachineClusterInstancetype and VirtualMachineClusterPreference (#261)
+Pod-restore: skip restoring hotplug pod (#262)
+
+
+Contributors
+------------
+
+11 people contributed to this release:
+
+         9	alromeros <alromero@redhat.com>
+         5	Shelly Kagan <skagan@redhat.com>
+         4	dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
+         3	Lee Yarwood <lyarwood@redhat.com>
+         1	Amos Mastbaum <68001528+amastbau@users.noreply.github.com>
+         1	Michael Henriksen <mhenriks@redhat.com>
+         1	Nestor Acuna Blanco <37973744+nestoracunablanco@users.noreply.github.com>
+         1	RamLavi <ralavi@redhat.com>
+         1	Scott Seago <sseago@redhat.com>
+         1	Shubham Pampattiwar <shubhampampattiwar7@gmail.com>
+         1	Tiger Kaovilai <passawit.kaovilai@gmail.com>
+
+Additional Resources
+--------------------
+- Mailing list: <https://groups.google.com/forum/#!forum/kubevirt-dev>
+- [How to contribute][contributing]
+- [License][license]
+
+[contributing]: https://github.com/kubevirtkubevirt-velero-plugin/blob/main/hack/README.md
+[license]: https://github.com/kubevirt/kubevirt-velero-plugin/blob/main/LICENSE
