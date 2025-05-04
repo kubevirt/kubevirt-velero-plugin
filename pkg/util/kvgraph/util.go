@@ -83,6 +83,20 @@ func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace str
 			resources = addVeleroResource(volume.Secret.SecretName, namespace, "secrets", resources)
 		case volume.ServiceAccount != nil:
 			resources = addVeleroResource(volume.ServiceAccount.ServiceAccountName, namespace, "serviceaccounts", resources)
+		case volume.CloudInitNoCloud != nil:
+			if volume.CloudInitNoCloud.UserDataSecretRef != nil {
+				resources = addVeleroResource(volume.CloudInitNoCloud.UserDataSecretRef.Name, namespace, "secrets", resources)
+			}
+			if volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				resources = addVeleroResource(volume.CloudInitNoCloud.NetworkDataSecretRef.Name, namespace, "secrets", resources)
+			}
+		case volume.CloudInitConfigDrive != nil:
+			if volume.CloudInitConfigDrive.UserDataSecretRef != nil {
+				resources = addVeleroResource(volume.CloudInitConfigDrive.UserDataSecretRef.Name, namespace, "secrets", resources)
+			}
+			if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				resources = addVeleroResource(volume.CloudInitConfigDrive.NetworkDataSecretRef.Name, namespace, "secrets", resources)
+			}
 		}
 	}
 	// Returning full backup even if there was an error retrieving the backend PVC.
