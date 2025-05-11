@@ -21,7 +21,6 @@ package kvgraph
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
@@ -36,18 +35,14 @@ const (
 
 // KVObjectGraph represents the graph of objects that can be potentially related to a KubeVirt resource
 var KVObjectGraph = map[string]schema.GroupResource{
-	"virtualmachineinstances":            {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-	"virtualmachineinstancetypes":        {Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"},
-	"virtualmachineclusterinstancetypes": {Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterinstancetypes"},
-	"virtualmachinepreferences":          {Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"},
-	"virtualmachineclusterpreferences":   {Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterpreferences"},
-	"datavolumes":                        {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-	"controllerrevisions":                {Group: "apps", Resource: "controllerrevisions"},
-	"configmaps":                         {Group: "", Resource: "configmaps"},
-	"persistentvolumeclaims":             kuberesource.PersistentVolumeClaims,
-	"serviceaccounts":                    kuberesource.ServiceAccounts,
-	"secrets":                            kuberesource.Secrets,
-	"pods":                               kuberesource.Pods,
+	"virtualmachineinstances": {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
+	"datavolumes":             {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+	"controllerrevisions":     {Group: "apps", Resource: "controllerrevisions"},
+	"configmaps":              {Group: "", Resource: "configmaps"},
+	"persistentvolumeclaims":  kuberesource.PersistentVolumeClaims,
+	"serviceaccounts":         kuberesource.ServiceAccounts,
+	"secrets":                 kuberesource.Secrets,
+	"pods":                    kuberesource.Pods,
 }
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
@@ -143,12 +138,6 @@ func addPreference(vm *v1.VirtualMachine, resources []velero.ResourceIdentifier)
 }
 
 func addInstanceTypeMatcherResource(matcher v1.Matcher, statusRef *v1.InstancetypeStatusRef, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	switch resource := strings.ToLower(matcher.GetKind()) + "s"; resource {
-	case "virtualmachineclusterinstancetypes", "virtualmachineclusterpreferences":
-		resources = addVeleroResource(matcher.GetName(), "", resource, resources)
-	case "virtualmachineinstancetypes", "virtualmachinepreferences":
-		resources = addVeleroResource(matcher.GetName(), namespace, resource, resources)
-	}
 	if statusRef != nil && statusRef.ControllerRevisionRef != nil {
 		resources = addVeleroResource(statusRef.ControllerRevisionRef.Name, namespace, "controllerrevisions", resources)
 	}
