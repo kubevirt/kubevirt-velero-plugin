@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	k8sv1 "k8s.io/api/core/v1"
@@ -392,7 +393,7 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 		for _, status := range statuses {
 			if vm.Status.PrintableStatus == status {
 				ginkgo.By(fmt.Sprintf(" got %s", status))
-
+				time.Sleep(5*time.Second)
 				return true, nil
 			}
 		}
