@@ -758,8 +758,8 @@ k8s.io/utils v0.0.0-20240711033017-18e509b52bc8 h1:pUdcCO1Lk/tbT5ztQWOBi5HBgbBP1
 k8s.io/utils v0.0.0-20240711033017-18e509b52bc8/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 kubevirt.io/api v1.5.0 h1:3wjUf+xYZk6OThkHqDNI+AnvO5x4aPdyIkJT0xHJ2a0=
 kubevirt.io/api v1.5.0/go.mod h1:B6OBbPKntPHOOtoxyRk5YKJHekWWOiwZDb2XncitcJ0=
-kubevirt.io/client-go v1.5.0 h1:3ILatYDJYEYL7yUe1SIirxrXG2hsmEwYFItBXAxVkAc=
-kubevirt.io/client-go v1.5.0/go.mod h1:BXdCWW7yFOYerojVMJrwI62SH1nO/+XD7f1Hrbil5fA=
+kubevirt.io/client-go v1.5.2 h1:r6RSIFtlHEGioJH0ce763j3fSUozYwvDi1mbWqUku/Y=
+kubevirt.io/client-go v1.5.2/go.mod h1:NW3BDPkkR+aHwTw5uvJYAKR5j3ndvfdLBzQI0sEzp3U=
 kubevirt.io/containerized-data-importer-api v1.62.0 h1:gu8s/H1qJ40xpFH+B4Hr1X6W22IbzazOXHvRAUwrESw=
 kubevirt.io/containerized-data-importer-api v1.62.0/go.mod h1:VGp35wxpLXU18b7cnEpmcThI3AjcZUSfg/Zfql44U4o=
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 h1:QMrd0nKP0BGbnxTqakhDZAUhGKxPiPiN5gSDqKUmGGc=
@@ -777,8 +777,9 @@ sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h6
 sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK1F7G282QMXDPYydCw=
 sigs.k8s.io/structured-merge-diff/v4 v4.2.1/go.mod h1:j/nl6xW8vLS49O8YvXW1ocPhZawJtm+Yrr7PPRQ0Vg4=
 sigs.k8s.io/structured-merge-diff/v4 v4.2.3/go.mod h1:qjx8mGObPmV2aSZepjQjbmb2ihdVs8cGKBraizNC69E=
-sigs.k8s.io/structured-merge-diff/v4 v4.4.1 h1:150L+0vs/8DA78h1u02ooW1/fFq/Lwr+sGiqlzvrtq4=
 sigs.k8s.io/structured-merge-diff/v4 v4.4.1/go.mod h1:N8hJocpFajUSSeSJ9bOZ77VzejKZaXsTtZo4/u7Io08=
+sigs.k8s.io/structured-merge-diff/v4 v4.4.3 h1:sCP7Vv3xx/CWIuTPVN38lUPx0uw0lcLfzaiDa8Ja01A=
+sigs.k8s.io/structured-merge-diff/v4 v4.4.3/go.mod h1:N8f93tFZh9U6vpxwRArLiikrE5/2tiu1w1AGfACIGE4=
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
 sigs.k8s.io/yaml v1.3.0/go.mod h1:GeOyir5tyXNByN85N/dRIT9es5UQNerPYEKK56eTBm8=

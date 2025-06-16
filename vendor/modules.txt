@@ -1011,7 +1011,7 @@ kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
 kubevirt.io/api/snapshot/v1beta1
-# kubevirt.io/client-go v1.5.0
+# kubevirt.io/client-go v1.5.2
 ## explicit; go 1.22.0
 kubevirt.io/client-go/containerizeddataimporter
 kubevirt.io/client-go/containerizeddataimporter/scheme
@@ -1101,7 +1101,7 @@ sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
 ## explicit; go 1.18
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/structured-merge-diff/v4 v4.4.1
+# sigs.k8s.io/structured-merge-diff/v4 v4.4.3
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/merge
