@@ -5,4 +5,5 @@ velero-v*
 .go
 .idea
 .cache
+.config
 _ci-configs
