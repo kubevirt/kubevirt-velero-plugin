@@ -245,7 +245,7 @@ func CreateVirtualMachineFromDefinition(client kubecli.KubevirtClient, namespace
 }
 
 func CreateStartedVirtualMachine(client kubecli.KubevirtClient, namespace string, vmSpec *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	vm, err := CreateVirtualMachineFromDefinition(client, namespace, vmSpec)
+	_, err := CreateVirtualMachineFromDefinition(client, namespace, vmSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -256,9 +256,7 @@ func CreateStartedVirtualMachine(client kubecli.KubevirtClient, namespace string
 		return nil, err
 	}
 
-	vm, err = WaitVirtualMachineRunning(client, namespace, vmSpec.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
-
-	return vm, nil
+	return WaitVirtualMachineRunning(client, namespace, vmSpec.Name, vmSpec.Spec.DataVolumeTemplates[0].Name)
 }
 
 func WaitVirtualMachineRunning(client kubecli.KubevirtClient, namespace, vmName, dvName string) (*v1.VirtualMachine, error) {
