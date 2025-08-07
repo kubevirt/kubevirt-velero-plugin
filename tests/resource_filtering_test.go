@@ -2852,7 +2852,7 @@ var _ = Describe("Resource excludes", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:10251]Negative: VM+VMI+Pod included should fail if VM is paused", func() {
+			It("[test_id:10251]VM+VMI+Pod included should succeed if VM is paused", func() {
 				By("Creating VirtualMachines")
 				vmSpec := framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
 				vmIncluded, err := framework.CreateVirtualMachineFromDefinition(f.KvClient, f.Namespace.Name, vmSpec)
@@ -2877,7 +2877,7 @@ var _ = Describe("Resource excludes", func() {
 				By("Creating backup")
 				err = framework.CreateBackupForNamespace(timeout, backupName, f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
 				Expect(err).ToNot(HaveOccurred())
-				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhasePartiallyFailed)
+				err = framework.WaitForBackupPhase(timeout, backupName, f.BackupNamespace, velerov1api.BackupPhaseCompleted)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting VMs")
