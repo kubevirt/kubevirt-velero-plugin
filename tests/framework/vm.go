@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	alpineUrl               = "docker://quay.io/kubevirt/alpine-container-disk-demo:v0.57.1"
+	alpineUrl               = "docker://quay.io/kubevirt/alpine-container-disk-demo:v1.6.0"
 	alpineWithGuestAgentUrl = "docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1"
-	fedoraWithGuestAgentUrl = "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk"
+	fedoraWithGuestAgentUrl = "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk:v1.6.0"
 )
 
 // DISKS for VMS
