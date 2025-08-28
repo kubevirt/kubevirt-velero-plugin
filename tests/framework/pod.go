@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	busyboxImage = "quay.io/quay/busybox:latest"
+	busyboxImage = "quay.io/prometheus/busybox:latest"
 )
 
 func PodWithPvcSpec(podName, pvcName string, cmd, args []string) *v1.Pod {
