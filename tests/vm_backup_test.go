@@ -60,9 +60,11 @@ var _ = Describe("[smoke] VM Backup", func() {
 			}
 		}
 
-		err := framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
-		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+		if vm != nil {
+			err := framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Err: %s\n", err)
+			}
 		}
 
 		cancelFunc()
