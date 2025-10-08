@@ -96,3 +96,4 @@ func (p *VolumeSnapshotRestoreItemAction) Execute(input *velero.RestoreItemActio
 	}
 	return velero.NewRestoreItemActionExecuteOutput(&unstructured.Unstructured{Object: item}), nil
 }
+

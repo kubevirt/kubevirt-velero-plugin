@@ -379,3 +379,4 @@ func GenerateNewFirmwareUUID(vmiSpec *kvv1.VirtualMachineInstanceSpec, name, nam
 	}
 	vmiSpec.Domain.Firmware.UUID = types.UID(uuid.New().String())
 }
+

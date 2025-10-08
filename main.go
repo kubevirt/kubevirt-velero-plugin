@@ -98,3 +98,4 @@ func newVolumeSnapshotRestoreItemAction(logger logrus.FieldLogger) (interface{},
 	logger.Debug("Creating VolumeSnapshotRestoreItemAction")
 	return plugin.NewVolumeSnapshotRestoreItemAction(logger), nil
 }
+

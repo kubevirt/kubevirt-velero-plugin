@@ -88,9 +88,10 @@ func (p *VolumeSnapshotBackupItemAction) Execute(item runtime.Unstructured, back
 		return nil, nil, errors.WithStack(err)
 	}
 
+  extra := []velero.ResourceIdentifier{}
+
 	// Check if the VolumeSnapshot has a source PVC
 	if volumeSnapshot.Spec.Source.PersistentVolumeClaimName == nil {
-		extra := []velero.ResourceIdentifier{}
 		return item, extra, nil
 	}
 
@@ -103,7 +104,6 @@ func (p *VolumeSnapshotBackupItemAction) Execute(item runtime.Unstructured, back
 	}
 
 	if pvcUID == "" {
-		extra := []velero.ResourceIdentifier{}
 		return item, extra, nil
 	}
 
@@ -133,7 +133,6 @@ func (p *VolumeSnapshotBackupItemAction) Execute(item runtime.Unstructured, back
 		return nil, nil, errors.WithStack(err)
 	}
 
-	extra := []velero.ResourceIdentifier{}
 	return &unstructured.Unstructured{Object: vsMap}, extra, nil
 }
 
@@ -173,3 +172,4 @@ func (p *VolumeSnapshotBackupItemAction) getPVCUID(namespace, pvcName string) (s
 
 	return "", fmt.Errorf("PVC %s not found in namespace %s", pvcName, namespace)
 }
+

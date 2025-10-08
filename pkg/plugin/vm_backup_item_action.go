@@ -188,3 +188,4 @@ func volumeInDVTemplates(volume kvcore.Volume, vm *kvcore.VirtualMachine) bool {
 
 	return false
 }
+
