@@ -95,6 +95,41 @@ func (f *Framework) RunRestoreScript(ctx context.Context, backupName, restoreNam
 	return nil
 }
 
+// RunRestoreScriptWithLabelSelector runs the configured backup-restore script with a label selector.
+// The script will run with appropriate args and verify backup completed successfully
+// if script flag was not define, we will run veleroCLI instead
+func (f *Framework) RunRestoreScriptWithLabelSelector(ctx context.Context, backupName, restoreName string, backupNamespace, labelSelector string) error {
+	if f.BackupScript.BackupScript == "" {
+		err := CreateRestoreWithLabelSelector(ctx, backupName, restoreName, backupNamespace, labelSelector, true)
+		if err != nil {
+			return err
+		}
+		err = WaitForRestorePhase(ctx, restoreName, backupNamespace, velerov1api.RestorePhaseCompleted)
+		return err
+	}
+	args := []string{
+		"restore", restoreName,
+		"-f", backupName,
+		"-n", backupNamespace,
+		"-v",
+	}
+
+	if labelSelector != "" {
+		args = append(args, "-s", labelSelector)
+	}
+
+	restoreCmd := exec.CommandContext(ctx, f.BackupScript.BackupScript, args...)
+	restoreCmd.Stdout = os.Stdout
+	restoreCmd.Stderr = os.Stderr
+	ginkgo.By(fmt.Sprintf("restore cmd =%v\n", restoreCmd))
+	err := restoreCmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // RunDeleteBackupScript runs the configured backup-restore script.
 // The script will run with appropriate args and verify backup completed successfully
 // if script flag was not define, we will run veleroCLI instead
