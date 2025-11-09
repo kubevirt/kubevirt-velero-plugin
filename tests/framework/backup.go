@@ -223,6 +223,32 @@ func CreateRestoreForBackup(ctx context.Context, backupName, restoreName, backup
 	return CreateRestoreWithLabels(ctx, backupName, restoreName, backupNamespace, wait, nil)
 }
 
+func CreateRestoreWithLabelSelector(ctx context.Context, backupName, restoreName, backupNamespace, labelSelector string, wait bool) error {
+	args := []string{
+		"restore", "create", restoreName,
+		"--from-backup", backupName,
+		"--namespace", backupNamespace,
+	}
+
+	if wait {
+		args = append(args, "--wait")
+	}
+	if labelSelector != "" {
+		args = append(args, "--selector", labelSelector)
+	}
+
+	restoreCmd := exec.CommandContext(ctx, veleroCLI, args...)
+	restoreCmd.Stdout = os.Stdout
+	restoreCmd.Stderr = os.Stderr
+	ginkgo.By(fmt.Sprintf("restore cmd =%v\n", restoreCmd))
+	err := restoreCmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CreateRestoreWithClearedMACAddress(ctx context.Context, backupName, restoreName, backupNamespace string, wait bool) error {
 	return CreateRestoreWithLabels(ctx, backupName, restoreName, backupNamespace, wait, map[string]string{"velero.kubevirt.io/clear-mac-address": "true"})
 }
