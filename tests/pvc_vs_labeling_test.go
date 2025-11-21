@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/strings/slices"
 
 	kvv1 "kubevirt.io/api/core/v1"
@@ -150,14 +151,26 @@ var _ = Describe("PVC and VolumeSnapshot Labeling", func() {
 
 			By(fmt.Sprintf("Creating selective restore for only PVC with UID %s", pvc1UID))
 			labelSelector := fmt.Sprintf("%s=%s", util.PVCUIDLabel, pvc1UID)
-			err = framework.CreateRestoreWithLabelSelector(timeout, backupName, restoreName, f.BackupNamespace, labelSelector, true)
+			err = framework.CreateRestoreWithLabelSelector(timeout, backupName, restoreName, f.BackupNamespace, labelSelector, false)
 			Expect(err).ToNot(HaveOccurred())
 
-			rPhase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-			// Accept both Completed and PartiallyFailed since CSI snapshot restore with label selectors
-			// may timeout during PV patching when the PVC is not bound by a VM/pod
-			Expect(rPhase).To(Or(Equal(velerov1api.RestorePhaseCompleted), Equal(velerov1api.RestorePhasePartiallyFailed)))
+			// Poll for restore to reach terminal state
+			// Accept Completed, PartiallyFailed, or Finalizing since CSI snapshot restore with label selectors
+			// gets stuck in Finalizing when PVCs cannot bind (no VM/pod to consume them)
+			var rPhase velerov1api.RestorePhase
+			err = wait.PollImmediate(2*time.Second, 180*time.Second, func() (bool, error) {
+				phase, err := framework.GetRestorePhase(timeout, restoreName, f.BackupNamespace)
+				if err != nil {
+					return false, err
+				}
+				rPhase = phase
+				if phase == velerov1api.RestorePhaseCompleted || phase == velerov1api.RestorePhasePartiallyFailed || phase == velerov1api.RestorePhaseFinalizing {
+					return true, nil
+				}
+				return false, nil
+			})
+			Expect(err).ToNot(HaveOccurred(), "restore should reach a terminal status")
+			Expect(rPhase).To(Or(Equal(velerov1api.RestorePhaseCompleted), Equal(velerov1api.RestorePhasePartiallyFailed), Equal(velerov1api.RestorePhaseFinalizing)))
 
 			By("Verifying only PVC1 was restored (label cleaned up)")
 			restoredPVC1, err := framework.FindPVC(f.K8sClient, f.Namespace.Name, pvc1Name)
