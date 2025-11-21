@@ -39,6 +39,7 @@ usage() {
   echo "    Options:"
   echo "      -n <namespace>             Namespace in which the backup resides (default: velero)"
   echo "      -f <from-backup>           Backup to restore from"
+  echo "      -s <selector>              Label selector for resources to restore"
   echo "      -v                         Verify restore completion"
   exit 1
 }
@@ -164,16 +165,20 @@ restore_backup() {
   shift
   local namespace="velero"
   local from_backup=""
+  local selector=""
   local verify=false
 
   # Parse command options
-  while getopts "n:f:v" opt; do
+  while getopts "n:f:s:v" opt; do
     case $opt in
       n)
         namespace=$OPTARG
         ;;
       f)
         from_backup=$OPTARG
+        ;;
+      s)
+        selector=$OPTARG
         ;;
       v)
         verify=true
@@ -197,6 +202,11 @@ restore_backup() {
   fi
 
   local restore_cmd="$VELERO_CLI restore create $restore_name --from-backup $from_backup --namespace $namespace --wait"
+
+  if [ -n "$selector" ]; then
+    restore_cmd="$restore_cmd --selector $selector"
+  fi
+
   echo "Running restore: $restore_cmd"
   $restore_cmd
 
