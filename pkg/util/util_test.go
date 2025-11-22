@@ -456,3 +456,4 @@ func TestIsMacAddressCleared(t *testing.T) {
 		})
 	}
 }
+

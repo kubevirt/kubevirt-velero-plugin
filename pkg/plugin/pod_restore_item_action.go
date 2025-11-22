@@ -56,3 +56,4 @@ func (p *PodRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) 
 
 	return velero.NewRestoreItemActionExecuteOutput(input.Item).WithoutRestore(), nil
 }
+

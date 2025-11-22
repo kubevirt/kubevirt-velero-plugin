@@ -33,7 +33,7 @@ function wait_plugin_available {
                     plugin get | grep kubevirt-velero | wc -l)
 
     wait_time=0
-    expected_actions="14"
+    expected_actions="20"
     while [[ $available != $expected_actions ]] && [[ $wait_time -lt 60 ]]; do
       wait_time=$((wait_time + 5))
       sleep 5
@@ -43,7 +43,7 @@ function wait_plugin_available {
     done
 
     if [ $available != $expected_actions ]; then
-        echo "Expected $expected_actions actions for kubevirt-velero-plugin but only $available are avaliable"
+        echo "Expected $expected_actions actions for kubevirt-velero-plugin do not match $available avaliable ones"
         exit 1
     fi
 }

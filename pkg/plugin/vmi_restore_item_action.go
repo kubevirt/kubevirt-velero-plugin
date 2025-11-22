@@ -116,3 +116,4 @@ func removeRestrictedLabels(labels map[string]string) map[string]string {
 	}
 	return labels
 }
+
