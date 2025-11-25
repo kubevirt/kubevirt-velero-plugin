@@ -177,3 +177,4 @@ func (p *VMIBackupItemAction) isPodExcludedByLabel(vmi *kvcore.VirtualMachineIns
 	label, ok := labels[util.VeleroExcludeLabel]
 	return ok && label == "true", nil
 }
+

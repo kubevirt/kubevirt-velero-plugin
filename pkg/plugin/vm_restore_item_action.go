@@ -94,3 +94,4 @@ func (p *VMRestorePlugin) Execute(input *velero.RestoreItemActionExecuteInput) (
 
 	return output, nil
 }
+
