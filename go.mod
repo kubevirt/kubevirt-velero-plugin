@@ -4,6 +4,7 @@ go 1.23.6
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/kubernetes-csi/external-snapshotter/client/v7 v7.0.0
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/pkg/errors v0.9.1
@@ -18,7 +19,7 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	kubevirt.io/api v1.5.0
 	kubevirt.io/client-go v1.5.0
-	kubevirt.io/containerized-data-importer-api v1.62.0
+	kubevirt.io/containerized-data-importer-api v1.64.0
 )
 
 require (
@@ -58,7 +59,6 @@ require (
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0 // indirect
-	github.com/kubernetes-csi/external-snapshotter/client/v7 v7.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
