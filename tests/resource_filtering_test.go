@@ -10,6 +10,7 @@ import (
 	"k8s.io/utils/strings/slices"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
+	"kubevirt.io/kubevirt-velero-plugin/tests/patch"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +18,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kvv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	. "kubevirt.io/kubevirt-velero-plugin/tests/framework/matcher"
@@ -2606,55 +2608,67 @@ var _ = Describe("Resource excludes", func() {
 	})
 
 	Context("Exclude label", func() {
-		addExcludeLabel := func(labels map[string]string) map[string]string {
-			if labels == nil {
-				labels = make(map[string]string)
-			}
-			labels["velero.io/exclude-from-backup"] = "true"
-			return labels
-		}
-
 		addExcludeLabelToDV := func(name string) {
-			updateFunc := func(dataVolume *cdiv1.DataVolume) *cdiv1.DataVolume {
-				dataVolume.SetLabels(addExcludeLabel(dataVolume.GetLabels()))
-				return dataVolume
-			}
+			dv, err := framework.FindDataVolume(f.KvClient, f.Namespace.Name, name)
+			Expect(err).ToNot(HaveOccurred())
 
-			retryOnceOnErr(updateDataVolume(f.KvClient, f.Namespace.Name, name, updateFunc)).Should(BeNil())
+			patchData, err := patch.New(
+				patch.WithAddLabel(velerov1api.ExcludeFromBackupLabel, "true", dv.Labels),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = f.KvClient.CdiClient().CdiV1beta1().DataVolumes(f.Namespace.Name).Patch(context.TODO(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		addExcludeLabelToPVC := func(name string) {
-			update := func(pvc *v1.PersistentVolumeClaim) *v1.PersistentVolumeClaim {
-				pvc.SetLabels(addExcludeLabel(pvc.GetLabels()))
-				return pvc
-			}
-			retryOnceOnErr(updatePvc(f.K8sClient, f.Namespace.Name, name, update)).Should(BeNil())
+			pvc, err := framework.FindPVC(f.K8sClient, f.Namespace.Name, name)
+			Expect(err).ToNot(HaveOccurred())
+
+			patchData, err := patch.New(
+				patch.WithAddLabel(velerov1api.ExcludeFromBackupLabel, "true", pvc.Labels),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = f.K8sClient.CoreV1().PersistentVolumeClaims(f.Namespace.Name).Patch(context.TODO(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		addExcludeLabelToVMI := func(name string) {
-			update := func(vmi *kvv1.VirtualMachineInstance) *kvv1.VirtualMachineInstance {
-				vmi.SetLabels(addExcludeLabel(vmi.GetLabels()))
-				return vmi
-			}
-			retryOnceOnErr(updateVmi(f.KvClient, f.Namespace.Name, name, update)).Should(BeNil())
+			vmi, err := f.KvClient.VirtualMachineInstance(f.Namespace.Name).Get(context.Background(), name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			patchData, err := patch.New(
+				patch.WithAddLabel(velerov1api.ExcludeFromBackupLabel, "true", vmi.Labels),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = f.KvClient.VirtualMachineInstance(f.Namespace.Name).Patch(context.Background(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		addExcludeLabelToVM := func(name string) {
-			update := func(vm *kvv1.VirtualMachine) *kvv1.VirtualMachine {
-				vm.SetLabels(addExcludeLabel(vm.GetLabels()))
-				return vm
-			}
-			retryOnceOnErr(updateVm(f.KvClient, f.Namespace.Name, name, update)).Should(BeNil())
+			vm, err := f.KvClient.VirtualMachine(f.Namespace.Name).Get(context.Background(), name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			patchData, err := patch.New(
+				patch.WithAddLabel(velerov1api.ExcludeFromBackupLabel, "true", vm.Labels),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = f.KvClient.VirtualMachine(f.Namespace.Name).Patch(context.Background(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		addExcludeLabelToLauncherPodForVM := func(vmName string) {
-			retryOnceOnErr(
-				func() error {
-					pod := framework.FindLauncherPod(f.K8sClient, f.Namespace.Name, vmName)
-					pod.SetLabels(addExcludeLabel(pod.GetLabels()))
-					_, err := f.K8sClient.CoreV1().Pods(f.Namespace.Name).Update(context.TODO(), &pod, metav1.UpdateOptions{})
-					return err
-				}).Should(BeNil())
+			pod := framework.FindLauncherPod(f.K8sClient, f.Namespace.Name, vmName)
+			patchData, err := patch.New(
+				patch.WithAddLabel(velerov1api.ExcludeFromBackupLabel, "true", pod.Labels),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = f.K8sClient.CoreV1().Pods(f.Namespace.Name).Patch(context.TODO(), pod.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		Context("Standalone DV", func() {
@@ -3454,70 +3468,6 @@ func addExpectedPVs(client *kubernetes.Clientset, namespace string, resources ma
 		pvs = append(pvs, pvName)
 	}
 	resources["PersistentVolume"] = pvs
-}
-
-func updateVm(kvClient kubecli.KubevirtClient, namespace string, name string,
-	update func(*kvv1.VirtualMachine) *kvv1.VirtualMachine) func() error {
-	return func() error {
-		vm, err := kvClient.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		vm = update(vm)
-
-		_, err = kvClient.VirtualMachine(namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-		return err
-	}
-}
-
-func updateVmi(kvClient kubecli.KubevirtClient, namespace string, name string,
-	update func(*kvv1.VirtualMachineInstance) *kvv1.VirtualMachineInstance) func() error {
-	return func() error {
-		vmi, err := kvClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		vmi = update(vmi)
-
-		_, err = kvClient.VirtualMachineInstance(namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
-		return err
-	}
-}
-
-func updatePvc(client *kubernetes.Clientset, namespace string, name string,
-	update func(*v1.PersistentVolumeClaim) *v1.PersistentVolumeClaim) func() error {
-	return func() error {
-		pvc, err := framework.FindPVC(client, namespace, name)
-		if err != nil {
-			return err
-		}
-		pvc = update(pvc)
-
-		_, err = client.CoreV1().PersistentVolumeClaims(namespace).Update(context.TODO(), pvc, metav1.UpdateOptions{})
-		return err
-	}
-}
-func updateDataVolume(kvClient kubecli.KubevirtClient, namespace string, name string,
-	update func(dataVolume *cdiv1.DataVolume) *cdiv1.DataVolume) func() error {
-	return func() error {
-		dv, err := framework.FindDataVolume(kvClient, namespace, name)
-		if err != nil {
-			return err
-		}
-		dv = update(dv)
-
-		_, err = kvClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Update(context.TODO(), dv, metav1.UpdateOptions{})
-		return err
-	}
-}
-
-func retryOnceOnErr(f func() error) Assertion {
-	err := f()
-	if err != nil {
-		err = f()
-	}
-
-	return Expect(err)
 }
 
 func runPodAndWaitSucceeded(kvClient kubecli.KubevirtClient, namespace string, podSpec *v1.Pod) *v1.Pod {

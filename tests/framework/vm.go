@@ -63,6 +63,7 @@ func NewDataVolumeForBlankRawImage(dataVolumeName, size string, storageClass str
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        dataVolumeName,
 			Annotations: map[string]string{},
+			Labels:      map[string]string{},
 		},
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{

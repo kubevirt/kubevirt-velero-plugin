@@ -25,6 +25,7 @@ import (
 	kv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt-velero-plugin/tests/patch"
 )
 
 const (
@@ -493,12 +494,14 @@ func (r *KubernetesReporter) logVolumeSnapshotContents(kubeCli kubernetes.Interf
 
 func UpdateVMStateStorageClass(kvClient kubecli.KubevirtClient) {
 	kv := GetKubevirt(kvClient)
-	kv.Spec.Configuration.VMStateStorageClass = getStorageClassFromEnv()
+	storageClass := getStorageClassFromEnv()
 
-	data, err := json.Marshal(kv.Spec)
+	patchData, err := patch.New(
+		patch.WithReplace("/spec/configuration/vmStateStorageClass", storageClass),
+	).GeneratePayload()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-	_, err = kvClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
+
+	_, err = kvClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
