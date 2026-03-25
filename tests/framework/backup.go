@@ -325,7 +325,9 @@ func isRestoreTerminal(phase v1.RestorePhase) bool {
 	return phase == v1.RestorePhaseCompleted ||
 		phase == v1.RestorePhasePartiallyFailed ||
 		phase == v1.RestorePhaseFailed ||
-		phase == v1.RestorePhaseFailedValidation
+		phase == v1.RestorePhaseFailedValidation ||
+		phase == v1.RestorePhaseFinalizing ||
+		phase == v1.RestorePhaseFinalizingPartiallyFailed
 }
 
 const restoreWaitTime = 10 * time.Minute
@@ -334,6 +336,9 @@ func waitForRestoreTerminalPhase(ctx context.Context, restoreName, backupNamespa
 	err := wait.PollImmediate(pollInterval, restoreWaitTime, func() (bool, error) {
 		phase, err := GetRestorePhase(ctx, restoreName, backupNamespace)
 		if err != nil {
+			if ctx.Err() != nil {
+				return false, ctx.Err()
+			}
 			ginkgo.By(fmt.Sprintf("Waiting for restore to complete, error fetching phase: %v", err))
 			return false, nil
 		}
