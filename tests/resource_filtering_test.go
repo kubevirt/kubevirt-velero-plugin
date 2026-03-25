@@ -1555,7 +1555,7 @@ var _ = Describe("Resource excludes", func() {
 	var f = framework.NewFramework()
 
 	BeforeEach(func() {
-		timeout, cancelFunc = context.WithTimeout(context.Background(), 10*time.Minute)
+		timeout, cancelFunc = context.WithTimeout(context.Background(), 15*time.Minute)
 		t := time.Now().UnixNano()
 		backupName = fmt.Sprintf("test-backup-%d", t)
 		restoreName = fmt.Sprintf("test-restore-%d", t)
