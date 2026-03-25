@@ -116,17 +116,35 @@ create_backup() {
 verify_backup_completion() {
   local backup_name=$1
   local namespace=$2
-  local get_backup="$VELERO_CLI backup get $backup_name -n $namespace -o json"
-  echo "Running $get_backup"
-  local backup=$($get_backup)
-  local backup_phase=$(echo "$backup" | jq -r '.status.phase')
+  local max_wait=300
+  local interval=5
+  local elapsed=0
 
-  if [ "$backup_phase" != "Completed" ]; then
-    echo "Error: Backup phase is not completed. Current status: $backup_phase"
-    exit 1
-  fi
+  echo "Waiting for backup to reach Completed state..."
 
-  echo "Backup completed successfully."
+  while [ $elapsed -lt $max_wait ]; do
+    local get_backup="$VELERO_CLI backup get $backup_name -n $namespace -o json"
+    local backup=$($get_backup 2>/dev/null)
+    local backup_phase=$(echo "$backup" | jq -r '.status.phase' 2>/dev/null)
+
+    echo "Current backup phase: $backup_phase (elapsed: ${elapsed}s)"
+
+    if [ "$backup_phase" == "Completed" ]; then
+      echo "Backup completed successfully."
+      return 0
+    fi
+
+    if [ "$backup_phase" == "Failed" ] || [ "$backup_phase" == "PartiallyFailed" ]; then
+      echo "Error: Backup reached terminal failure state: $backup_phase"
+      exit 1
+    fi
+
+    sleep $interval
+    elapsed=$((elapsed + interval))
+  done
+
+  echo "Error: Backup did not complete within ${max_wait}s. Last status: $backup_phase"
+  exit 1
 }
 
 # Function to delete backup
@@ -201,15 +219,13 @@ restore_backup() {
     usage
   fi
 
-  # Don't use --wait for selective restores as they can get stuck in Finalizing phase
   if [ -n "$selector" ]; then
     local restore_cmd="$VELERO_CLI restore create $restore_name --from-backup $from_backup --namespace $namespace --selector $selector"
     echo "Running restore: $restore_cmd"
     $restore_cmd
-    # Always verify for selective restores to check if resources are restored
     verify_selective_restore_completion "$restore_name" "$namespace"
   else
-    local restore_cmd="$VELERO_CLI restore create $restore_name --from-backup $from_backup --namespace $namespace --wait"
+    local restore_cmd="$VELERO_CLI restore create $restore_name --from-backup $from_backup --namespace $namespace"
     echo "Running restore: $restore_cmd"
     $restore_cmd
     if $verify; then
@@ -222,18 +238,35 @@ restore_backup() {
 verify_restore_completion() {
   local restore_name=$1
   local namespace=$2
+  local max_wait=300
+  local interval=5
+  local elapsed=0
 
-  local get_restore="$VELERO_CLI restore get $restore_name -n $namespace -o json"
-  echo "Running $get_restore"
-  local restore=$($get_restore)
-  local restore_phase=$(echo "$restore" | jq -r '.status.phase')
+  echo "Waiting for restore to reach Completed state..."
 
-  if [ "$restore_phase" != "Completed" ]; then
-    echo "Error: Restore phase is not completed. Current status: $restore_phase"
-    exit 1
-  fi
+  while [ $elapsed -lt $max_wait ]; do
+    local get_restore="$VELERO_CLI restore get $restore_name -n $namespace -o json"
+    local restore=$($get_restore 2>/dev/null)
+    local restore_phase=$(echo "$restore" | jq -r '.status.phase' 2>/dev/null)
 
-  echo "Restore completed successfully."
+    echo "Current restore phase: $restore_phase (elapsed: ${elapsed}s)"
+
+    if [ "$restore_phase" == "Completed" ]; then
+      echo "Restore completed successfully."
+      return 0
+    fi
+
+    if [ "$restore_phase" == "Failed" ] || [ "$restore_phase" == "PartiallyFailed" ]; then
+      echo "Error: Restore reached terminal failure state: $restore_phase"
+      exit 1
+    fi
+
+    sleep $interval
+    elapsed=$((elapsed + interval))
+  done
+
+  echo "Error: Restore did not complete within ${max_wait}s. Last status: $restore_phase"
+  exit 1
 }
 
 # Function to verify selective restore completion

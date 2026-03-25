@@ -196,9 +196,6 @@ func CreateRestoreWithLabels(ctx context.Context, backupName, restoreName, backu
 		"--namespace", backupNamespace,
 	}
 
-	if wait {
-		args = append(args, "--wait")
-	}
 	if len(labels) > 0 {
 		labelPairs := []string{}
 		for key, value := range labels {
@@ -216,6 +213,10 @@ func CreateRestoreWithLabels(ctx context.Context, backupName, restoreName, backu
 		return err
 	}
 
+	if wait {
+		return waitForRestoreTerminalPhase(ctx, restoreName, backupNamespace)
+	}
+
 	return nil
 }
 
@@ -230,9 +231,6 @@ func CreateRestoreWithLabelSelector(ctx context.Context, backupName, restoreName
 		"--namespace", backupNamespace,
 	}
 
-	if wait {
-		args = append(args, "--wait")
-	}
 	if labelSelector != "" {
 		args = append(args, "--selector", labelSelector)
 	}
@@ -244,6 +242,10 @@ func CreateRestoreWithLabelSelector(ctx context.Context, backupName, restoreName
 	err := restoreCmd.Run()
 	if err != nil {
 		return err
+	}
+
+	if wait {
+		return waitForRestoreTerminalPhase(ctx, restoreName, backupNamespace)
 	}
 
 	return nil
@@ -302,13 +304,52 @@ func WaitForRestorePhase(ctx context.Context, restoreName string, backupNamespac
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		phase, err := GetRestorePhase(ctx, restoreName, backupNamespace)
 		ginkgo.By(fmt.Sprintf("Waiting for restore phase %v, got %v", expectedPhase, phase))
-		if err != nil || phase != expectedPhase {
-			return false, err
+		if err != nil {
+			return false, nil
 		}
-		return true, nil
+		if phase == expectedPhase {
+			return true, nil
+		}
+		if isRestoreTerminal(phase) {
+			return false, errors.Errorf("Restore finished with: %v", phase)
+		}
+		return false, nil
 	})
 	if err != nil {
 		return fmt.Errorf("restore %s not in phase %s within %v", restoreName, expectedPhase, waitTime)
+	}
+	return nil
+}
+
+func isRestoreTerminal(phase v1.RestorePhase) bool {
+	return phase == v1.RestorePhaseCompleted ||
+		phase == v1.RestorePhasePartiallyFailed ||
+		phase == v1.RestorePhaseFailed ||
+		phase == v1.RestorePhaseFailedValidation ||
+		phase == v1.RestorePhaseFinalizing ||
+		phase == v1.RestorePhaseFinalizingPartiallyFailed
+}
+
+const restoreWaitTime = 10 * time.Minute
+
+func waitForRestoreTerminalPhase(ctx context.Context, restoreName, backupNamespace string) error {
+	err := wait.PollImmediate(pollInterval, restoreWaitTime, func() (bool, error) {
+		phase, err := GetRestorePhase(ctx, restoreName, backupNamespace)
+		if err != nil {
+			if ctx.Err() != nil {
+				return false, ctx.Err()
+			}
+			ginkgo.By(fmt.Sprintf("Waiting for restore to complete, error fetching phase: %v", err))
+			return false, nil
+		}
+		ginkgo.By(fmt.Sprintf("Waiting for restore to complete, got %v", phase))
+		if isRestoreTerminal(phase) {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("restore %s did not reach terminal phase within %v", restoreName, restoreWaitTime)
 	}
 	return nil
 }
