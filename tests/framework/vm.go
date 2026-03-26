@@ -127,7 +127,7 @@ version: 2`
 				},
 			},
 			Machine: &v1.Machine{
-				Type: "q35",
+				Type: DefaultMachineType,
 			},
 			Devices: v1.Devices{
 				Rng: &v1.Rng{},
