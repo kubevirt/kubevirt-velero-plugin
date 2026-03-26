@@ -33,14 +33,15 @@ func (f *Framework) CreateKubectlCommand(args ...string) *exec.Cmd {
 	return cmd
 }
 
-// RunKubectlCreateYamlCommand replaces storageclassname placeholder with configured tests storageClass
-// in a given yaml, creates it and returns err
+// RunKubectlCreateYamlCommand substitutes {{KVP_STORAGE_CLASS}} and spec.domain.machine.type (template uses q35), then kubectl create.
 func (f *Framework) RunKubectlCreateYamlCommand(yamlPath string) error {
 	kubeconfig := f.KubeConfig
 	path := f.KubectlPath
 	storageClass := f.StorageClass
-
-	cmdString := fmt.Sprintf("cat %s | sed 's/{{KVP_STORAGE_CLASS}}/%s/g' | %s create -n %s -f -", yamlPath, storageClass, path, f.Namespace.Name)
+	cmdString := fmt.Sprintf(
+		"cat %s | sed 's|{{KVP_STORAGE_CLASS}}|%s|g' | sed 's|type: q35|type: %s|g' | %s create -n %s -f -",
+		yamlPath, storageClass, DefaultMachineType, path, f.Namespace.Name,
+	)
 	cmd := exec.Command("bash", "-c", cmdString)
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig)
 	cmd.Env = append(os.Environ(), kubeconfEnv)
