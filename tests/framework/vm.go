@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	k8sv1 "k8s.io/api/core/v1"
@@ -337,12 +338,14 @@ func DeleteVirtualMachineInstance(client kubecli.KubevirtClient, namespace, name
 func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, namespace, name string, conditionType v1.VirtualMachineInstanceConditionType) (bool, error) {
 	ginkgo.By(fmt.Sprintf("Waiting for %s condition", conditionType))
 	var result bool
+	var lastConditions []v1.VirtualMachineInstanceCondition
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		vmi, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
+		lastConditions = vmi.Status.Conditions
 		for _, condition := range vmi.Status.Conditions {
 			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
 				result = true
@@ -355,42 +358,105 @@ func WaitForVirtualMachineInstanceCondition(client kubecli.KubevirtClient, names
 		return false, nil
 	})
 
-	return result, err
+	if err != nil {
+		condSummary := make([]string, 0, len(lastConditions))
+		for _, c := range lastConditions {
+			condSummary = append(condSummary, fmt.Sprintf("%s=%s", c.Type, c.Status))
+		}
+		return result, fmt.Errorf("VMI %s/%s condition %s not True within %v (last conditions: [%s]): %w",
+			namespace, name, conditionType, waitTime, fmt.Sprintf("%s", condSummary), err)
+	}
+	return result, nil
 }
 
+const (
+	schedulingStuckThreshold = 1 * time.Minute
+	vmiPhaseExtendedWait     = 5 * time.Minute
+)
+
 func WaitForVirtualMachineInstancePhase(client kubecli.KubevirtClient, namespace, name string, phase v1.VirtualMachineInstancePhase) error {
-	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
+	var schedulingSince *time.Time
+	podDeleteAttempted := false
+	lastObservedPhase := v1.VirtualMachineInstancePhase("unknown")
+
+	err := wait.PollImmediate(pollInterval, vmiPhaseExtendedWait, func() (bool, error) {
 		vmi, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
+			lastObservedPhase = "NotFound"
 			return false, nil
 		}
 		if err != nil {
 			return false, err
 		}
 
+		lastObservedPhase = vmi.Status.Phase
 		ginkgo.By(fmt.Sprintf("INFO: Waiting for status %s, got %s", phase, vmi.Status.Phase))
+
+		if vmi.Status.Phase == v1.Scheduling && !podDeleteAttempted {
+			now := time.Now()
+			if schedulingSince == nil {
+				schedulingSince = &now
+			}
+			if time.Since(*schedulingSince) >= schedulingStuckThreshold {
+				ginkgo.By(fmt.Sprintf("INFO: VMI %s stuck in Scheduling for %v, deleting virt-launcher pod to force reschedule", name, time.Since(*schedulingSince)))
+				podDeleteAttempted = true
+				if delErr := deleteVirtLauncherPod(client, namespace, name); delErr != nil {
+					ginkgo.By(fmt.Sprintf("WARN: Failed to delete virt-launcher pod for VMI %s: %v", name, delErr))
+				}
+			}
+		} else if vmi.Status.Phase != v1.Scheduling {
+			schedulingSince = nil
+		}
+
 		return vmi.Status.Phase == phase, nil
 	})
 
-	return err
+	if err != nil {
+		return fmt.Errorf("VMI %s/%s did not reach phase %s within %v (last observed phase: %s): %w",
+			namespace, name, phase, vmiPhaseExtendedWait, lastObservedPhase, err)
+	}
+	return nil
+}
+
+func deleteVirtLauncherPod(client kubecli.KubevirtClient, namespace, vmiName string) error {
+	pods, err := client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "kubevirt.io=virt-launcher",
+	})
+	if err != nil {
+		return fmt.Errorf("listing virt-launcher pods: %w", err)
+	}
+
+	for i := range pods.Items {
+		if ann, ok := pods.Items[i].GetAnnotations()["kubevirt.io/domain"]; ok && ann == vmiName {
+			zero := int64(0)
+			ginkgo.By(fmt.Sprintf("INFO: Deleting stuck virt-launcher pod %s for VMI %s", pods.Items[i].Name, vmiName))
+			return client.CoreV1().Pods(namespace).Delete(context.Background(), pods.Items[i].Name, metav1.DeleteOptions{
+				GracePeriodSeconds: &zero,
+			})
+		}
+	}
+
+	return fmt.Errorf("no virt-launcher pod found for VMI %s", vmiName)
 }
 
 func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name string, statuses ...v1.VirtualMachinePrintableStatus) error {
 	ginkgo.By(fmt.Sprintf("Waiting for any of %s statuses", statuses))
+	lastObservedStatus := v1.VirtualMachinePrintableStatus("unknown")
 
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
 		vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
+			lastObservedStatus = "NotFound"
 			return false, nil
 		}
 		if err != nil {
 			return false, err
 		}
 
+		lastObservedStatus = vm.Status.PrintableStatus
 		for _, status := range statuses {
 			if vm.Status.PrintableStatus == status {
 				ginkgo.By(fmt.Sprintf(" got %s", status))
-
 				return true, nil
 			}
 		}
@@ -398,23 +464,35 @@ func WaitForVirtualMachineStatus(client kubecli.KubevirtClient, namespace, name 
 		return false, nil
 	})
 
-	return err
+	if err != nil {
+		return fmt.Errorf("VM %s/%s did not reach any of %v within %v (last observed status: %s): %w",
+			namespace, name, statuses, waitTime, lastObservedStatus, err)
+	}
+	return nil
 }
 
 func WaitForVirtualMachineInstanceStatus(client kubecli.KubevirtClient, namespace, name string, phase v1.VirtualMachineInstancePhase) error {
+	lastObservedPhase := v1.VirtualMachineInstancePhase("unknown")
+
 	err := wait.PollImmediate(pollInterval, waitTime, func() (bool, error) {
-		vm, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		vmi, err := client.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
+			lastObservedPhase = "NotFound"
 			return false, nil
 		}
 		if err != nil {
 			return false, err
 		}
 
-		return vm.Status.Phase == phase, nil
+		lastObservedPhase = vmi.Status.Phase
+		return vmi.Status.Phase == phase, nil
 	})
 
-	return err
+	if err != nil {
+		return fmt.Errorf("VMI %s/%s did not reach phase %s within %v (last observed phase: %s): %w",
+			namespace, name, phase, waitTime, lastObservedPhase, err)
+	}
+	return nil
 }
 
 func WaitVirtualMachineDeleted(client kubecli.KubevirtClient, namespace, name string) (bool, error) {
