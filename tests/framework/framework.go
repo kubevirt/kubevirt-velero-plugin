@@ -16,8 +16,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -210,11 +212,80 @@ func (f *Framework) AfterEach() {
 		DumpVeleroLogs(f.K8sClient, f.BackupNamespace, ginkgo.CurrentSpecReport().RunTime)
 	}
 
+	// Clean up orphaned VolumeSnapshotContents that reference the test
+	// namespaces being deleted.  VSCs are cluster-scoped with Retain policy,
+	// so they survive namespace and backup deletion.
+	f.deleteOrphanedVolumeSnapshotContents()
+
 	// Restart the Velero pod to clear any in-flight finalizer state (e.g. stuck
 	// PV-patch polls for namespaces that were already torn down). This prevents
 	// one test's restore finalization from blocking the next test's restores.
 	if err := RestartVeleroPod(f.K8sClient, f.BackupNamespace); err != nil {
 		fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to restart Velero pod: %v\n", err)
+	}
+}
+
+// deleteOrphanedVolumeSnapshotContents removes cluster-scoped VolumeSnapshotContents
+// whose volumeSnapshotRef.namespace matches any namespace scheduled for deletion
+// by this test. This prevents VSC accumulation because Velero 1.18's built-in CSI
+// creates them with Retain policy, so they survive both namespace and backup deletion.
+func (f *Framework) deleteOrphanedVolumeSnapshotContents() {
+	namespacesToClean := make(map[string]bool)
+	for _, ns := range f.namespacesToDelete {
+		if ns != nil && len(ns.Name) > 0 {
+			namespacesToClean[ns.Name] = true
+		}
+	}
+	if len(namespacesToClean) == 0 {
+		return
+	}
+
+	cfg, err := f.LoadConfig()
+	if err != nil {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to load config for VSC cleanup: %v\n", err)
+		return
+	}
+	dynClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to create dynamic client for VSC cleanup: %v\n", err)
+		return
+	}
+
+	vscResource := schema.GroupVersionResource{
+		Group:    "snapshot.storage.k8s.io",
+		Version:  "v1",
+		Resource: "volumesnapshotcontents",
+	}
+
+	vscList, err := dynClient.Resource(vscResource).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to list VolumeSnapshotContents for cleanup: %v\n", err)
+		return
+	}
+
+	deleted := 0
+	for _, vsc := range vscList.Items {
+		spec, ok := vsc.Object["spec"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		ref, ok := spec["volumeSnapshotRef"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		ns, _ := ref["namespace"].(string)
+		if !namespacesToClean[ns] {
+			continue
+		}
+		err := dynClient.Resource(vscResource).Delete(context.TODO(), vsc.GetName(), metav1.DeleteOptions{})
+		if err != nil && !apierrs.IsNotFound(err) {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to delete VolumeSnapshotContent %s: %v\n", vsc.GetName(), err)
+		} else {
+			deleted++
+		}
+	}
+	if deleted > 0 {
+		ginkgo.By(fmt.Sprintf("Cleaned up %d orphaned VolumeSnapshotContents", deleted))
 	}
 }
 
