@@ -121,6 +121,61 @@ func FindLauncherPod(client *kubernetes.Clientset, namespace string, vmName stri
 	return pod
 }
 
+// RestartVeleroPod deletes the Velero pod so the deployment controller recreates
+// it with a clean slate. This clears any stuck in-process state such as finalizer
+// goroutines that are polling for resources in already-deleted namespaces.
+func RestartVeleroPod(client *kubernetes.Clientset, backupNamespace string) error {
+	pods, err := client.CoreV1().Pods(backupNamespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "deploy=velero",
+	})
+	if err != nil {
+		return fmt.Errorf("listing velero pods: %w", err)
+	}
+	if len(pods.Items) == 0 {
+		return fmt.Errorf("no velero pod found in namespace %s", backupNamespace)
+	}
+
+	podName := pods.Items[0].Name
+	ginkgo.By(fmt.Sprintf("Restarting Velero pod %s", podName))
+	zero := int64(0)
+	err = client.CoreV1().Pods(backupNamespace).Delete(context.TODO(), podName, metav1.DeleteOptions{
+		GracePeriodSeconds: &zero,
+	})
+	if err != nil && !apierrs.IsNotFound(err) {
+		return fmt.Errorf("deleting velero pod: %w", err)
+	}
+
+	// Wait for the new pod to be running
+	timeout := 120 * time.Second
+	interval := 2 * time.Second
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(interval)
+		newPods, err := client.CoreV1().Pods(backupNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: "deploy=velero",
+		})
+		if err != nil {
+			continue
+		}
+		for _, p := range newPods.Items {
+			if p.Name != podName && p.Status.Phase == v1.PodRunning {
+				allReady := true
+				for _, c := range p.Status.ContainerStatuses {
+					if !c.Ready {
+						allReady = false
+						break
+					}
+				}
+				if allReady {
+					ginkgo.By(fmt.Sprintf("New Velero pod %s is running", p.Name))
+					return nil
+				}
+			}
+		}
+	}
+	return fmt.Errorf("velero pod did not become ready within %v", timeout)
+}
+
 func DeletePod(kvClient kubecli.KubevirtClient, namespace, podName string) {
 	ginkgo.By("Delete pod")
 	zero := int64(0)

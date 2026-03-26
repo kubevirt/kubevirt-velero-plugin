@@ -63,7 +63,9 @@ type Framework struct {
 	*Clients
 	*BackupScript
 
-	reporter *KubernetesReporter
+	reporter        *KubernetesReporter
+	stopPVCPoller   context.CancelFunc
+	pvcPollNotify   chan struct{}
 }
 
 type BackupScript struct {
@@ -174,10 +176,19 @@ func (f *Framework) BeforeEach() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	f.Namespace = ns
 	f.AddNamespaceToDelete(ns)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	f.stopPVCPoller = cancel
+	f.pvcPollNotify = make(chan struct{}, 1)
+	go pollPVCs(ctx, f.K8sClient, ns.Name, f.pvcPollNotify)
 }
 
 // AfterEach provides a set of operations to run after each test
 func (f *Framework) AfterEach() {
+	if f.stopPVCPoller != nil {
+		f.stopPVCPoller()
+	}
+
 	// delete the namespace(s) in a defer in case future code
 	// added here could generate an exception.
 	defer func() {
@@ -196,9 +207,157 @@ func (f *Framework) AfterEach() {
 		f.reporter.FailureCount++
 		fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", f.reporter.artifactsDir, f.reporter.FailureCount)
 		f.reporter.Dump(f.K8sClient, f.KvClient, ginkgo.CurrentSpecReport().RunTime)
+		DumpVeleroLogs(f.K8sClient, f.BackupNamespace, ginkgo.CurrentSpecReport().RunTime)
 	}
 
-	return
+	// Restart the Velero pod to clear any in-flight finalizer state (e.g. stuck
+	// PV-patch polls for namespaces that were already torn down). This prevents
+	// one test's restore finalization from blocking the next test's restores.
+	if err := RestartVeleroPod(f.K8sClient, f.BackupNamespace); err != nil {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to restart Velero pod: %v\n", err)
+	}
+}
+
+// DumpVeleroLogs writes the Velero pod logs from the test's time window to a
+// file in /tmp and also to GinkgoWriter for immediate visibility.
+func DumpVeleroLogs(client *kubernetes.Clientset, backupNamespace string, testDuration time.Duration) {
+	pods, err := client.CoreV1().Pods(backupNamespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "deploy=velero",
+	})
+	if err != nil || len(pods.Items) == 0 {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: could not find velero pod for log dump: %v\n", err)
+		return
+	}
+	sinceTime := metav1.NewTime(time.Now().Add(-testDuration - 30*time.Second))
+	testName := ginkgo.CurrentSpecReport().LeafNodeText
+	for _, pod := range pods.Items {
+		logBytes, err := client.CoreV1().Pods(backupNamespace).GetLogs(pod.Name, &v1.PodLogOptions{
+			SinceTime: &sinceTime,
+		}).DoRaw(context.TODO())
+		if err != nil {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to get velero logs from %s: %v\n", pod.Name, err)
+			continue
+		}
+
+		logFile := fmt.Sprintf("/tmp/velero-logs-%s-%d.log", pod.Name, time.Now().UnixNano())
+		header := fmt.Sprintf("Test: %s\nPod: %s\nNamespace: %s\nDuration: %v\n\n", testName, pod.Name, backupNamespace, testDuration)
+		if writeErr := os.WriteFile(logFile, append([]byte(header), logBytes...), 0644); writeErr != nil {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "WARN: failed to write velero logs to %s: %v\n", logFile, writeErr)
+		} else {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "Velero logs saved to %s\n", logFile)
+		}
+
+		fmt.Fprintf(ginkgo.GinkgoWriter, "=== Velero pod %s logs (last %v) ===\n%s\n=== end velero logs ===\n", pod.Name, testDuration, string(logBytes))
+	}
+}
+
+type pvcSnapshot struct {
+	phase    string
+	volume   string
+	capacity string
+}
+
+// pollPVCs watches PVCs in the test namespace. It logs every state change and,
+// once all PVCs are Bound, prints a summary and goes quiet. A signal on the
+// notify channel (sent by Framework.NotifyPVCChange) wakes it back up.
+func pollPVCs(ctx context.Context, client *kubernetes.Clientset, namespace string, notify <-chan struct{}) {
+	const activeInterval = 5 * time.Second
+	const idleInterval = 10 * time.Second
+
+	prev := map[string]pvcSnapshot{}
+	allBound := false
+
+	ticker := time.NewTicker(activeInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-notify:
+			allBound = false
+			ticker.Reset(activeInterval)
+		case <-ticker.C:
+		}
+
+		pvcs, err := client.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			fmt.Fprintf(ginkgo.GinkgoWriter, "[PVC-poll] error listing PVCs in %s: %v\n", namespace, err)
+			continue
+		}
+
+		curr := map[string]pvcSnapshot{}
+		for _, pvc := range pvcs.Items {
+			cap := ""
+			if qty, ok := pvc.Status.Capacity[v1.ResourceStorage]; ok {
+				cap = qty.String()
+			}
+			curr[pvc.Name] = pvcSnapshot{
+				phase:    string(pvc.Status.Phase),
+				volume:   pvc.Spec.VolumeName,
+				capacity: cap,
+			}
+		}
+
+		changed := len(curr) != len(prev)
+		if !changed {
+			for name, cs := range curr {
+				if ps, ok := prev[name]; !ok || ps != cs {
+					changed = true
+					break
+				}
+			}
+		}
+
+		if changed {
+			allBound = false
+			for name := range prev {
+				if _, exists := curr[name]; !exists {
+					fmt.Fprintf(ginkgo.GinkgoWriter, "[PVC-poll] DELETED ns=%s pvc=%s\n", namespace, name)
+				}
+			}
+			for name, cs := range curr {
+				if ps, ok := prev[name]; !ok {
+					fmt.Fprintf(ginkgo.GinkgoWriter, "[PVC-poll] NEW     ns=%s pvc=%s phase=%s volume=%s capacity=%s\n",
+						namespace, name, cs.phase, cs.volume, cs.capacity)
+				} else if ps != cs {
+					fmt.Fprintf(ginkgo.GinkgoWriter, "[PVC-poll] UPDATE  ns=%s pvc=%s phase=%s volume=%s capacity=%s\n",
+						namespace, name, cs.phase, cs.volume, cs.capacity)
+				}
+			}
+			prev = curr
+		}
+
+		if !allBound && len(curr) > 0 {
+			nowAllBound := true
+			for _, cs := range curr {
+				if cs.phase != string(v1.ClaimBound) {
+					nowAllBound = false
+					break
+				}
+			}
+			if nowAllBound {
+				allBound = true
+				fmt.Fprintf(ginkgo.GinkgoWriter, "[PVC-poll] All %d PVCs Bound in ns=%s:\n", len(curr), namespace)
+				for name, cs := range curr {
+					fmt.Fprintf(ginkgo.GinkgoWriter, "[PVC-poll]   pvc=%s volume=%s capacity=%s\n", name, cs.volume, cs.capacity)
+				}
+				ticker.Reset(idleInterval)
+			}
+		}
+	}
+}
+
+// NotifyPVCChange wakes the PVC poller so it resumes active logging after a
+// test operation that creates, deletes, or modifies PVCs/volumes.
+func (f *Framework) NotifyPVCChange() {
+	select {
+	case f.pvcPollNotify <- struct{}{}:
+	default:
+	}
 }
 
 // AddNamespaceToDelete provides a wrapper around the go append function

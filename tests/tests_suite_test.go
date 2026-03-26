@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -65,6 +67,8 @@ func BuildTestSuite() {
 			Fail(fmt.Sprintf("ERROR, unable to create K8sClient: %v", err))
 		}
 		framework.ClientsInstance.K8sClient = k8sClient
+
+		listPlugins()
 	})
 
 	AfterSuite(func() {
@@ -82,4 +86,19 @@ func getTestNamespaceList(client *kubernetes.Clientset) (*v1.NamespaceList, erro
 	return client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{
 		LabelSelector: framework.TestNamespacePrefix,
 	})
+}
+
+func listPlugins() {
+	backupNs := os.Getenv("KVP_BACKUP_NS")
+	if backupNs == "" {
+		backupNs = "velero"
+	}
+	cmd := exec.Command("velero", "plugin", "get", "--namespace", backupNs)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", framework.ClientsInstance.KubeConfig))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "WARN: failed to list velero plugins: %v\n", err)
+		return
+	}
+	fmt.Fprintf(GinkgoWriter, "=== Active Velero Plugins ===\n%s=== End Plugins ===\n", string(out))
 }
