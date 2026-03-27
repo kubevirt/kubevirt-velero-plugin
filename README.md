@@ -45,20 +45,32 @@ An action that handles the virt-launcher `Pod`. It makes sure virt-launcher pod 
 
 ## Compatibility
 
-Plugin versions and respective Velero/Kubevirt/CDI versions that are tested to be compatible.
+Plugin versions and respective Velero, KubeVirt, and CDI versions that are tested to be compatible.
 
-| Plugin Version  | Velero Version | Kubevirt Version | CDI Version  |
-|-----------------|----------------|------------------|--------------|
-| v0.2.0          | v1.6.x, v1.7.x | v0.48.x          | \>= v1.37.0  |(NOT RECOMMENDED TO USE)
-| v0.6.x          | v1.12.x        | \>= v1.0.0       | \>= v1.57.0  |
+| Plugin Version      | Velero Version | KubeVirt Version | CDI Version  |
+|---------------------|----------------|------------------|--------------|
+| v0.9.x              | v1.18.x        | >= v1.1.0        | >= v1.57.0   |
+| v0.8.x              | v1.16.x        | >= v1.1.0        | >= v1.57.0   |
+| v0.7.x              | v1.14.x        | >= v1.1.0        | >= v1.57.0   |
+| v0.6.x              | v1.12.x        | >= v1.0.0        | >= v1.57.0   |
+
+### Backup Methods
+
+This plugin has been tested with the following Velero backup methods:
+
+- **CSI volume snapshots** — using the [Velero CSI plugin](https://velero.io/docs/main/csi/)
+- **CSI volume snapshots with DataMover** — for moving snapshots to remote storage using [CSI Snapshot Data Movement](https://velero.io/docs/main/csi-snapshot-data-movement/)
+
+Other backup methods, such as file system backup (Kopia/Restic) or native cloud provider snapshots,
+have **not been tested** with this plugin and may not work correctly with KubeVirt volumes.
 
 ## Install
 
 To install the plugin check current velero documentation https://velero.io/docs/main/overview-plugins/.
-Below example for kubevirt-velero-plugin version v0.2.0 on Velero 1.7.0
+Below example for kubevirt-velero-plugin version v0.9.0 on Velero 1.18.0
 
 ```bash
-velero plugin add quay.io/kubevirt/kubevirt-velero-plugin:v0.2.0
+velero plugin add quay.io/kubevirt/kubevirt-velero-plugin:v0.9.0
 ```
 
 ## Backup/Restore Virtual Machines Using the Plugin
