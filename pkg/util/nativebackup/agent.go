@@ -20,7 +20,7 @@
 package nativebackup
 
 import (
-	"context"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +48,14 @@ var ShouldSkipQuiesce = func(vm *kvcore.VirtualMachine, backup *v1.Backup, log l
 	}
 
 	// Check VMI conditions for AgentConnected
-	if !isGuestAgentConnected(vm.Namespace, vm.Name, log) {
+	connected, err := isGuestAgentConnected(vm.Namespace, vm.Name)
+	if err != nil {
+		// API error — cannot determine agent status. Default to skipping quiesce
+		// (attempting quiesce without agent would fail the entire backup).
+		log.WithError(err).Warnf("Failed to check guest agent status for VM %s/%s, skipping quiesce to avoid backup failure", vm.Namespace, vm.Name)
+		return true
+	}
+	if !connected {
 		log.Warnf("QEMU guest agent not connected for VM %s/%s, auto-skipping quiesce", vm.Namespace, vm.Name)
 		return true
 	}
@@ -57,28 +64,28 @@ var ShouldSkipQuiesce = func(vm *kvcore.VirtualMachine, backup *v1.Backup, log l
 }
 
 // isGuestAgentConnected checks if the QEMU guest agent is reported as connected
-// in the VMI's status conditions.
-func isGuestAgentConnected(ns, name string, log logrus.FieldLogger) bool {
+// in the VMI's status conditions. Returns an error if the VMI cannot be retrieved.
+func isGuestAgentConnected(ns, name string) (bool, error) {
 	kvClient, err := util.GetKubeVirtclient()
 	if err != nil {
-		log.WithError(err).Warn("Failed to get KubeVirt client for agent detection")
-		return false
+		return false, fmt.Errorf("failed to get KubeVirt client: %w", err)
 	}
 
+	ctx, cancel := apiContext()
+	defer cancel()
 	vmi, err := (*kvClient).VirtualMachineInstance(ns).Get(
-		context.TODO(), name, metav1.GetOptions{},
+		ctx, name, metav1.GetOptions{},
 	)
 	if err != nil {
-		log.WithError(err).Warnf("Failed to get VMI %s/%s for agent detection", ns, name)
-		return false
+		return false, fmt.Errorf("failed to get VMI %s/%s: %w", ns, name, err)
 	}
 
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == kvcore.VirtualMachineInstanceAgentConnected {
-			return c.Status == corev1.ConditionTrue
+			return c.Status == corev1.ConditionTrue, nil
 		}
 	}
 
 	// No AgentConnected condition found at all
-	return false
+	return false, nil
 }

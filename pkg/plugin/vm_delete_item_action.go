@@ -76,8 +76,9 @@ func (p *VMDeleteItemAction) Execute(input *velero.DeleteItemActionExecuteInput)
 		return nil
 	}
 
-	ns, name := nativebackup.ParseOperationID(crRef)
-	if ns == "" || name == "" {
+	ns, name, err := nativebackup.ParseOperationID(crRef)
+	if err != nil {
+		p.log.WithError(err).Warn("Invalid native backup CR reference annotation")
 		return nil
 	}
 

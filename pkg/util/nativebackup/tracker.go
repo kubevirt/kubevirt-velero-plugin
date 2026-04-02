@@ -20,8 +20,8 @@
 package nativebackup
 
 import (
-	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -59,8 +59,10 @@ var EnsureTracker = func(vmName, ns string) (*unstructured.Unstructured, error) 
 	}
 
 	// Try to get existing tracker
+	ctx, cancel := apiContext()
+	defer cancel()
 	existing, err := client.Resource(vmBackupTrackerGVR).Namespace(ns).Get(
-		context.TODO(), trackerName, metav1.GetOptions{},
+		ctx, trackerName, metav1.GetOptions{},
 	)
 	if err == nil {
 		return existing, nil
@@ -77,6 +79,9 @@ var EnsureTracker = func(vmName, ns string) (*unstructured.Unstructured, error) 
 			"metadata": map[string]interface{}{
 				"name":      trackerName,
 				"namespace": ns,
+				"annotations": map[string]interface{}{
+					IncrementalCountAnnotation: "0",
+				},
 			},
 			"spec": map[string]interface{}{
 				"source": map[string]interface{}{
@@ -88,14 +93,18 @@ var EnsureTracker = func(vmName, ns string) (*unstructured.Unstructured, error) 
 		},
 	}
 
+	createCtx, createCancel := apiContext()
+	defer createCancel()
 	created, err := client.Resource(vmBackupTrackerGVR).Namespace(ns).Create(
-		context.TODO(), obj, metav1.CreateOptions{},
+		createCtx, obj, metav1.CreateOptions{},
 	)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			// Race condition: another backup created it
+			getCtx, getCancel := apiContext()
+			defer getCancel()
 			return client.Resource(vmBackupTrackerGVR).Namespace(ns).Get(
-				context.TODO(), trackerName, metav1.GetOptions{},
+				getCtx, trackerName, metav1.GetOptions{},
 			)
 		}
 		return nil, fmt.Errorf("failed to create tracker %s/%s: %w", ns, trackerName, err)
@@ -109,6 +118,10 @@ var EnsureTracker = func(vmName, ns string) (*unstructured.Unstructured, error) 
 // - checkpointRedefinitionRequired is true (VM restarted, libvirt checkpoint invalid)
 // - no latestCheckpoint exists (first backup, or checkpoint cleared)
 func IsCheckpointHealthy(tracker *unstructured.Unstructured) bool {
+	if tracker == nil {
+		return false
+	}
+
 	// Check checkpointRedefinitionRequired flag
 	required, found, _ := unstructured.NestedBool(
 		tracker.Object, "status", "checkpointRedefinitionRequired",
@@ -150,6 +163,8 @@ func ResolveSource(
 	if !IsCheckpointHealthy(tracker) {
 		log.Infof("Tracker checkpoint unhealthy for VM %s/%s (VM may have restarted), forcing full backup",
 			vm.Namespace, vm.Name)
+		// Reset counter on full backup
+		updateIncrementalCount(tracker, 0, vm.Namespace, log)
 		return SourceRef{
 			APIGroup: "kubevirt.io",
 			Kind:     "VirtualMachine",
@@ -163,6 +178,8 @@ func ResolveSource(
 		if count >= cfg.ForceFullEveryN {
 			log.Infof("Forcing full backup for VM %s/%s after %d incrementals",
 				vm.Namespace, vm.Name, count)
+			// Reset counter on full backup
+			updateIncrementalCount(tracker, 0, vm.Namespace, log)
 			return SourceRef{
 				APIGroup: "kubevirt.io",
 				Kind:     "VirtualMachine",
@@ -171,8 +188,11 @@ func ResolveSource(
 		}
 	}
 
-	// Incremental via tracker
-	log.Infof("Using incremental backup via tracker for VM %s/%s", vm.Namespace, vm.Name)
+	// Incremental via tracker — increment counter
+	count := getIncrementalCount(tracker)
+	updateIncrementalCount(tracker, count+1, vm.Namespace, log)
+
+	log.Infof("Using incremental backup via tracker for VM %s/%s (incremental #%d)", vm.Namespace, vm.Name, count+1)
 	return SourceRef{
 		APIGroup: "backup.kubevirt.io",
 		Kind:     "VirtualMachineBackupTracker",
@@ -180,17 +200,47 @@ func ResolveSource(
 	}, false, nil
 }
 
-// getIncrementalCount returns the number of incremental backups since the last full.
-// This is approximated by checking the latestCheckpoint's creation time vs tracker creation.
+// getIncrementalCount reads the incremental backup counter from the tracker annotation.
 func getIncrementalCount(tracker *unstructured.Unstructured) int {
-	// Check if latestCheckpoint has volumes (indicates at least one successful backup)
-	volumes, found, _ := unstructured.NestedSlice(
-		tracker.Object, "status", "latestCheckpoint", "volumes",
-	)
-	if !found || len(volumes) == 0 {
+	annotations, _, _ := unstructured.NestedStringMap(tracker.Object, "metadata", "annotations")
+	if annotations == nil {
 		return 0
 	}
-	// For now, we count the presence of a checkpoint as 1 incremental.
-	// A more sophisticated approach would track count in an annotation.
-	return 1
+	countStr, ok := annotations[IncrementalCountAnnotation]
+	if !ok {
+		return 0
+	}
+	n, err := strconv.Atoi(countStr)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// updateIncrementalCount writes the incremental counter annotation on the tracker CR.
+func updateIncrementalCount(tracker *unstructured.Unstructured, count int, ns string, log logrus.FieldLogger) {
+	annotations, _, _ := unstructured.NestedStringMap(tracker.Object, "metadata", "annotations")
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[IncrementalCountAnnotation] = strconv.Itoa(count)
+
+	// Update in-memory object
+	_ = unstructured.SetNestedStringMap(tracker.Object, annotations, "metadata", "annotations")
+
+	// Persist to cluster
+	client, err := getDynamicClient()
+	if err != nil {
+		log.WithError(err).Warn("Failed to get dynamic client for tracker annotation update")
+		return
+	}
+
+	ctx, cancel := apiContext()
+	defer cancel()
+	_, err = client.Resource(vmBackupTrackerGVR).Namespace(ns).Update(
+		ctx, tracker, metav1.UpdateOptions{},
+	)
+	if err != nil {
+		log.WithError(err).Warnf("Failed to update incremental count annotation on tracker (count=%d)", count)
+	}
 }

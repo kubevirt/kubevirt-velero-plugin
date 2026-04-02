@@ -20,7 +20,6 @@
 package nativebackup
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -93,8 +92,10 @@ var CreateScratchPVC = func(vm *kvcore.VirtualMachine, backup *v1.Backup, log lo
 		return "", fmt.Errorf("failed to get k8s client for scratch PVC: %w", err)
 	}
 
+	ctx, cancel := apiContext()
+	defer cancel()
 	_, err = client.CoreV1().PersistentVolumeClaims(ns).Create(
-		context.TODO(), pvc, metav1.CreateOptions{},
+		ctx, pvc, metav1.CreateOptions{},
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scratch PVC %s/%s: %w", ns, scratchName, err)
@@ -119,8 +120,10 @@ var CleanupScratchPVC = func(name, ns string) error {
 	if err != nil {
 		return err
 	}
+	ctx, cancel := apiContext()
+	defer cancel()
 	return client.CoreV1().PersistentVolumeClaims(ns).Delete(
-		context.TODO(), name, metav1.DeleteOptions{},
+		ctx, name, metav1.DeleteOptions{},
 	)
 }
 
@@ -130,8 +133,10 @@ var CleanupScratchPVCsByBackup = func(ns, backupCRName string) error {
 	if err != nil {
 		return err
 	}
+	ctx, cancel := apiContext()
+	defer cancel()
 	return client.CoreV1().PersistentVolumeClaims(ns).DeleteCollection(
-		context.TODO(),
+		ctx,
 		metav1.DeleteOptions{},
 		metav1.ListOptions{LabelSelector: ScratchPVCBackupLabel + "=" + backupCRName},
 	)
@@ -144,8 +149,10 @@ func GarbageCollectStaleScratchPVCs(ns string, log logrus.FieldLogger) error {
 		return err
 	}
 
+	ctx, cancel := apiContext()
+	defer cancel()
 	pvcs, err := client.CoreV1().PersistentVolumeClaims(ns).List(
-		context.TODO(),
+		ctx,
 		metav1.ListOptions{LabelSelector: NativeBackupPVCLabel + "=true"},
 	)
 	if err != nil {
@@ -160,13 +167,18 @@ func GarbageCollectStaleScratchPVCs(ns string, log logrus.FieldLogger) error {
 		}
 		ttl, err := time.Parse(time.RFC3339, ttlStr)
 		if err != nil {
+			log.Warnf("Invalid TTL annotation on scratch PVC %s/%s: %v", ns, pvc.Name, err)
 			continue
 		}
 		if time.Now().After(ttl) {
 			log.Infof("Garbage collecting stale scratch PVC %s/%s (TTL expired)", ns, pvc.Name)
-			_ = client.CoreV1().PersistentVolumeClaims(ns).Delete(
-				context.TODO(), pvc.Name, metav1.DeleteOptions{},
-			)
+			delCtx, delCancel := apiContext()
+			if delErr := client.CoreV1().PersistentVolumeClaims(ns).Delete(
+				delCtx, pvc.Name, metav1.DeleteOptions{},
+			); delErr != nil {
+				log.WithError(delErr).Warnf("Failed to garbage collect scratch PVC %s/%s", ns, pvc.Name)
+			}
+			delCancel()
 		}
 	}
 

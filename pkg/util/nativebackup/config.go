@@ -57,6 +57,9 @@ const (
 	// Labels on source PVCs during native backup to prevent CSI double-snapshot
 	NativeBackedPVCLabel = "velero.kubevirt.io/native-backed"
 
+	// Annotation on tracker to count incremental backups since last full
+	IncrementalCountAnnotation = "velero.kubevirt.io/incremental-count"
+
 	// ConfigMap defaults
 	ConfigMapName      = "kubevirt-velero-plugin-config"
 	ConfigMapNamespace = "velero"

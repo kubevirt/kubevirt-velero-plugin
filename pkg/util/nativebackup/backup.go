@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,13 +66,19 @@ func BackupCRName(veleroBackupName, vmName string) string {
 	return name
 }
 
-// ParseOperationID splits a "namespace/name" operation ID
-func ParseOperationID(operationID string) (string, string) {
+// apiContext returns a context with a 30-second timeout for Kubernetes API calls.
+func apiContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 30*time.Second)
+}
+
+// ParseOperationID splits a "namespace/name" operation ID.
+// Returns an error if the format is invalid.
+func ParseOperationID(operationID string) (string, string, error) {
 	parts := strings.SplitN(operationID, "/", 2)
-	if len(parts) != 2 {
-		return "", operationID
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid operation ID %q: expected namespace/name format", operationID)
 	}
-	return parts[0], parts[1]
+	return parts[0], parts[1], nil
 }
 
 // CreateVMBackupCR creates a VirtualMachineBackup CR using the dynamic client
@@ -113,8 +120,10 @@ var CreateVMBackupCR = func(params CreateParams) error {
 		},
 	}
 
+	ctx, cancel := apiContext()
+	defer cancel()
 	_, err = client.Resource(vmBackupGVR).Namespace(params.Namespace).Create(
-		context.TODO(), obj, metav1.CreateOptions{},
+		ctx, obj, metav1.CreateOptions{},
 	)
 	return err
 }
@@ -126,8 +135,10 @@ var GetVMBackup = func(ns, name string) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
+	ctx, cancel := apiContext()
+	defer cancel()
 	return client.Resource(vmBackupGVR).Namespace(ns).Get(
-		context.TODO(), name, metav1.GetOptions{},
+		ctx, name, metav1.GetOptions{},
 	)
 }
 
@@ -138,8 +149,10 @@ var DeleteVMBackupCR = func(ns, name string) error {
 		return err
 	}
 
+	ctx, cancel := apiContext()
+	defer cancel()
 	return client.Resource(vmBackupGVR).Namespace(ns).Delete(
-		context.TODO(), name, metav1.DeleteOptions{},
+		ctx, name, metav1.DeleteOptions{},
 	)
 }
 

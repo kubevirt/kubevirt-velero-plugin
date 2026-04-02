@@ -33,7 +33,10 @@ import (
 
 // CheckProgress checks the VirtualMachineBackup CR conditions and returns progress.
 func CheckProgress(operationID string, log logrus.FieldLogger) (velero.OperationProgress, error) {
-	ns, name := ParseOperationID(operationID)
+	ns, name, err := ParseOperationID(operationID)
+	if err != nil {
+		return velero.OperationProgress{}, err
+	}
 
 	vmBackup, err := GetVMBackup(ns, name)
 	if err != nil {
@@ -73,9 +76,13 @@ func CheckProgress(operationID string, log logrus.FieldLogger) (velero.Operation
 		if condType == "Failure" && condStatus == "True" {
 			message, _ := cond["message"].(string)
 			reason, _ := cond["reason"].(string)
+			errMsg := "native backup failed"
+			if message != "" || reason != "" {
+				errMsg = fmt.Sprintf("native backup failed: %s (%s)", message, reason)
+			}
 			return velero.OperationProgress{
 				Completed: true,
-				Err:       fmt.Sprintf("native backup failed: %s (%s)", message, reason),
+				Err:       errMsg,
 				Updated:   time.Now(),
 			}, nil
 		}
@@ -92,7 +99,10 @@ func CheckProgress(operationID string, log logrus.FieldLogger) (velero.Operation
 
 // CancelAndCleanup deletes the VirtualMachineBackup CR and its scratch PVCs
 func CancelAndCleanup(operationID string, log logrus.FieldLogger) error {
-	ns, name := ParseOperationID(operationID)
+	ns, name, err := ParseOperationID(operationID)
+	if err != nil {
+		return err
+	}
 
 	log.Infof("Cancelling native backup %s/%s", ns, name)
 

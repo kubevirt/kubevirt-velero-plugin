@@ -95,13 +95,22 @@ func TestTrackerName(t *testing.T) {
 }
 
 func TestParseOperationID(t *testing.T) {
-	ns, name := ParseOperationID("default/velero-backup-vm1")
+	ns, name, err := ParseOperationID("default/velero-backup-vm1")
+	assert.NoError(t, err)
 	assert.Equal(t, "default", ns)
 	assert.Equal(t, "velero-backup-vm1", name)
 
-	ns, name = ParseOperationID("no-slash")
-	assert.Equal(t, "", ns)
-	assert.Equal(t, "no-slash", name)
+	_, _, err = ParseOperationID("no-slash")
+	assert.Error(t, err)
+
+	_, _, err = ParseOperationID("")
+	assert.Error(t, err)
+
+	_, _, err = ParseOperationID("/name-only")
+	assert.Error(t, err)
+
+	_, _, err = ParseOperationID("ns-only/")
+	assert.Error(t, err)
 }
 
 func TestFilterPersistentVolumes(t *testing.T) {
@@ -269,6 +278,40 @@ func TestLoadConfig(t *testing.T) {
 	assert.Equal(t, "fast-ssd", cfg.DefaultScratchStorageClass)
 	assert.Equal(t, 3, cfg.MaxConcurrentBackups)
 	assert.Equal(t, 5, cfg.ForceFullEveryN)
+}
+
+func TestGetIncrementalCount(t *testing.T) {
+	// No annotations
+	tracker := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{},
+		},
+	}
+	assert.Equal(t, 0, getIncrementalCount(tracker))
+
+	// With annotation set to 3
+	tracker = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"annotations": map[string]interface{}{
+					IncrementalCountAnnotation: "3",
+				},
+			},
+		},
+	}
+	assert.Equal(t, 3, getIncrementalCount(tracker))
+
+	// Invalid annotation value
+	tracker = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"annotations": map[string]interface{}{
+					IncrementalCountAnnotation: "bad",
+				},
+			},
+		},
+	}
+	assert.Equal(t, 0, getIncrementalCount(tracker))
 }
 
 func TestGetBackupMetadata(t *testing.T) {
