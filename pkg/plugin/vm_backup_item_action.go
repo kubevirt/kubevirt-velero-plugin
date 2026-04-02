@@ -211,8 +211,13 @@ func (p *VMBackupItemAction) executeNativeBackup(
 
 	if exists {
 		p.log.Infof("VirtualMachineBackup %s already exists (retry), reusing operation", crName)
-		util.AddAnnotation(item, nativebackup.BackupUsedAnnotation, "true")
-		util.AddAnnotation(item, nativebackup.BackupCRAnnotation, operationID)
+
+		// Add annotations to the VM struct so they survive ToUnstructured conversion
+		if vm.Annotations == nil {
+			vm.Annotations = make(map[string]string)
+		}
+		vm.Annotations[nativebackup.BackupUsedAnnotation] = "true"
+		vm.Annotations[nativebackup.BackupCRAnnotation] = operationID
 
 		// Still need to return the scratch PVC as postOperationItem
 		scratchName := nativebackup.ScratchPVCName(backup.Name, vm.Name)
@@ -242,7 +247,9 @@ func (p *VMBackupItemAction) executeNativeBackup(
 	// Resolve backup source (VM for full, Tracker for incremental)
 	source, forceFullBackup, err := nativebackup.ResolveSource(vm, backup, p.log)
 	if err != nil {
-		_ = nativebackup.CleanupScratchPVC(scratchName, vm.Namespace)
+		if cleanupErr := nativebackup.CleanupScratchPVC(scratchName, vm.Namespace); cleanupErr != nil {
+			p.log.WithError(cleanupErr).Warn("Failed to clean up scratch PVC after source resolution failure")
+		}
 		p.log.WithError(err).Warn("Source resolution failed, falling back to CSI")
 		return p.fallbackToCSI(vm, additionalItems)
 	}
@@ -261,7 +268,9 @@ func (p *VMBackupItemAction) executeNativeBackup(
 		ForceFullBackup: forceFullBackup,
 	})
 	if err != nil {
-		_ = nativebackup.CleanupScratchPVC(scratchName, vm.Namespace)
+		if cleanupErr := nativebackup.CleanupScratchPVC(scratchName, vm.Namespace); cleanupErr != nil {
+			p.log.WithError(cleanupErr).Warn("Failed to clean up scratch PVC after CR creation failure")
+		}
 		p.log.WithError(err).Warn("VirtualMachineBackup CR creation failed, falling back to CSI")
 		return p.fallbackToCSI(vm, additionalItems)
 	}
@@ -269,12 +278,14 @@ func (p *VMBackupItemAction) executeNativeBackup(
 	p.log.Infof("Initiated native backup %s for VM %s/%s (source: %s/%s, skipQuiesce: %v, forceFullBackup: %v)",
 		crName, vm.Namespace, vm.Name, source.Kind, source.Name, skipQuiesce, forceFullBackup)
 
-	// Annotate VM with native backup metadata
-	util.AddAnnotation(item, nativebackup.BackupUsedAnnotation, "true")
-	util.AddAnnotation(item, nativebackup.BackupCRAnnotation, operationID)
-	util.AddAnnotation(item, nativebackup.TrackerAnnotation, nativebackup.TrackerName(vm.Name))
-	util.AddAnnotation(item, nativebackup.BackupVolumesAnnotation,
-		strings.Join(nativebackup.GetVolumeClaimNames(persistentVolumes), ","))
+	// Annotate VM with native backup metadata (on the struct, not item, so it survives ToUnstructured)
+	if vm.Annotations == nil {
+		vm.Annotations = make(map[string]string)
+	}
+	vm.Annotations[nativebackup.BackupUsedAnnotation] = "true"
+	vm.Annotations[nativebackup.BackupCRAnnotation] = operationID
+	vm.Annotations[nativebackup.TrackerAnnotation] = nativebackup.TrackerName(vm.Name)
+	vm.Annotations[nativebackup.BackupVolumesAnnotation] = strings.Join(nativebackup.GetVolumeClaimNames(persistentVolumes), ",")
 
 	// Scratch PVC as postOperationItem — Velero snapshots it AFTER native backup completes
 	postItems := []velero.ResourceIdentifier{{
@@ -357,6 +368,9 @@ var isVMIExcludedByLabel = func(vm *kvcore.VirtualMachine) (bool, error) {
 }
 
 func volumeInDVTemplates(volume kvcore.Volume, vm *kvcore.VirtualMachine) bool {
+	if volume.VolumeSource.DataVolume == nil {
+		return false
+	}
 	for _, template := range vm.Spec.DataVolumeTemplates {
 		if template.Name == volume.VolumeSource.DataVolume.Name {
 			return true

@@ -95,7 +95,9 @@ func (p *VMDeleteItemAction) Execute(input *velero.DeleteItemActionExecuteInput)
 	}
 
 	// Garbage collect stale scratch PVCs in this namespace
-	_ = nativebackup.GarbageCollectStaleScratchPVCs(ns, p.log)
+	if err := nativebackup.GarbageCollectStaleScratchPVCs(ns, p.log); err != nil {
+		p.log.WithError(err).Warn("Failed to garbage collect stale scratch PVCs")
+	}
 
 	return nil
 }
