@@ -31,16 +31,22 @@ import (
 func main() {
 	framework.NewServer().
 		BindFlags(pflag.CommandLine).
-		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-vm-action", newVMRestoreItemAction).
+		// Restore actions — VM upgraded to v2 for AreAdditionalItemsReady
+		RegisterRestoreItemActionV2("kubevirt-velero-plugin/restore-vm-action", newVMRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-vmi-action", newVMIRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-pvc-action", newPVCRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-pod-action", newPodRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-volumesnapshot-action", newVolumeSnapshotRestoreItemAction).
+		// Backup actions — VM upgraded to v2 for async native backup
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datavolume-action", newDVBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-pvc-action", newPVCBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-volumesnapshot-action", newVolumeSnapshotBackupItemAction).
-		RegisterBackupItemAction("kubevirt-velero-plugin/backup-virtualmachine-action", newVMBackupItemAction).
+		RegisterBackupItemActionV2("kubevirt-velero-plugin/backup-virtualmachine-action", newVMBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-virtualmachineinstance-action", newVMIBackupItemAction).
+		// Delete action — cleanup native backup artifacts on backup deletion
+		RegisterDeleteItemAction("kubevirt-velero-plugin/delete-vm-action", newVMDeleteItemAction).
+		// Item block action — atomic backup of VM + related resources
+		RegisterItemBlockAction("kubevirt-velero-plugin/block-vm-action", newVMItemBlockAction).
 		Serve()
 }
 
@@ -60,7 +66,7 @@ func newDVBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
 }
 
 func newVMBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
-	logger.Debug("Creating VMBackupItemAction")
+	logger.Debug("Creating VMBackupItemAction (v2)")
 	return plugin.NewVMBackupItemAction(logger), nil
 }
 
@@ -75,7 +81,7 @@ func newVMIBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
 }
 
 func newVMRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
-	logger.Debug("Creating VMRestoreItemAction")
+	logger.Debug("Creating VMRestoreItemAction (v2)")
 	return plugin.NewVMRestoreItemAction(logger), nil
 }
 
@@ -99,3 +105,12 @@ func newVolumeSnapshotRestoreItemAction(logger logrus.FieldLogger) (interface{},
 	return plugin.NewVolumeSnapshotRestoreItemAction(logger), nil
 }
 
+func newVMDeleteItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMDeleteItemAction")
+	return plugin.NewVMDeleteItemAction(logger), nil
+}
+
+func newVMItemBlockAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMItemBlockAction")
+	return plugin.NewVMItemBlockAction(logger), nil
+}

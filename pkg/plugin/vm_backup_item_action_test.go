@@ -559,7 +559,7 @@ func TestVMBackupAction(t *testing.T) {
 			util.ListPods = func(name, ns string) (*k8sv1.PodList, error) {
 				return &k8sv1.PodList{}, nil
 			}
-			_, extra, err := action.Execute(&tc.vm, &tc.backup)
+			_, extra, _, _, err := action.Execute(&tc.vm, &tc.backup)
 
 			if tc.errorExpected {
 				assert.Error(t, err)

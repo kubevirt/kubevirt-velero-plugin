@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/nativebackup"
 
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
@@ -60,8 +61,14 @@ func (p *PVCBackupItemAction) Execute(item runtime.Unstructured, backup *v1.Back
 		return nil, nil, err
 	}
 
-	// Add UID label for selective restore
+	// Skip PVCs that are being handled by native backup (prevents CSI double-snapshot)
 	labels := metadata.GetLabels()
+	if labels != nil && labels[nativebackup.NativeBackedPVCLabel] == "true" {
+		p.log.Infof("PVC %s/%s handled by native backup, skipping UID labeling", metadata.GetNamespace(), metadata.GetName())
+		return item, []velero.ResourceIdentifier{}, nil
+	}
+
+	// Add UID label for selective restore
 	if labels == nil {
 		labels = make(map[string]string)
 	}
