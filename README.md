@@ -19,7 +19,7 @@ Finds the PVC for DV and adds the `"cdi.kubevirt.io/storage.prePopulated" or "cd
 An action that backs up the `VirtualMachine`
  
 It checks if a `VM` can be safely backed up and if the backup contains all required objects for the successful restore. 
-The action also makes sure that every object in the vm and VMI graph will be added the the backup, for example: instancetype, different types of volumes, access credentials, etc..
+The action also makes sure that every object in the vm and VMI graph will be added to the backup, for example: instancetype, different types of volumes, access credentials, etc..
 It also returns the underlying `DataVolume` if a VM has `DataVolumeTemplate` and `virtualmachineinstances` as extra items to back up.
 
 > Note: any cluster scoped objects and network objects and configurations are not backed up and they should be available when restoring the VM.
