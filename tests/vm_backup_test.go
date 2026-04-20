@@ -20,6 +20,7 @@ import (
 	kubecli "kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 	. "kubevirt.io/kubevirt-velero-plugin/tests/framework/matcher"
+	"kubevirt.io/kubevirt-velero-plugin/tests/patch"
 )
 
 const (
@@ -378,11 +379,12 @@ var _ = Describe("[smoke] VM Backup", func() {
 		if originalMAC == "" {
 			// This means there is no KubeMacPool running. We can simply choose a random address
 			originalMAC = "DE-AD-00-00-BE-AF"
-			update := func(vm *kvv1.VirtualMachine) *kvv1.VirtualMachine {
-				vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress = originalMAC
-				return vm
-			}
-			retryOnceOnErr(updateVm(f.KvClient, f.Namespace.Name, vm.Name, update)).Should(BeNil())
+			patchData, err := patch.New(
+				patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", originalMAC),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = f.KvClient.VirtualMachine(f.Namespace.Name).Patch(context.TODO(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 			Expect(err).ToNot(HaveOccurred())
@@ -455,18 +457,30 @@ var _ = Describe("[smoke] VM Backup", func() {
 			updateInstancetypeFunc := func() {
 				instancetype, err := f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).Get(context.Background(), instancetypeName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				instancetype.Spec.CPU.Guest = instancetype.Spec.CPU.Guest + 1
-				instancetype.Spec.Memory.Guest.Add(resource.MustParse("128Mi"))
-				_, err = f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				newCPU := instancetype.Spec.CPU.Guest + 1
+				newMemory := instancetype.Spec.Memory.Guest.DeepCopy()
+				newMemory.Add(resource.MustParse("128Mi"))
+				patchData, err := patch.New(
+					patch.WithReplace("/spec/cpu/guest", newCPU),
+					patch.WithReplace("/spec/memory/guest", newMemory.String()),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = f.KvClient.VirtualMachineInstancetype(f.Namespace.Name).Patch(context.Background(), instancetype.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 			updateClusterInstancetypeFunc := func() {
 				instancetype, err := f.KvClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetypeName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				instancetype.Spec.CPU.Guest = instancetype.Spec.CPU.Guest + 1
-				instancetype.Spec.Memory.Guest.Add(resource.MustParse("128Mi"))
-				_, err = f.KvClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				newCPU := instancetype.Spec.CPU.Guest + 1
+				newMemory := instancetype.Spec.Memory.Guest.DeepCopy()
+				newMemory.Add(resource.MustParse("128Mi"))
+				patchData, err := patch.New(
+					patch.WithReplace("/spec/cpu/guest", newCPU),
+					patch.WithReplace("/spec/memory/guest", newMemory.String()),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = f.KvClient.VirtualMachineClusterInstancetype().Patch(context.Background(), instancetype.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 

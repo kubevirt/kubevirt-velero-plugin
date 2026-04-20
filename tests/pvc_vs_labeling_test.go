@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/strings/slices"
 
@@ -16,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 	. "kubevirt.io/kubevirt-velero-plugin/tests/framework/matcher"
+	"kubevirt.io/kubevirt-velero-plugin/tests/patch"
 )
 
 var _ = Describe("PVC and VolumeSnapshot Labeling", func() {
@@ -63,11 +65,11 @@ var _ = Describe("PVC and VolumeSnapshot Labeling", func() {
 			pvc, err := framework.FindPVC(f.K8sClient, f.Namespace.Name, pvcName)
 			Expect(err).ToNot(HaveOccurred())
 
-			if pvc.Labels == nil {
-				pvc.Labels = make(map[string]string)
-			}
-			pvc.Labels[util.PVCUIDLabel] = userDefinedValue
-			_, err = f.K8sClient.CoreV1().PersistentVolumeClaims(f.Namespace.Name).Update(context.Background(), pvc, metav1.UpdateOptions{})
+			patchData, err := patch.New(
+				patch.WithAddLabel(util.PVCUIDLabel, userDefinedValue, pvc.Labels),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = f.K8sClient.CoreV1().PersistentVolumeClaims(f.Namespace.Name).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating backup")
