@@ -76,8 +76,7 @@ func (f *Framework) CreateVMWithDVAndDVTemplate() error {
 }
 
 func (f *Framework) CreateVMWithPVC() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/vm_with_pvc.yaml", "-n", f.Namespace.Name)
-	return err
+	return f.RunKubectlCreateYamlCommand("manifests/vm_with_pvc.yaml")
 }
 
 func (f *Framework) CreateVMForHotplug() error {
@@ -86,6 +85,5 @@ func (f *Framework) CreateVMForHotplug() error {
 }
 
 func (f *Framework) CreateVMIWithDataVolume() error {
-	err := f.RunKubectlCommand("create", "-f", "manifests/vmi_with_dv.yaml", "-n", f.Namespace.Name)
-	return err
+	return f.RunKubectlCreateYamlCommand("manifests/vmi_with_dv.yaml")
 }

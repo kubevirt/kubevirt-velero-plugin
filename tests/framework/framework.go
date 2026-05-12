@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -38,6 +39,7 @@ const (
 	backupNamespaceEnv                     = "KVP_BACKUP_NS"
 	regionEnv                              = "KVP_REGION"
 	storageClassEnv                        = "KVP_STORAGE_CLASS"
+	defaultMachineTypeEnv                  = "KVP_DEFAULT_MACHINE_TYPE"
 
 	defaultRegionName      = "minio"
 	defaultBackupNamespace = "velero"
@@ -49,6 +51,7 @@ var (
 	ClientsInstance      = &Clients{}
 	BackupScriptInstance = &BackupScript{}
 	reporter             = NewKubernetesReporter()
+	DefaultMachineType   = "q35"
 )
 
 // Framework supports common operations used by functional/e2e tests. It holds the k8s and cdi clients,
@@ -745,4 +748,59 @@ func GetKubevirt(kvClient kubecli.KubevirtClient) *kv1.KubeVirt {
 
 	gomega.Expect(kvList.Items).To(gomega.HaveLen(1))
 	return &kvList.Items[0]
+}
+
+// InitDefaultMachineType sets DefaultMachineType from KVP_DEFAULT_MACHINE_TYPE or from worker node
+// architecture (first schedulable node with arch, else any node; see also Status.NodeInfo and label kubernetes.io/arch).
+func InitDefaultMachineType(client kubernetes.Interface) {
+	if v := strings.TrimSpace(os.Getenv(defaultMachineTypeEnv)); v != "" {
+		DefaultMachineType = v
+		fmt.Fprintf(ginkgo.GinkgoWriter, "DefaultMachineType (from %s env): %s\n", defaultMachineTypeEnv, DefaultMachineType)
+		return
+	}
+	arch, err := detectClusterArchitecture(client)
+	if err != nil {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "WARNING: failed to detect cluster architecture, defaulting to %s: %v\n", DefaultMachineType, err)
+		return
+	}
+	switch arch {
+	case "s390x":
+		DefaultMachineType = "s390-ccw-virtio"
+	case "arm64":
+		DefaultMachineType = "virt"
+	default:
+		DefaultMachineType = "q35"
+	}
+	fmt.Fprintf(ginkgo.GinkgoWriter, "DefaultMachineType (detected arch %s): %s\n", arch, DefaultMachineType)
+}
+
+func detectClusterArchitecture(client kubernetes.Interface) (string, error) {
+	nl, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{Limit: 500})
+	if err != nil {
+		return "", err
+	}
+	if len(nl.Items) == 0 {
+		return "", fmt.Errorf("no nodes in cluster")
+	}
+	var fallback string
+	for i := range nl.Items {
+		n := &nl.Items[i]
+		arch := strings.TrimSpace(n.Status.NodeInfo.Architecture)
+		if arch == "" {
+			arch = strings.TrimSpace(n.Labels[v1.LabelArchStable])
+		}
+		if arch == "" {
+			continue
+		}
+		if !n.Spec.Unschedulable {
+			return arch, nil
+		}
+		if fallback == "" {
+			fallback = arch
+		}
+	}
+	if fallback != "" {
+		return fallback, nil
+	}
+	return "", fmt.Errorf("no node reports architecture")
 }

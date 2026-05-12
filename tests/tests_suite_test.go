@@ -68,6 +68,7 @@ func BuildTestSuite() {
 		}
 		framework.ClientsInstance.K8sClient = k8sClient
 
+		framework.InitDefaultMachineType(k8sClient)
 		listPlugins()
 	})
 
