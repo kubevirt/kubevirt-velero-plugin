@@ -14,6 +14,7 @@ import (
 	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt-velero-plugin/tests/framework"
 )
 
 const (
@@ -60,7 +61,7 @@ var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
 							},
 						},
 						Machine: &kvv1.Machine{
-							Type: "",
+							Type: framework.DefaultMachineType,
 						},
 						Devices: kvv1.Devices{
 							Disks: []kvv1.Disk{
@@ -132,7 +133,7 @@ var newVMSpec = func(vmName, size string, volumeSource kvv1.VolumeSource) *kvv1.
 							},
 						},
 						Machine: &kvv1.Machine{
-							Type: "",
+							Type: framework.DefaultMachineType,
 						},
 						Devices: kvv1.Devices{
 							Disks: []kvv1.Disk{
@@ -191,7 +192,7 @@ func newVMISpec(vmiName string) *kvv1.VirtualMachineInstance {
 					},
 				},
 				Machine: &kvv1.Machine{
-					Type: "q35",
+					Type: framework.DefaultMachineType,
 				},
 				Devices: kvv1.Devices{
 					Rng:   &kvv1.Rng{},

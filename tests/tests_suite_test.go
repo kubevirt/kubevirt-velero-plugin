@@ -65,6 +65,8 @@ func BuildTestSuite() {
 			Fail(fmt.Sprintf("ERROR, unable to create K8sClient: %v", err))
 		}
 		framework.ClientsInstance.K8sClient = k8sClient
+
+		framework.InitDefaultMachineType(k8sClient)
 	})
 
 	AfterSuite(func() {
