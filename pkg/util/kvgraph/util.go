@@ -21,6 +21,7 @@ package kvgraph
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
@@ -35,14 +36,15 @@ const (
 
 // KVObjectGraph represents the graph of objects that can be potentially related to a KubeVirt resource
 var KVObjectGraph = map[string]schema.GroupResource{
-	"virtualmachineinstances": {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-	"datavolumes":             {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-	"controllerrevisions":     {Group: "apps", Resource: "controllerrevisions"},
-	"configmaps":              {Group: "", Resource: "configmaps"},
-	"persistentvolumeclaims":  kuberesource.PersistentVolumeClaims,
-	"serviceaccounts":         kuberesource.ServiceAccounts,
-	"secrets":                 kuberesource.Secrets,
-	"pods":                    kuberesource.Pods,
+	"virtualmachineinstances":        {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
+	"datavolumes":                    {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+	"controllerrevisions":            {Group: "apps", Resource: "controllerrevisions"},
+	"configmaps":                     {Group: "", Resource: "configmaps"},
+	"networkattachmentdefinitions":   {Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+	"persistentvolumeclaims":         kuberesource.PersistentVolumeClaims,
+	"serviceaccounts":                kuberesource.ServiceAccounts,
+	"secrets":                        kuberesource.Secrets,
+	"pods":                           kuberesource.Pods,
 }
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
@@ -59,7 +61,23 @@ func addVeleroResource(name, namespace, resource string, resources []velero.Reso
 func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
 	resources, err := addVolumeGraph(spec, vmName, namespace, resources)
 	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
+	resources = addNetworkGraph(spec, namespace, resources)
 	return resources, err
+}
+
+func addNetworkGraph(vmiSpec v1.VirtualMachineInstanceSpec, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	for _, net := range vmiSpec.Networks {
+		if net.Multus != nil && net.Multus.NetworkName != "" {
+			nadName := net.Multus.NetworkName
+			nadNamespace := namespace
+			if parts := strings.SplitN(nadName, "/", 2); len(parts) == 2 {
+				nadNamespace = parts[0]
+				nadName = parts[1]
+			}
+			resources = addVeleroResource(nadName, nadNamespace, "networkattachmentdefinitions", resources)
+		}
+	}
+	return resources
 }
 
 func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
