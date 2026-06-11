@@ -711,10 +711,15 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("VM with NetworkAttachmentDefinition should be backed up and restored", func() {
+			_, err := f.K8sClient.Discovery().ServerResourcesForGroupVersion("k8s.cni.cncf.io/v1")
+			if err != nil {
+				Skip("NetworkAttachmentDefinition CRD not available on this cluster")
+			}
+
 			const nadName = "test-nad"
 
 			By("Creating NetworkAttachmentDefinition")
-			err := f.CreateNetworkAttachmentDefinition()
+			err = f.CreateNetworkAttachmentDefinition()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting a VM with Multus secondary network")
