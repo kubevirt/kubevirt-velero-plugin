@@ -87,3 +87,11 @@ func (f *Framework) CreateVMForHotplug() error {
 func (f *Framework) CreateVMIWithDataVolume() error {
 	return f.RunKubectlCreateYamlCommand("manifests/vmi_with_dv.yaml")
 }
+
+func (f *Framework) CreateNetworkAttachmentDefinition() error {
+	return f.RunKubectlCommand("create", "-f", "manifests/network-attachment-definition.yaml", "-n", f.Namespace.Name)
+}
+
+func (f *Framework) CreateVMWithNAD() error {
+	return f.RunKubectlCreateYamlCommand("manifests/vm_with_nad.yaml")
+}
