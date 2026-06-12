@@ -438,3 +438,90 @@ func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 		})
 	}
 }
+
+func TestNewVirtualMachineInstanceRestoreGraphWithNetworks(t *testing.T) {
+	testCases := []struct {
+		name     string
+		vmi      kvcore.VirtualMachineInstance
+		expected []velero.ResourceIdentifier
+	}{
+		{"Should include single Multus NAD",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "secondary",
+							NetworkSource: kvcore.NetworkSource{
+								Multus: &kvcore.MultusNetwork{
+									NetworkName: "my-nad",
+								},
+							},
+						},
+					},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+					Namespace:     "test-namespace",
+					Name:          "my-nad",
+				},
+			},
+		},
+		{"Should include cross-namespace NAD",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "secondary",
+							NetworkSource: kvcore.NetworkSource{
+								Multus: &kvcore.MultusNetwork{
+									NetworkName: "other-ns/my-nad",
+								},
+							},
+						},
+					},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+					Namespace:     "other-ns",
+					Name:          "my-nad",
+				},
+			},
+		},
+		{"Should not include NADs for pod-only network",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "default",
+							NetworkSource: kvcore.NetworkSource{
+								Pod: &kvcore.PodNetwork{},
+							},
+						},
+					},
+				},
+			},
+			[]velero.ResourceIdentifier{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			output, err := NewVirtualMachineInstanceRestoreGraph(&tc.vmi)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, output)
+		})
+	}
+}
