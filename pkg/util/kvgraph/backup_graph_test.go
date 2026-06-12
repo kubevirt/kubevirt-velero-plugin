@@ -692,6 +692,155 @@ func TestAddLauncherPod(t *testing.T) {
 	}
 }
 
+func TestNewVirtualMachineInstanceBackupGraphWithNetworks(t *testing.T) {
+	testCases := []struct {
+		name     string
+		vmi      kvcore.VirtualMachineInstance
+		expected []velero.ResourceIdentifier
+	}{
+		{"Should include single Multus NAD",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "secondary",
+							NetworkSource: kvcore.NetworkSource{
+								Multus: &kvcore.MultusNetwork{
+									NetworkName: "my-nad",
+								},
+							},
+						},
+					},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+					Namespace:     "test-namespace",
+					Name:          "my-nad",
+				},
+			},
+		},
+		{"Should include cross-namespace NAD",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "secondary",
+							NetworkSource: kvcore.NetworkSource{
+								Multus: &kvcore.MultusNetwork{
+									NetworkName: "other-ns/my-nad",
+								},
+							},
+						},
+					},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+					Namespace:     "other-ns",
+					Name:          "my-nad",
+				},
+			},
+		},
+		{"Should include multiple Multus NADs",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "net1",
+							NetworkSource: kvcore.NetworkSource{
+								Multus: &kvcore.MultusNetwork{
+									NetworkName: "nad-one",
+								},
+							},
+						},
+						{
+							Name: "net2",
+							NetworkSource: kvcore.NetworkSource{
+								Multus: &kvcore.MultusNetwork{
+									NetworkName: "cross-ns/nad-two",
+								},
+							},
+						},
+					},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: schema.GroupResource{Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+					Namespace:     "test-namespace",
+					Name:          "nad-one",
+				},
+				{
+					GroupResource: schema.GroupResource{Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+					Namespace:     "cross-ns",
+					Name:          "nad-two",
+				},
+			},
+		},
+		{"Should not include NADs for pod-only network",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "default",
+							NetworkSource: kvcore.NetworkSource{
+								Pod: &kvcore.PodNetwork{},
+							},
+						},
+					},
+				},
+			},
+			nil,
+		},
+		{"Should skip Multus network with empty NetworkName",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+				},
+				Spec: kvcore.VirtualMachineInstanceSpec{
+					Networks: []kvcore.Network{
+						{
+							Name: "broken",
+							NetworkSource: kvcore.NetworkSource{
+								Multus: &kvcore.MultusNetwork{
+									NetworkName: "",
+								},
+							},
+						},
+					},
+				},
+			},
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			util.ListPods = func(name, ns string) (*v1.PodList, error) {
+				return &v1.PodList{Items: []v1.Pod{}}, nil
+			}
+			output, err := NewVirtualMachineInstanceBackupGraph(&tc.vmi)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, output)
+		})
+	}
+}
+
 func TestNewDataVolumeBackupGraph(t *testing.T) {
 	tests := []struct {
 		name           string
