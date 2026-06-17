@@ -46,7 +46,7 @@ func NewNADRestoreItemAction(log logrus.FieldLogger) *NADRestoreItemAction {
 func (p *NADRestoreItemAction) AppliesTo() (velero.ResourceSelector, error) {
 	return velero.ResourceSelector{
 		IncludedResources: []string{
-			"NetworkAttachmentDefinition",
+			"network-attachment-definition",
 		},
 	}, nil
 }
