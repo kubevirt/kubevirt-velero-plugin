@@ -783,6 +783,159 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(foundNAD).To(BeTrue(), "Restored VM should reference the NAD")
 		})
 
+		It("VM with NAD should be backed up and restored to a different namespace with namespace mapping", func() {
+			_, err := f.K8sClient.Discovery().ServerResourcesForGroupVersion("k8s.cni.cncf.io/v1")
+			if err != nil {
+				Skip("NetworkAttachmentDefinition CRD not available on this cluster")
+			}
+
+			const nadName = "test-nad"
+
+			By("Creating target namespace for namespace-mapped restore")
+			targetNs, err := f.CreateNamespace()
+			Expect(err).ToNot(HaveOccurred())
+			f.AddNamespaceToDelete(targetNs)
+
+			By("Creating NetworkAttachmentDefinition")
+			err = f.CreateNetworkAttachmentDefinition()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting a VM with Multus secondary network")
+			err = f.CreateVMWithNAD()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-nad", dvName)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Dumping VM YAML before backup")
+			dumpVMYaml(f.KvClient, f.Namespace.Name, vm.Name)
+
+			By("Creating backup with label selector (only VM is labeled, NAD must be discovered by plugin)")
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Stopping VM")
+			err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating restore with namespace mapping")
+			err = framework.CreateRestoreWithNamespaceMapping(timeout, backupName, restoreName, f.BackupNamespace,
+				map[string]string{f.Namespace.Name: targetNs.Name}, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying VM")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, targetNs.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Dumping VM YAML after restore")
+			dumpVMYaml(f.KvClient, targetNs.Name, vm.Name)
+
+			By("Verifying NetworkAttachmentDefinition was restored")
+			nadRestored, err := getNetworkAttachmentDefinition(f, nadName, targetNs.Name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nadRestored).ToNot(BeEmpty(), "NAD should have been restored")
+
+			By("Verifying VM still references the NAD in its spec")
+			restoredVM, err := f.KvClient.VirtualMachine(targetNs.Name).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			foundNAD := false
+			for _, net := range restoredVM.Spec.Template.Spec.Networks {
+				if net.Multus != nil && net.Multus.NetworkName == nadName {
+					foundNAD = true
+					break
+				}
+			}
+			Expect(foundNAD).To(BeTrue(), "Restored VM should reference the NAD")
+
+			By("Verifying original VM still exists in source namespace")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("VM with NAD-OVN should be backed up and restored to a different namespace with namespace mapping", func() {
+			_, err := f.K8sClient.Discovery().ServerResourcesForGroupVersion("k8s.cni.cncf.io/v1")
+			if err != nil {
+				Skip("NetworkAttachmentDefinition CRD not available on this cluster")
+			}
+
+			const nadName = "nad-1"
+
+			By("Creating target namespace for namespace-mapped restore")
+			targetNs, err := f.CreateNamespace()
+			Expect(err).ToNot(HaveOccurred())
+			f.AddNamespaceToDelete(targetNs)
+
+			By("Creating NetworkAttachmentDefinition")
+			err = f.CreateNetworkAttachmentDefinitionOvn()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting a VM with Multus secondary network")
+			err = f.CreateVMWithNADOvn()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-with-nad-ovn", dvName)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Dumping VM YAML before backup")
+			dumpVMYaml(f.KvClient, f.Namespace.Name, vm.Name)
+
+			By("Creating backup with label selector (only VM is labeled, NAD must be discovered by plugin)")
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Stopping VM")
+			err = framework.StopVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating restore with namespace mapping")
+			err = framework.CreateRestoreWithNamespaceMapping(timeout, backupName, restoreName, f.BackupNamespace,
+				map[string]string{f.Namespace.Name: targetNs.Name}, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying VM")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, targetNs.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Dumping VM YAML after restore")
+			dumpVMYaml(f.KvClient, targetNs.Name, vm.Name)
+
+			By("Verifying NetworkAttachmentDefinition was restored")
+			nadRestored, err := getNetworkAttachmentDefinition(f, nadName, targetNs.Name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nadRestored).ToNot(BeEmpty(), "NAD should have been restored")
+
+			By("Verifying NAD config has remapped netAttachDefName to target namespace")
+			nadConfig, err := getNetworkAttachmentDefinitionConfig(f, nadName, targetNs.Name)
+			Expect(err).ToNot(HaveOccurred())
+			expectedNetAttachDefName := fmt.Sprintf("%s/%s", targetNs.Name, nadName)
+			Expect(nadConfig).To(ContainSubstring(expectedNetAttachDefName),
+				fmt.Sprintf("NAD config should reference target namespace: expected %s in config", expectedNetAttachDefName))
+
+			By("Verifying VM still references the NAD in its spec")
+			restoredVM, err := f.KvClient.VirtualMachine(targetNs.Name).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			foundNAD := false
+			for _, net := range restoredVM.Spec.Template.Spec.Networks {
+				if net.Multus != nil && net.Multus.NetworkName == nadName {
+					foundNAD = true
+					break
+				}
+			}
+			Expect(foundNAD).To(BeTrue(), "Restored VM should reference the NAD")
+
+			By("Verifying original VM still exists in source namespace")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		//todo this test vm is not starting correctly, need more eyes to fix.
 		PIt("[test_id:10275]VM with hotplug disk", Label("PartnerComp"), func() {
 			By("Starting a VM")
@@ -973,6 +1126,31 @@ func getNetworkAttachmentDefinition(f *framework.Framework, name, namespace stri
 		return "", err
 	}
 	return nad.GetName(), nil
+}
+
+func getNetworkAttachmentDefinitionConfig(f *framework.Framework, name, namespace string) (string, error) {
+	cfg, err := f.LoadConfig()
+	if err != nil {
+		return "", err
+	}
+	dynClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return "", err
+	}
+	nadGVR := schema.GroupVersionResource{Group: "k8s.cni.cncf.io", Version: "v1", Resource: "network-attachment-definitions"}
+	nad, err := dynClient.Resource(nadGVR).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	spec, ok := nad.Object["spec"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("NAD %s/%s spec not found or not a map", namespace, name)
+	}
+	config, ok := spec["config"].(string)
+	if !ok {
+		return "", fmt.Errorf("NAD %s/%s config not found or not a string", namespace, name)
+	}
+	return config, nil
 }
 
 func getPersistentStatePVC(kvClient kubecli.KubevirtClient, vm *kvv1.VirtualMachine) (*v1.PersistentVolumeClaim, error) {

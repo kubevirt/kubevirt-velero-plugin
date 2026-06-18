@@ -92,6 +92,14 @@ func (f *Framework) CreateNetworkAttachmentDefinition() error {
 	return f.RunKubectlCommand("create", "-f", "manifests/network-attachment-definition.yaml", "-n", f.Namespace.Name)
 }
 
+func (f *Framework) CreateNetworkAttachmentDefinitionOvn() error {
+	return f.RunKubectlCreateYamlCommandWithNamespace("manifests/network-attachment-definition-ovn.yaml")
+}
+
 func (f *Framework) CreateVMWithNAD() error {
 	return f.RunKubectlCreateYamlCommand("manifests/vm_with_nad.yaml")
+}
+
+func (f *Framework) CreateVMWithNADOvn() error {
+	return f.RunKubectlCreateYamlCommand("manifests/vm_with_nad_ovn.yaml")
 }
