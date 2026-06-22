@@ -809,8 +809,9 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Dumping VM YAML before backup")
+			By("Dumping VM and NAD YAML before backup")
 			dumpVMYaml(f.KvClient, f.Namespace.Name, vm.Name)
+			dumpNADYaml(f, nadName, f.Namespace.Name)
 
 			By("Creating backup with label selector (only VM is labeled, NAD must be discovered by plugin)")
 			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
@@ -822,21 +823,25 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Creating restore with namespace mapping")
+			By("Creating restore with namespace mapping and clear MAC address")
 			err = framework.CreateRestoreWithNamespaceMapping(timeout, backupName, restoreName, f.BackupNamespace,
-				map[string]string{f.Namespace.Name: targetNs.Name}, true)
+				map[string]string{f.Namespace.Name: targetNs.Name},
+				map[string]string{"velero.kubevirt.io/clear-mac-address": "true"},
+				true)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, targetNs.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Dumping VM YAML after restore")
+			By("Dumping VM and NAD YAML after restore")
 			dumpVMYaml(f.KvClient, targetNs.Name, vm.Name)
+			dumpNADYaml(f, nadName, targetNs.Name)
 
 			By("Verifying NetworkAttachmentDefinition was restored")
 			nadRestored, err := getNetworkAttachmentDefinition(f, nadName, targetNs.Name)
 			Expect(err).ToNot(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "INFO: NAD %q in namespace %q: %s\n", nadName, targetNs.Name, nadRestored)
 			Expect(nadRestored).ToNot(BeEmpty(), "NAD should have been restored")
 
 			By("Verifying VM still references the NAD in its spec")
@@ -844,6 +849,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 			foundNAD := false
 			for _, net := range restoredVM.Spec.Template.Spec.Networks {
+				fmt.Fprintf(GinkgoWriter, "INFO: VM network entry: Name=%s, Multus=%v\n", net.Name, net.Multus)
 				if net.Multus != nil && net.Multus.NetworkName == nadName {
 					foundNAD = true
 					break
@@ -854,6 +860,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			By("Verifying original VM still exists in source namespace")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 			Expect(err).ToNot(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "INFO: Original VM %q in source namespace %q is Stopped\n", vm.Name, f.Namespace.Name)
 		})
 
 		It("VM with NAD-OVN should be backed up and restored to a different namespace with namespace mapping", func() {
@@ -882,8 +889,9 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Dumping VM YAML before backup")
+			By("Dumping VM and NAD YAML before backup")
 			dumpVMYaml(f.KvClient, f.Namespace.Name, vm.Name)
+			dumpNADYaml(f, nadName, f.Namespace.Name)
 
 			By("Creating backup with label selector (only VM is labeled, NAD must be discovered by plugin)")
 			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
@@ -895,35 +903,42 @@ var _ = Describe("[smoke] VM Backup", func() {
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Creating restore with namespace mapping")
+			By("Creating restore with namespace mapping and clear MAC address")
 			err = framework.CreateRestoreWithNamespaceMapping(timeout, backupName, restoreName, f.BackupNamespace,
-				map[string]string{f.Namespace.Name: targetNs.Name}, true)
+				map[string]string{f.Namespace.Name: targetNs.Name},
+				map[string]string{"velero.kubevirt.io/clear-mac-address": "true"},
+				true)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VM")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, targetNs.Name, vm.Name, kvv1.VirtualMachineStatusStopped, kvv1.VirtualMachineStatusRunning)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Dumping VM YAML after restore")
+			By("Dumping VM and NAD YAML after restore")
 			dumpVMYaml(f.KvClient, targetNs.Name, vm.Name)
+			dumpNADYaml(f, nadName, targetNs.Name)
 
 			By("Verifying NetworkAttachmentDefinition was restored")
 			nadRestored, err := getNetworkAttachmentDefinition(f, nadName, targetNs.Name)
 			Expect(err).ToNot(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "INFO: NAD %q in namespace %q: %s\n", nadName, targetNs.Name, nadRestored)
 			Expect(nadRestored).ToNot(BeEmpty(), "NAD should have been restored")
 
 			By("Verifying NAD config has remapped netAttachDefName to target namespace")
 			nadConfig, err := getNetworkAttachmentDefinitionConfig(f, nadName, targetNs.Name)
 			Expect(err).ToNot(HaveOccurred())
 			expectedNetAttachDefName := fmt.Sprintf("%s/%s", targetNs.Name, nadName)
+			fmt.Fprintf(GinkgoWriter, "INFO: NAD config: %s\n", nadConfig)
+			fmt.Fprintf(GinkgoWriter, "INFO: Expected netAttachDefName substring: %s\n", expectedNetAttachDefName)
 			Expect(nadConfig).To(ContainSubstring(expectedNetAttachDefName),
-				fmt.Sprintf("NAD config should reference target namespace: expected %s in config", expectedNetAttachDefName))
+				fmt.Sprintf("NAD config should reference target namespace: expected %s in config %s", expectedNetAttachDefName, nadConfig))
 
 			By("Verifying VM still references the NAD in its spec")
 			restoredVM, err := f.KvClient.VirtualMachine(targetNs.Name).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			foundNAD := false
 			for _, net := range restoredVM.Spec.Template.Spec.Networks {
+				fmt.Fprintf(GinkgoWriter, "INFO: VM network entry: Name=%s, Multus=%v\n", net.Name, net.Multus)
 				if net.Multus != nil && net.Multus.NetworkName == nadName {
 					foundNAD = true
 					break
@@ -934,6 +949,7 @@ var _ = Describe("[smoke] VM Backup", func() {
 			By("Verifying original VM still exists in source namespace")
 			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusStopped)
 			Expect(err).ToNot(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "INFO: Original VM %q in source namespace %q is Stopped\n", vm.Name, f.Namespace.Name)
 		})
 
 		//todo this test vm is not starting correctly, need more eyes to fix.
@@ -1092,6 +1108,31 @@ func dumpVMYaml(kvClient kubecli.KubevirtClient, namespace, name string) {
 		return
 	}
 	fmt.Fprintf(GinkgoWriter, "=== VM %s/%s YAML ===\n%s\n=== End VM ===\n", namespace, name, string(data))
+}
+
+func dumpNADYaml(f *framework.Framework, name, namespace string) {
+	cfg, err := f.LoadConfig()
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "WARN: failed to load config for NAD dump: %v\n", err)
+		return
+	}
+	dynClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "WARN: failed to create dynamic client for NAD dump: %v\n", err)
+		return
+	}
+	nadGVR := schema.GroupVersionResource{Group: "k8s.cni.cncf.io", Version: "v1", Resource: "network-attachment-definitions"}
+	nad, err := dynClient.Resource(nadGVR).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "WARN: failed to get NAD %s/%s for dump: %v\n", namespace, name, err)
+		return
+	}
+	data, err := json.MarshalIndent(nad.Object, "", "  ")
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "WARN: failed to marshal NAD %s/%s: %v\n", namespace, name, err)
+		return
+	}
+	fmt.Fprintf(GinkgoWriter, "=== NAD %s/%s ===\n%s\n=== End NAD ===\n", namespace, name, string(data))
 }
 
 func deleteNetworkAttachmentDefinition(f *framework.Framework, name, namespace string) error {
