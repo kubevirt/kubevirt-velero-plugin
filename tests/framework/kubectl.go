@@ -51,6 +51,23 @@ func (f *Framework) RunKubectlCreateYamlCommand(yamlPath string) error {
 	return err
 }
 
+// RunKubectlCreateYamlCommandWithNamespace substitutes {{KVP_NAMESPACE}} with the test namespace, then kubectl create.
+func (f *Framework) RunKubectlCreateYamlCommandWithNamespace(yamlPath string) error {
+	kubeconfig := f.KubeConfig
+	path := f.KubectlPath
+	cmdString := fmt.Sprintf(
+		"cat %s | sed 's|{{KVP_NAMESPACE}}|%s|g' | %s create -n %s -f -",
+		yamlPath, f.Namespace.Name, path, f.Namespace.Name,
+	)
+	cmd := exec.Command("bash", "-c", cmdString)
+	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig)
+	cmd.Env = append(os.Environ(), kubeconfEnv)
+	outBytes, err := cmd.CombinedOutput()
+	fmt.Fprintf(GinkgoWriter, "INFO: Output from kubectl: %s\n", string(outBytes))
+
+	return err
+}
+
 // KubectlDescribeVeleroBackup execs to the velero pod and runs a describe command on the given
 // backup name including details of the resources that were backed up
 func (f *Framework) KubectlDescribeVeleroBackup(ctx context.Context, podName, backupName string) (map[string]interface{}, error) {

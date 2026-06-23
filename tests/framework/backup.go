@@ -283,6 +283,45 @@ func CreateRestoreWithClearedMACAddress(ctx context.Context, backupName, restore
 	return CreateRestoreWithLabels(ctx, backupName, restoreName, backupNamespace, wait, map[string]string{"velero.kubevirt.io/clear-mac-address": "true"})
 }
 
+func CreateRestoreWithNamespaceMapping(ctx context.Context, backupName, restoreName, backupNamespace string, namespaceMappings map[string]string, labels map[string]string, wait bool) error {
+	args := []string{
+		"restore", "create", restoreName,
+		"--from-backup", backupName,
+		"--namespace", backupNamespace,
+	}
+
+	if len(namespaceMappings) > 0 {
+		pairs := []string{}
+		for src, dst := range namespaceMappings {
+			pairs = append(pairs, fmt.Sprintf("%s:%s", src, dst))
+		}
+		args = append(args, "--namespace-mappings", strings.Join(pairs, ","))
+	}
+
+	if len(labels) > 0 {
+		labelPairs := []string{}
+		for key, value := range labels {
+			labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", key, value))
+		}
+		args = append(args, "--labels", strings.Join(labelPairs, ","))
+	}
+
+	restoreCmd := exec.CommandContext(ctx, veleroCLI, args...)
+	restoreCmd.Stdout = os.Stdout
+	restoreCmd.Stderr = os.Stderr
+	ginkgo.By(fmt.Sprintf("restore cmd =%v\n", restoreCmd))
+	err := restoreCmd.Run()
+	if err != nil {
+		return err
+	}
+
+	if wait {
+		return waitForRestoreTerminalPhase(ctx, restoreName, backupNamespace)
+	}
+
+	return nil
+}
+
 func GetRestore(ctx context.Context, restoreName string, backupNamespace string) (*v1.Restore, error) {
 	checkCMD := exec.CommandContext(ctx, veleroCLI, "restore", "get", "-n", backupNamespace, "-o", "json", restoreName)
 
