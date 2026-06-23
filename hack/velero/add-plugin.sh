@@ -33,7 +33,7 @@ function wait_plugin_available {
                     plugin get | grep kubevirt-velero | wc -l)
 
     wait_time=0
-    expected_actions="15"
+    expected_actions="17"
     while [[ $available != $expected_actions ]] && [[ $wait_time -lt 60 ]]; do
       wait_time=$((wait_time + 5))
       sleep 5
