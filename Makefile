@@ -84,7 +84,7 @@ build-local: build-dirs
 	GIT_DIRTY="$(GIT_DIRTY)" \
 	OUTPUT_DIR=$$(pwd)/_output/bin/$(GOOS)/$(GOARCH) \
 	GO111MODULE=on \
-	GOFLAGS=-mod=readonly \
+	GOFLAGS=-mod=vendor \
 	./hack/build/build.sh
 
 build-all: build-dirs _output/bin/$(GOOS)/$(GOARCH)/$(BIN)
@@ -104,7 +104,7 @@ _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 		GIT_DIRTY="$(GIT_DIRTY)" \
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
- 		GOFLAGS=-mod=readonly \
+ 		GOFLAGS=-mod=vendor \
  		GOCACHE=/.cache/go-build \
  		GOPATH=/go \
 		./hack/build/build.sh'"
