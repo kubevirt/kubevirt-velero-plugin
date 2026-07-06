@@ -25,10 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	kubevirtv1 "kubevirt.io/api/core/v1"
 )
 
 func TestVMItemBlockAction_AppliesTo(t *testing.T) {
@@ -46,21 +43,34 @@ func TestVMItemBlockAction_GetRelatedItems(t *testing.T) {
 	backup := &v1.Backup{}
 
 	t.Run("Valid VirtualMachine", func(t *testing.T) {
-		vm := &kubevirtv1.VirtualMachine{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "VirtualMachine",
-				APIVersion: "kubevirt.io/v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vm",
-				Namespace: "test-namespace",
+		unstructuredItem := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "kubevirt.io",
+				"kind":       "VirtualMachine",
+				"metadata": map[string]interface{}{
+					"name":      "test-vm",
+					"namespace": testNamespace,
+				},
+				"spec": map[string]interface{}{
+					"template": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"volumes": []map[string]interface{}{
+								map[string]interface{}{
+									"name": "vol",
+									"dataVolume": map[string]interface{}{
+										"name": "test-dv",
+									},
+								},
+							},
+						},
+					},
+				},
+				"status": map[string]interface{}{
+					"created":         true,
+					"printableStatus": "Running",
+				},
 			},
 		}
-
-		item, err := runtime.DefaultUnstructuredConverter.ToUnstructured(vm)
-		assert.NoError(t, err)
-
-		unstructuredItem := &unstructured.Unstructured{Object: item}
 		
 		// We expect no error during conversion and execution
 		relatedItems, err := action.GetRelatedItems(unstructuredItem, backup)
