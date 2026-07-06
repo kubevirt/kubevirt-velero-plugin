@@ -45,5 +45,5 @@ fi
 go build \
     -o ${OUTPUT} \
     -installsuffix "static" \
-    -mod=readonly \
+    -mod=vendor \
     ./

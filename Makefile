@@ -187,7 +187,7 @@ tests-local: build-dirs ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
         GIT_DIRTY="$(GIT_DIRTY)" \
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
- 		GOFLAGS=-mod=readonly \
+ 		GOFLAGS=-mod=vendor \
  		TESTS_OUT_DIR=$(TESTS_OUT_DIR) \
  		JOB_TYPE="${JOB_TYPE:-}" \
 		./hack/build/build-functest.sh
@@ -203,7 +203,7 @@ ${TESTS_BINARY}: ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
         GIT_DIRTY="$(GIT_DIRTY)" \
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
- 		GOFLAGS=-mod=readonly \
+ 		GOFLAGS=-mod=vendor \
  		GOCACHE=/.cache/go-build \
         GOPATH=/go/pkg/mod \
  		TESTS_OUT_DIR=$(TESTS_OUT_DIR) \
