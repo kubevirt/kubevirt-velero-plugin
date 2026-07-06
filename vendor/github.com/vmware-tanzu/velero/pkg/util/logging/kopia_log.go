@@ -21,70 +21,82 @@ import (
 
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-type kopiaLog struct {
-	module string
+// logrusCore adapts a logrus.FieldLogger to a zapcore.Core so that Kopia's
+// zap-based Logger type can route output through Velero's logrus pipeline.
+// Kopia error logs are demoted to warn level to avoid disrupting Velero's
+// workflow for non-critical Kopia errors.
+type logrusCore struct {
 	logger logrus.FieldLogger
+	module string
 }
+
+func (c *logrusCore) Enabled(zapcore.Level) bool { return true }
+
+func (c *logrusCore) With(fields []zapcore.Field) zapcore.Core {
+	enc := zapcore.NewMapObjectEncoder()
+	for _, f := range fields {
+		f.AddTo(enc)
+	}
+
+	fl := make(logrus.Fields, len(enc.Fields))
+	for k, v := range enc.Fields {
+		fl[k] = v
+	}
+
+	return &logrusCore{
+		logger: c.logger.WithFields(fl),
+		module: c.module,
+	}
+}
+
+func (c *logrusCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	return ce.AddCore(ent, c)
+}
+
+func (c *logrusCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	l := c.logger.WithField("logModule", "kopia/"+c.module)
+
+	enc := zapcore.NewMapObjectEncoder()
+	for _, f := range fields {
+		f.AddTo(enc)
+	}
+
+	if len(enc.Fields) > 0 {
+		fl := make(logrus.Fields, len(enc.Fields))
+		for k, v := range enc.Fields {
+			fl[k] = v
+		}
+
+		l = l.WithFields(fl)
+	}
+
+	switch ent.Level {
+	case zapcore.DebugLevel:
+		l.Debug(ent.Message)
+	case zapcore.InfoLevel:
+		l.Info(ent.Message)
+	case zapcore.WarnLevel:
+		l.Warn(ent.Message)
+	case zapcore.ErrorLevel, zapcore.DPanicLevel, zapcore.PanicLevel, zapcore.FatalLevel:
+		l.WithField("sublevel", "error").Warn(ent.Message)
+	default:
+		l.Info(ent.Message)
+	}
+
+	return nil
+}
+
+func (c *logrusCore) Sync() error { return nil }
 
 // SetupKopiaLog sets the Kopia log handler to the specific context, Kopia modules
 // call the logger in the context to write logs
 func SetupKopiaLog(ctx context.Context, logger logrus.FieldLogger) context.Context {
 	return logging.WithLogger(ctx, func(module string) logging.Logger {
-		return &kopiaLog{
-			module: module,
-			logger: logger,
-		}
+		core := &logrusCore{logger: logger, module: module}
+		return zap.New(core).Sugar().Named("kopia/" + module)
 	})
-}
-
-func (kl *kopiaLog) Debugf(msg string, args ...interface{}) {
-	logger := kl.logger.WithField("logModule", kl.getLogModule())
-	logger.Debugf(msg, args...)
-}
-
-func (kl *kopiaLog) Debugw(msg string, keyValuePairs ...interface{}) {
-	logger := kl.logger.WithField("logModule", kl.getLogModule())
-	logger.WithFields(getLogFields(keyValuePairs...)).Debug(msg)
-}
-
-func (kl *kopiaLog) Infof(msg string, args ...interface{}) {
-	logger := kl.logger.WithField("logModule", kl.getLogModule())
-	logger.Infof(msg, args...)
-}
-
-func (kl *kopiaLog) Warnf(msg string, args ...interface{}) {
-	logger := kl.logger.WithField("logModule", kl.getLogModule())
-	logger.Warnf(msg, args...)
-}
-
-// We see Kopia generates error logs for some normal cases or non-critical
-// cases. So Kopia's error logs are regarded as warning logs so that they don't
-// affect Velero's workflow.
-func (kl *kopiaLog) Errorf(msg string, args ...interface{}) {
-	logger := kl.logger.WithFields(logrus.Fields{
-		"logModule": kl.getLogModule(),
-		"sublevel":  "error",
-	})
-
-	logger.Warnf(msg, args...)
-}
-
-func (kl *kopiaLog) getLogModule() string {
-	return "kopia/" + kl.module
-}
-
-func getLogFields(keyValuePairs ...interface{}) map[string]interface{} {
-	m := map[string]interface{}{}
-	for i := 0; i+1 < len(keyValuePairs); i += 2 {
-		s, ok := keyValuePairs[i].(string)
-		if !ok {
-			s = "non-string-key"
-		}
-
-		m[s] = keyValuePairs[i+1]
-	}
-
-	return m
 }
