@@ -20,13 +20,14 @@
 package plugin
 
 import (
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt-velero-plugin/pkg/kvgraph"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
 
 // VMItemBlockAction is an item block action for VirtualMachines
@@ -57,5 +58,10 @@ func (p *VMItemBlockAction) GetRelatedItems(item runtime.Unstructured, backup *v
 		return nil, err
 	}
 
-	return kvgraph.NewVirtualMachineBackupGraph(vm), nil
+	extra, err := kvgraph.NewVirtualMachineBackupGraph(vm)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return extra, nil
 }
