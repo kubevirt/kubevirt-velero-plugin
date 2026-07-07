@@ -65,3 +65,7 @@ func (p *VMItemBlockAction) GetRelatedItems(item runtime.Unstructured, backup *v
 
 	return extra, nil
 }
+
+func (p *VMItemBlockAction) Name() string {
+	return "VmItemBlockAction"
+}
