@@ -952,6 +952,43 @@ var _ = Describe("[smoke] VM Backup", func() {
 			fmt.Fprintf(GinkgoWriter, "INFO: Original VM %q in source namespace %q is Stopped\n", vm.Name, f.Namespace.Name)
 		})
 
+		It("Backup hooks on virt-launcher pod should execute when VM is selected via labelSelector", func() {
+			var err error
+
+			By("Creating a VM with a custom label")
+			vm = framework.CreateVmWithGuestAgent("test-vm", f.StorageClass)
+			// Only the VM carries this label — the virt-launcher pod will NOT have it,
+			vm.Labels = map[string]string{"test-backup": "true"}
+
+			vm, err = framework.CreateStartedVirtualMachine(f.KvClient, f.Namespace.Name, vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the virt-launcher pod does NOT carry the custom label")
+			virtLauncherPod := framework.FindLauncherPod(f.K8sClient, f.Namespace.Name, vm.Name)
+			Expect(virtLauncherPod.Labels).ToNot(HaveKey("test-backup"),
+				"virt-launcher pod must not carry the 'test-backup' label")
+			fmt.Fprintf(GinkgoWriter, "INFO: virt-launcher pod %q labels: %v\n", virtLauncherPod.Name, virtLauncherPod.Labels)
+
+			By("Creating backup with labelSelector matching only the VM label")
+			err = framework.CreateBackupForSelector(timeout, backupName, "test-backup=true", f.Namespace.Name, snapshotLocation, f.BackupNamespace, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			phase, err := framework.GetBackupPhase(timeout, backupName, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(phase).To(Equal(velerov1api.BackupPhaseCompleted))
+
+			By("Verifying backup hooks were executed on the virt-launcher pod included via AdditionalItems")
+			backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backup.Status.HookStatus).ToNot(BeNil(), "HookStatus should be populated")
+			Expect(backup.Status.HookStatus.HooksAttempted).To(Equal(2),
+				"Hooks attempted should be 2")
+			Expect(backup.Status.HookStatus.HooksFailed).To(BeZero(), "backup hooks should not fail")
+		})
+
 		//todo this test vm is not starting correctly, need more eyes to fix.
 		PIt("[test_id:10275]VM with hotplug disk", Label("PartnerComp"), func() {
 			By("Starting a VM")
