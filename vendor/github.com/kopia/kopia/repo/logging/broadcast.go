@@ -1,41 +1,29 @@
 package logging
 
+import (
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
 // Broadcast is a logger that broadcasts each log message to multiple loggers.
-type Broadcast []Logger
+func Broadcast(logger ...Logger) Logger {
+	var cores []zapcore.Core
 
-// Debugf implements Logger.
-func (b Broadcast) Debugf(msg string, args ...interface{}) {
-	for _, l := range b {
-		l.Debugf(msg, args...)
+	var singleName string
+
+	for _, l := range logger {
+		dl := l.Desugar()
+
+		if singleName == "" {
+			singleName = dl.Name()
+		}
+
+		if dl.Name() != singleName {
+			singleName = "-"
+		}
+
+		cores = append(cores, dl.Core())
 	}
-}
 
-// Debugw implements Logger.
-func (b Broadcast) Debugw(msg string, keyValuePairs ...interface{}) {
-	for _, l := range b {
-		l.Debugw(msg, keyValuePairs...)
-	}
+	return zap.New(zapcore.NewTee(cores...)).Sugar().Named(singleName)
 }
-
-// Infof implements Logger.
-func (b Broadcast) Infof(msg string, args ...interface{}) {
-	for _, l := range b {
-		l.Infof(msg, args...)
-	}
-}
-
-// Warnf implements Logger.
-func (b Broadcast) Warnf(msg string, args ...interface{}) {
-	for _, l := range b {
-		l.Warnf(msg, args...)
-	}
-}
-
-// Errorf implements Logger.
-func (b Broadcast) Errorf(msg string, args ...interface{}) {
-	for _, l := range b {
-		l.Errorf(msg, args...)
-	}
-}
-
-var _ Logger = Broadcast{}

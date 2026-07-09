@@ -67,7 +67,7 @@ GOARCH = $(word 2, $(platform_temp))
 KUBEVIRTCI_REGISTRY_PREFIX=registry:5000/kubevirt
 PORT=$(shell ./cluster-up/cli.sh ports registry)
 
-BUILD_IMAGE ?= quay.io/konveyor/builder:ubi9-v1.23
+BUILD_IMAGE ?= quay.io/konveyor/builder:ubi9-v1.25
 OCI_BIN ?= $(shell if podman ps >/dev/null 2>&1; then echo podman; elif docker ps >/dev/null 2>&1; then echo docker; fi)
 TLS_SETTING := $(if $(filter $(OCI_BIN),podman),--tls-verify=false,)
 export OCI_BIN
@@ -84,7 +84,7 @@ build-local: build-dirs
 	GIT_DIRTY="$(GIT_DIRTY)" \
 	OUTPUT_DIR=$$(pwd)/_output/bin/$(GOOS)/$(GOARCH) \
 	GO111MODULE=on \
-	GOFLAGS=-mod=readonly \
+	GOFLAGS=-mod=vendor \
 	./hack/build/build.sh
 
 build-all: build-dirs _output/bin/$(GOOS)/$(GOARCH)/$(BIN)
@@ -104,7 +104,7 @@ _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs ${SRC_FILES}
 		GIT_DIRTY="$(GIT_DIRTY)" \
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
- 		GOFLAGS=-mod=readonly \
+ 		GOFLAGS=-mod=vendor \
  		GOCACHE=/.cache/go-build \
  		GOPATH=/go \
 		./hack/build/build.sh'"
@@ -187,7 +187,7 @@ tests-local: build-dirs ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
         GIT_DIRTY="$(GIT_DIRTY)" \
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
- 		GOFLAGS=-mod=readonly \
+ 		GOFLAGS=-mod=vendor \
  		TESTS_OUT_DIR=$(TESTS_OUT_DIR) \
  		JOB_TYPE="${JOB_TYPE:-}" \
 		./hack/build/build-functest.sh
@@ -203,7 +203,7 @@ ${TESTS_BINARY}: ${TESTS_SRC_FILES} ${TESTS_OUT_DIR}
         GIT_DIRTY="$(GIT_DIRTY)" \
 		OUTPUT_DIR=/output/$(GOOS)/$(GOARCH) \
 		GO111MODULE=on \
- 		GOFLAGS=-mod=readonly \
+ 		GOFLAGS=-mod=vendor \
  		GOCACHE=/.cache/go-build \
         GOPATH=/go/pkg/mod \
  		TESTS_OUT_DIR=$(TESTS_OUT_DIR) \

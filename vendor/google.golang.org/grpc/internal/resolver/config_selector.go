@@ -92,7 +92,7 @@ type ClientStream interface {
 	// calling RecvMsg on the same stream at the same time, but it is not safe
 	// to call SendMsg on the same stream in different goroutines. It is also
 	// not safe to call CloseSend concurrently with SendMsg.
-	SendMsg(m interface{}) error
+	SendMsg(m any) error
 	// RecvMsg blocks until it receives a message into m or the stream is
 	// done. It returns io.EOF when the stream completes successfully. On
 	// any other error, the stream is aborted and the error contains the RPC
@@ -101,7 +101,7 @@ type ClientStream interface {
 	// It is safe to have a goroutine calling SendMsg and another goroutine
 	// calling RecvMsg on the same stream at the same time, but it is not
 	// safe to call RecvMsg on the same stream in different goroutines.
-	RecvMsg(m interface{}) error
+	RecvMsg(m any) error
 }
 
 // ClientInterceptor is an interceptor for gRPC client streams.
@@ -115,6 +115,9 @@ type ClientInterceptor interface {
 	// ClientStream after done is called, since the interceptor is invoked by
 	// application-layer operations.  done must never be nil when called.
 	NewStream(ctx context.Context, ri RPCInfo, done func(), newStream func(ctx context.Context, done func()) (ClientStream, error)) (ClientStream, error)
+	// Close closes the interceptor. Once called, no new calls to NewStream are
+	// accepted. Ongoing calls to NewStream are allowed to complete.
+	Close()
 }
 
 // ServerInterceptor is an interceptor for incoming RPC's on gRPC server side.
@@ -123,6 +126,9 @@ type ServerInterceptor interface {
 	// information about connection RPC was received on, and HTTP Headers. This
 	// information will be piped into context.
 	AllowRPC(ctx context.Context) error // TODO: Make this a real interceptor for filters such as rate limiting.
+	// Close closes the interceptor. Once called, no new calls to NewStream are
+	// accepted. Ongoing calls to NewStream are allowed to complete.
+	Close()
 }
 
 type csKeyType string
