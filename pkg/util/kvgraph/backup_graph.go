@@ -77,7 +77,9 @@ func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdent
 		}
 	}
 
-	resources, err = addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetName(), namespace, resources)
+	if vm.Spec.Template != nil {
+		resources, err = addCommonVMIObjectGraph(vm.Spec.Template.Spec, vm.GetName(), namespace, resources)
+	}
 	if err != nil {
 		errs = append(errs, err)
 	}
