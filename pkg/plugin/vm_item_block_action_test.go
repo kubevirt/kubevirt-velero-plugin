@@ -76,6 +76,7 @@ func TestVMItemBlockAction_GetRelatedItems(t *testing.T) {
 		relatedItems, err := action.GetRelatedItems(unstructuredItem, backup)
 		assert.NoError(t, err)
 		assert.NotNil(t, relatedItems)
+		assert.Equal(t, len(relatedItems), 3)
 	})
 
 	t.Run("Invalid Unstructured Data", func(t *testing.T) {
@@ -85,7 +86,8 @@ func TestVMItemBlockAction_GetRelatedItems(t *testing.T) {
 			},
 		}
 
-		_, err := action.GetRelatedItems(invalidItem, backup)
-		assert.Error(t, err)
+		relatedItems, err := action.GetRelatedItems(invalidItem, backup)
+		assert.NoError(t, err)
+		assert.Equal(t, len(relatedItems), 0)
 	})
 }

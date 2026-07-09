@@ -20,12 +20,10 @@
 package plugin
 
 import (
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/runtime"
-	kubevirtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util/kvgraph"
 )
@@ -52,20 +50,9 @@ func (p *VMItemBlockAction) AppliesTo() (velero.ResourceSelector, error) {
 // GetRelatedItems returns the related items for the VirtualMachine using the backup graph.
 func (p *VMItemBlockAction) GetRelatedItems(item runtime.Unstructured, backup *v1.Backup) ([]velero.ResourceIdentifier, error) {
 	p.log.Info("Executing VMItemBlockAction GetRelatedItems")
-
-	vm := &kubevirtv1.VirtualMachine{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vm); err != nil {
-		return nil, err
-	}
-
-	extra, err := kvgraph.NewVirtualMachineBackupGraph(vm)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return extra, nil
+	return kvgraph.NewObjectBackupGraph(item)
 }
 
 func (p *VMItemBlockAction) Name() string {
-	return "VmItemBlockAction"
+	return "VMItemBlockAction"
 }
