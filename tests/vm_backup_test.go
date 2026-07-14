@@ -984,6 +984,8 @@ var _ = Describe("[smoke] VM Backup", func() {
 			backup, err := framework.GetBackup(timeout, backupName, f.BackupNamespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(backup.Status.HookStatus).ToNot(BeNil(), "HookStatus should be populated")
+			// 2 hooks = pre-freeze + post-thaw, injected by the KubeVirt plugin via
+			// guest-agent annotations on the virt-launcher pod
 			Expect(backup.Status.HookStatus.HooksAttempted).To(Equal(2),
 				"Hooks attempted should be 2")
 			Expect(backup.Status.HookStatus.HooksFailed).To(BeZero(), "backup hooks should not fail")
