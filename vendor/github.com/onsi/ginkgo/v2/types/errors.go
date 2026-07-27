@@ -432,6 +432,33 @@ func (g ginkgoErrors) InvalidEmptyLabel(cl CodeLocation) error {
 	}
 }
 
+func (g ginkgoErrors) InvalidSemVerConstraint(semVerConstraint, errMsg string, cl CodeLocation) error {
+	return GinkgoError{
+		Heading:      "Invalid SemVerConstraint",
+		Message:      fmt.Sprintf("'%s' is an invalid SemVerConstraint: %s", semVerConstraint, errMsg),
+		CodeLocation: cl,
+		DocLink:      "spec-semantic-version-filtering",
+	}
+}
+
+func (g ginkgoErrors) InvalidEmptySemVerConstraint(cl CodeLocation) error {
+	return GinkgoError{
+		Heading:      "Invalid Empty SemVerConstraint",
+		Message:      "SemVerConstraint cannot be empty",
+		CodeLocation: cl,
+		DocLink:      "spec-semantic-version-filtering",
+	}
+}
+
+func (g ginkgoErrors) InvalidEmptyComponentForSemVerConstraint(cl CodeLocation) error {
+	return GinkgoError{
+		Heading:      "Invalid Empty Component for ComponentSemVerConstraint",
+		Message:      "ComponentSemVerConstraint requires a non-empty component name",
+		CodeLocation: cl,
+		DocLink:      "spec-semantic-version-filtering",
+	}
+}
+
 /* Table errors */
 func (g ginkgoErrors) MultipleEntryBodyFunctionsForTable(cl CodeLocation) error {
 	return GinkgoError{
@@ -591,6 +618,21 @@ func (g ginkgoErrors) GracePeriodCannotBeZero() error {
 	return GinkgoError{
 		Heading: "Ginkgo requires a positive --grace-period.",
 		Message: "Please set --grace-period to a positive duration.  The default is 30s.",
+	}
+}
+
+func (g ginkgoErrors) InvalidSleepOnFailureConfiguration() error {
+	return GinkgoError{
+		Heading: "Ginkgo requires a non-negative --sleep-on-failure.",
+		Message: "Please set --sleep-on-failure to a positive duration (e.g. 5m), or 0 to disable it.",
+	}
+}
+
+func (g ginkgoErrors) SleepOnFailureInParallelConfiguration() error {
+	return GinkgoError{
+		Heading: "Ginkgo only supports --sleep-on-failure in serial mode.",
+		Message: "--sleep-on-failure pauses a failed spec on a live system for inspection, which only makes sense when the suite runs serially.  Please run again without -p or --procs, or unset --sleep-on-failure.",
+		DocLink: "spec-timeouts-and-interruptible-nodes",
 	}
 }
 
