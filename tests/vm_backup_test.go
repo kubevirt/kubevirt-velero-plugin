@@ -784,6 +784,51 @@ var _ = Describe("[smoke] VM Backup", func() {
 		})
 
 		It("[test_id:10275]VM with hotplug disk", Label("PartnerComp"), func() {
+			By("Starting a VM")
+			err := f.CreateVMForHotplug()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-for-hotplug", dvTemplateName)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create datavolume to hotplug")
+			err = f.CreateBlankDataVolume()
+			Expect(err).ToNot(HaveOccurred())
+
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
+
+			By("Adding Hotplug volume to VM")
+			hotplugVolName := addVolumeAndVerify(f.KvClient, vm, dvName)
+
+			By("Creating backup")
+			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting VM")
+			err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting hotplug DataVolume")
+			err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
+			Expect(err).ToNot(HaveOccurred())
+
+			ok, err := framework.WaitDataVolumeDeleted(f.KvClient, f.Namespace.Name, dvName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+
+			By("Creating restore")
+			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying VM")
+			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking hotpluged data volume exists")
+			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
+
+			verifyVolumeAndDiskAdded(f.KvClient, vm.Namespace, vm.Name, hotplugVolName)
+		})
+
 		It("VM with NAD should be backed up and restored to a different namespace with namespace mapping", func() {
 			_, err := f.K8sClient.Discovery().ServerResourcesForGroupVersion("k8s.cni.cncf.io/v1")
 			if err != nil {
@@ -953,50 +998,6 @@ var _ = Describe("[smoke] VM Backup", func() {
 			fmt.Fprintf(GinkgoWriter, "INFO: Original VM %q in source namespace %q is Stopped\n", vm.Name, f.Namespace.Name)
 		})
 
-			By("Starting a VM")
-			err := f.CreateVMForHotplug()
-			Expect(err).ToNot(HaveOccurred())
-			vm, err = framework.WaitVirtualMachineRunning(f.KvClient, f.Namespace.Name, "test-vm-for-hotplug", dvTemplateName)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Create datavolume to hotplug")
-			err = f.CreateBlankDataVolume()
-			Expect(err).ToNot(HaveOccurred())
-
-			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
-
-			By("Adding Hotplug volume to VM")
-			hotplugVolName := addVolumeAndVerify(f.KvClient, vm, dvName)
-
-			By("Creating backup")
-			err = f.RunBackupScript(timeout, backupName, "", "a.test.label=included", f.Namespace.Name, snapshotLocation, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Deleting VM")
-			err = framework.DeleteVirtualMachine(f.KvClient, f.Namespace.Name, vm.Name)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Deleting hotplug DataVolume")
-			err = framework.DeleteDataVolume(f.KvClient, f.Namespace.Name, dvName)
-			Expect(err).ToNot(HaveOccurred())
-
-			ok, err := framework.WaitDataVolumeDeleted(f.KvClient, f.Namespace.Name, dvName)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ok).To(BeTrue())
-
-			By("Creating restore")
-			err = f.RunRestoreScript(timeout, backupName, restoreName, f.BackupNamespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Verifying VM")
-			err = framework.WaitForVirtualMachineStatus(f.KvClient, f.Namespace.Name, vm.Name, kvv1.VirtualMachineStatusRunning)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Checking hotpluged data volume exists")
-			framework.EventuallyDVWith(f.KvClient, f.Namespace.Name, dvName, 180, HaveSucceeded())
-
-			verifyVolumeAndDiskAdded(f.KvClient, vm.Namespace, vm.Name, hotplugVolName)
-		})
 	})
 })
 
