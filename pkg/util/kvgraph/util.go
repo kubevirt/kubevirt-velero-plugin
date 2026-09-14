@@ -23,10 +23,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"kubevirt.io/api/instancetype"
+
 	v1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
@@ -36,18 +41,30 @@ const (
 
 // KVObjectGraph represents the graph of objects that can be potentially related to a KubeVirt resource
 var KVObjectGraph = map[string]schema.GroupResource{
-	"virtualmachineinstances":        {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-	"datavolumes":                    {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-	"controllerrevisions":            {Group: "apps", Resource: "controllerrevisions"},
-	"configmaps":                     {Group: "", Resource: "configmaps"},
-	"networkattachmentdefinitions":   {Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
-	"persistentvolumeclaims":         kuberesource.PersistentVolumeClaims,
-	"serviceaccounts":                kuberesource.ServiceAccounts,
-	"secrets":                        kuberesource.Secrets,
-	"pods":                           kuberesource.Pods,
+	"virtualmachineinstances":       {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
+	"datavolumes":                   {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+	"datasources":                   {Group: "cdi.kubevirt.io", Resource: "datasources"},
+	"controllerrevisions":           {Group: "apps", Resource: "controllerrevisions"},
+	"configmaps":                    {Group: "", Resource: "configmaps"},
+	"networkattachmentdefinitions":  {Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+	"persistentvolumeclaims":        kuberesource.PersistentVolumeClaims,
+	"serviceaccounts":               kuberesource.ServiceAccounts,
+	"secrets":                       kuberesource.Secrets,
+	"pods":                          kuberesource.Pods,
+	"volumesnapshots":               {Group: "snapshot.storage.k8s.io", Resource: "volumesnapshots"},
+	instancetype.PluralResourceName: {Group: instancetype.GroupName, Resource: instancetype.PluralResourceName},
+	instancetype.PluralPreferenceResourceName: {Group: instancetype.GroupName, Resource: instancetype.PluralPreferenceResourceName},
+}
+
+// IsParameterized reports whether s contains a virt-template parameter reference (e.g. "${NAME}").
+func IsParameterized(s string) bool {
+	return strings.Contains(s, "${")
 }
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	if IsParameterized(name) || IsParameterized(namespace) {
+		return resources
+	}
 	if groupResource, ok := KVObjectGraph[resource]; ok {
 		resources = append(resources, velero.ResourceIdentifier{
 			GroupResource: groupResource,
@@ -63,6 +80,29 @@ func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespa
 	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
 	resources = addNetworkGraph(spec, namespace, resources)
 	return resources, err
+}
+
+func addCommonTemplateObjectGraph(vm *v1.VirtualMachine, namespace string, checkDataVolumeExists bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	if vm == nil {
+		return resources, nil
+	}
+
+	resources = addTemplateInstancetypeGraph(vm, namespace, resources)
+	resources, err := addDataVolumeTemplateGraph(vm.Spec.DataVolumeTemplates, namespace, checkDataVolumeExists, resources)
+	if err != nil {
+		return nil, err
+	}
+
+	if vm.Spec.Template == nil {
+		return resources, nil
+	}
+
+	spec := vm.Spec.Template.Spec
+	resources = addVolumeSourceGraph(spec.Volumes, namespace, resources)
+	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
+	resources = addNetworkGraph(spec, namespace, resources)
+
+	return resources, nil
 }
 
 func addNetworkGraph(vmiSpec v1.VirtualMachineInstanceSpec, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
@@ -81,7 +121,19 @@ func addNetworkGraph(vmiSpec v1.VirtualMachineInstanceSpec, namespace string, re
 }
 
 func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
-	for _, volume := range vmiSpec.Volumes {
+	resources = addVolumeSourceGraph(vmiSpec.Volumes, namespace, resources)
+
+	// Returning full backup even if there was an error retrieving the backend PVC.
+	// The caller can decide wether to use the backup or handle the error.
+	var err error
+	if IsBackendStorageNeededForVMI(&vmiSpec) {
+		resources, err = addBackendPVC(vmName, namespace, resources)
+	}
+	return resources, err
+}
+
+func addVolumeSourceGraph(volumes []v1.Volume, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	for _, volume := range volumes {
 		switch {
 		case volume.DataVolume != nil:
 			resources = addVeleroResource(volume.DataVolume.Name, namespace, "datavolumes", resources)
@@ -112,13 +164,7 @@ func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace str
 			}
 		}
 	}
-	// Returning full backup even if there was an error retrieving the backend PVC.
-	// The caller can decide wether to use the backup or handle the error.
-	var err error
-	if IsBackendStorageNeededForVMI(&vmiSpec) {
-		resources, err = addBackendPVC(vmName, namespace, resources)
-	}
-	return resources, err
+	return resources
 }
 
 func addAccessCredentials(acs []v1.AccessCredential, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
@@ -204,4 +250,96 @@ func HasPersistentEFI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 		vmiSpec.Domain.Firmware.Bootloader.EFI != nil &&
 		vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent != nil &&
 		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
+}
+
+func addNamespacedInstancetype(m v1.Matcher, singular, plural, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	// Kind defaults to the cluster-scoped resource when unset, so only an explicit,
+	// namespace-scoped Kind is followed here.
+	if m == nil || m.GetName() == "" || !strings.EqualFold(m.GetKind(), singular) {
+		return resources
+	}
+	return addVeleroResource(m.GetName(), namespace, plural, resources)
+}
+
+func addTemplateInstancetypeGraph(vm *v1.VirtualMachine, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	if vm.Spec.Instancetype != nil {
+		resources = addNamespacedInstancetype(vm.Spec.Instancetype, instancetype.SingularResourceName, instancetype.PluralResourceName, namespace, resources)
+	}
+	if vm.Spec.Preference != nil {
+		resources = addNamespacedInstancetype(vm.Spec.Preference, instancetype.SingularPreferenceResourceName, instancetype.PluralPreferenceResourceName, namespace, resources)
+	}
+	return resources
+}
+
+func addDataVolumeTemplateGraph(dvts []v1.DataVolumeTemplateSpec, namespace string, checkDataVolumeExists bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	var err error
+	for _, dvt := range dvts {
+		if src := dvt.Spec.Source; src != nil {
+			resources, err = addPVCAndSnapshotSourceGraph(src.PVC, src.Snapshot, namespace, checkDataVolumeExists, resources)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if ref := dvt.Spec.SourceRef; ref != nil && ref.Kind == "DataSource" {
+			ns := namespace
+			if ref.Namespace != nil {
+				ns = *ref.Namespace
+			}
+			resources = addVeleroResource(ref.Name, ns, "datasources", resources)
+		}
+	}
+	return resources, nil
+}
+
+func addPVCAndSnapshotSourceGraph(pvc *cdiv1.DataVolumeSourcePVC, snap *cdiv1.DataVolumeSourceSnapshot, namespace string, checkDataVolumeExists bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	if pvc != nil {
+		ns := defaultNamespace(pvc.Namespace, namespace)
+		resources = addVeleroResource(pvc.Name, ns, "persistentvolumeclaims", resources)
+
+		addDataVolume := true
+		if checkDataVolumeExists {
+			_, err := util.GetDV(ns, pvc.Name)
+			switch {
+			case err == nil:
+			case apierrors.IsNotFound(err):
+				// A PVC not backed by a DataVolume - the PVC identifier alone is enough.
+				addDataVolume = false
+			default:
+				// Anything else (RBAC, API unavailable) is not evidence of absence -
+				// fail rather than silently leave the DataVolume out of the backup.
+				return nil, errors.Wrapf(err, "failed to check whether DataVolume %s/%s exists", ns, pvc.Name)
+			}
+		}
+		if addDataVolume {
+			resources = addVeleroResource(pvc.Name, ns, "datavolumes", resources)
+		}
+	}
+	if snap != nil {
+		resources = addVeleroResource(snap.Name, defaultNamespace(snap.Namespace, namespace), "volumesnapshots", resources)
+	}
+	return resources, nil
+}
+
+func addDataSourceObjectGraph(ds *cdiv1.DataSource, checkDataVolumeExists bool, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	if ds == nil {
+		return resources, nil
+	}
+
+	namespace := ds.GetNamespace()
+	src := ds.Spec.Source
+	resources, err := addPVCAndSnapshotSourceGraph(src.PVC, src.Snapshot, namespace, checkDataVolumeExists, resources)
+	if err != nil {
+		return nil, err
+	}
+	if nested := src.DataSource; nested != nil {
+		resources = addVeleroResource(nested.Name, defaultNamespace(nested.Namespace, namespace), "datasources", resources)
+	}
+	return resources, nil
+}
+
+func defaultNamespace(namespace, fallback string) string {
+	if namespace == "" {
+		return fallback
+	}
+	return namespace
 }

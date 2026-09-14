@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kvcore "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
@@ -123,6 +124,26 @@ func TestNewObjectRestoreGraph(t *testing.T) {
 			},
 			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
 				return NewVirtualMachineInstanceRestoreGraph(obj.(*kvcore.VirtualMachineInstance))
+			},
+		},
+		{
+			name: "DataSource",
+			object: &cdiv1.DataSource{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "DataSource",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-datasource",
+				},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "golden-snap"},
+					},
+				},
+			},
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
+				return NewDataSourceRestoreGraph(obj.(*cdiv1.DataSource))
 			},
 		},
 		{
@@ -437,6 +458,105 @@ func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 			assert.Equal(t, tc.expected, output)
 		})
 	}
+}
+
+func TestNewObjectRestoreGraphVirtualMachineTemplate(t *testing.T) {
+	item := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "template.kubevirt.io/v1beta1",
+			"kind":       "VirtualMachineTemplate",
+			"metadata": map[string]interface{}{
+				"name":      "test-template",
+				"namespace": "tpl-ns",
+			},
+			"spec": map[string]interface{}{
+				"virtualMachine": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"dataVolumeTemplates": []interface{}{
+							map[string]interface{}{
+								"metadata": map[string]interface{}{"name": "rootdisk-${NAME}"},
+								"spec": map[string]interface{}{
+									"source": map[string]interface{}{
+										"snapshot": map[string]interface{}{
+											"name": "golden-snap",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	resources, err := NewObjectRestoreGraph(item)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "snapshot.storage.k8s.io", Resource: "volumesnapshots"}, Namespace: "tpl-ns", Name: "golden-snap"},
+	}, resources)
+}
+
+func TestNewVirtualMachineTemplateRestoreGraph(t *testing.T) {
+	vm := &kvcore.VirtualMachine{
+		Spec: kvcore.VirtualMachineSpec{
+			Instancetype: &kvcore.InstancetypeMatcher{Name: "my-instancetype", Kind: "virtualmachineinstancetype"},
+			DataVolumeTemplates: []kvcore.DataVolumeTemplateSpec{
+				{Spec: cdiv1.DataVolumeSpec{SourceRef: &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "golden-ds"}}},
+			},
+		},
+	}
+
+	resources, err := NewVirtualMachineTemplateRestoreGraph(vm, "tpl-ns")
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"}, Namespace: "tpl-ns", Name: "my-instancetype"},
+		{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datasources"}, Namespace: "tpl-ns", Name: "golden-ds"},
+	}, resources)
+
+	resources, err = NewVirtualMachineTemplateRestoreGraph(nil, "tpl-ns")
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{}, resources)
+}
+
+func TestNewDataSourceRestoreGraph(t *testing.T) {
+	ds := &cdiv1.DataSource{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ds-ns"},
+		Spec: cdiv1.DataSourceSpec{Source: cdiv1.DataSourceSource{
+			DataSource: &cdiv1.DataSourceRefSourceDataSource{Name: "parent-ds", Namespace: "other-ns"},
+		}},
+	}
+
+	resources, err := NewDataSourceRestoreGraph(ds)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datasources"}, Namespace: "other-ns", Name: "parent-ds"},
+	}, resources)
+}
+
+func TestNewDataSourceRestoreGraphAlwaysIncludesDataVolume(t *testing.T) {
+	origGetDV := util.GetDV
+	defer func() { util.GetDV = origGetDV }()
+	// The DataVolume has not been restored into the target cluster yet, so the restore graph
+	// must not condition the identifier on it already existing there.
+	util.GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
+		t.Fatalf("GetDV must not be called on the restore path")
+		return nil, nil
+	}
+
+	ds := &cdiv1.DataSource{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ds-ns"},
+		Spec: cdiv1.DataSourceSpec{Source: cdiv1.DataSourceSource{
+			PVC: &cdiv1.DataVolumeSourcePVC{Name: "golden-image"},
+		}},
+	}
+
+	resources, err := NewDataSourceRestoreGraph(ds)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"}, Namespace: "ds-ns", Name: "golden-image"},
+		{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"}, Namespace: "ds-ns", Name: "golden-image"},
+	}, resources)
 }
 
 func TestNewVirtualMachineInstanceRestoreGraphWithNetworks(t *testing.T) {
