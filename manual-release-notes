@@ -1,0 +1,5 @@
+v0.9.1
+Add IBA plugin to ensure that pod hooks are run for VM pods
+NetworkAttachmentDefinition plugin to handle namespace mapping
+Add NAD to KVObjectGraph
+Allow VM machine type to be set dynamically
