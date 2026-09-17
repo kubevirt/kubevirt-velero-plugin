@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -40,10 +41,12 @@ type LoadAffinity struct {
 }
 
 type PodResources struct {
-	CPURequest    string `json:"cpuRequest,omitempty"`
-	MemoryRequest string `json:"memoryRequest,omitempty"`
-	CPULimit      string `json:"cpuLimit,omitempty"`
-	MemoryLimit   string `json:"memoryLimit,omitempty"`
+	CPURequest              string `json:"cpuRequest,omitempty"`
+	CPULimit                string `json:"cpuLimit,omitempty"`
+	MemoryRequest           string `json:"memoryRequest,omitempty"`
+	MemoryLimit             string `json:"memoryLimit,omitempty"`
+	EphemeralStorageRequest string `json:"ephemeralStorageRequest,omitempty"`
+	EphemeralStorageLimit   string `json:"ephemeralStorageLimit,omitempty"`
 }
 
 // IsPodRunning does a well-rounded check to make sure the specified pod is running stably.
@@ -181,16 +184,17 @@ func GetPodContainerTerminateMessage(pod *corev1api.Pod, container string) strin
 
 // GetPodTerminateMessage returns the terminate message for all containers of a pod
 func GetPodTerminateMessage(pod *corev1api.Pod) string {
-	message := ""
+	//message := ""
+	var message strings.Builder
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.State.Terminated != nil {
 			if containerStatus.State.Terminated.Message != "" {
-				message += containerStatus.State.Terminated.Message + "/"
+				_, _ = fmt.Fprintf(&message, "%s/", containerStatus.State.Terminated.Message)
 			}
 		}
 	}
 
-	return message
+	return message.String()
 }
 
 func getPodLogReader(ctx context.Context, podGetter corev1client.CoreV1Interface, pod string, namespace string, logOptions *corev1api.PodLogOptions) (io.ReadCloser, error) {
@@ -230,14 +234,9 @@ func CollectPodLogs(ctx context.Context, podGetter corev1client.CoreV1Interface,
 	return nil
 }
 
-func ToSystemAffinity(loadAffinities []*LoadAffinity) *corev1api.Affinity {
-	if len(loadAffinities) == 0 {
-		return nil
-	}
-	nodeSelectorTermList := make([]corev1api.NodeSelectorTerm, 0)
-
-	for _, loadAffinity := range loadAffinities {
-		requirements := []corev1api.NodeSelectorRequirement{}
+func ToSystemAffinity(loadAffinity *LoadAffinity, volumeTopology *corev1api.NodeSelector) *corev1api.Affinity {
+	requirements := []corev1api.NodeSelectorRequirement{}
+	if loadAffinity != nil {
 		for k, v := range loadAffinity.NodeSelector.MatchLabels {
 			requirements = append(requirements, corev1api.NodeSelectorRequirement{
 				Key:      k,
@@ -253,43 +252,44 @@ func ToSystemAffinity(loadAffinities []*LoadAffinity) *corev1api.Affinity {
 				Operator: corev1api.NodeSelectorOperator(exp.Operator),
 			})
 		}
-
-		nodeSelectorTermList = append(
-			nodeSelectorTermList,
-			corev1api.NodeSelectorTerm{
-				MatchExpressions: requirements,
-			},
-		)
 	}
 
-	if len(nodeSelectorTermList) > 0 {
-		result := new(corev1api.Affinity)
-		result.NodeAffinity = new(corev1api.NodeAffinity)
-		result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = new(corev1api.NodeSelector)
-		result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = nodeSelectorTermList
+	result := new(corev1api.Affinity)
+	result.NodeAffinity = new(corev1api.NodeAffinity)
+	result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = new(corev1api.NodeSelector)
 
-		return result
+	if volumeTopology != nil {
+		result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, volumeTopology.NodeSelectorTerms...)
+	} else if len(requirements) > 0 {
+		result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = make([]corev1api.NodeSelectorTerm, 1)
+	} else {
+		return nil
 	}
 
-	return nil
+	for i := range result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+		result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions = append(result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions, requirements...)
+	}
+
+	return result
 }
 
 func DiagnosePod(pod *corev1api.Pod, events *corev1api.EventList) string {
-	diag := fmt.Sprintf("Pod %s/%s, phase %s, node name %s, message %s\n", pod.Namespace, pod.Name, pod.Status.Phase, pod.Spec.NodeName, pod.Status.Message)
+	var diag strings.Builder
+	_, _ = fmt.Fprintf(&diag, "Pod %s/%s, phase %s, node name %s, message %s\n", pod.Namespace, pod.Name, pod.Status.Phase, pod.Spec.NodeName, pod.Status.Message)
 
 	for _, condition := range pod.Status.Conditions {
-		diag += fmt.Sprintf("Pod condition %s, status %s, reason %s, message %s\n", condition.Type, condition.Status, condition.Reason, condition.Message)
+		_, _ = fmt.Fprintf(&diag, "Pod condition %s, status %s, reason %s, message %s\n", condition.Type, condition.Status, condition.Reason, condition.Message)
 	}
 
 	if events != nil {
 		for _, e := range events.Items {
 			if e.InvolvedObject.UID == pod.UID && e.Type == corev1api.EventTypeWarning {
-				diag += fmt.Sprintf("Pod event reason %s, message %s\n", e.Reason, e.Message)
+				_, _ = fmt.Fprintf(&diag, "Pod event reason %s, message %s\n", e.Reason, e.Message)
 			}
 		}
 	}
 
-	return diag
+	return diag.String()
 }
 
 var funcExit = os.Exit

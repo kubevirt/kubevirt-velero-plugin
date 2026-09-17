@@ -464,17 +464,18 @@ func GetPVCForPodVolume(vol *corev1api.Volume, pod *corev1api.Pod, crClient crcl
 }
 
 func DiagnosePVC(pvc *corev1api.PersistentVolumeClaim, events *corev1api.EventList) string {
-	diag := fmt.Sprintf("PVC %s/%s, phase %s, binding to %s\n", pvc.Namespace, pvc.Name, pvc.Status.Phase, pvc.Spec.VolumeName)
+	var diag strings.Builder
+	_, _ = fmt.Fprintf(&diag, "PVC %s/%s, phase %s, binding to %s\n", pvc.Namespace, pvc.Name, pvc.Status.Phase, pvc.Spec.VolumeName)
 
 	if events != nil {
 		for _, e := range events.Items {
 			if e.InvolvedObject.UID == pvc.UID && e.Type == corev1api.EventTypeWarning {
-				diag += fmt.Sprintf("PVC event reason %s, message %s\n", e.Reason, e.Message)
+				_, _ = fmt.Fprintf(&diag, "PVC event reason %s, message %s\n", e.Reason, e.Message)
 			}
 		}
 	}
 
-	return diag
+	return diag.String()
 }
 
 func DiagnosePV(pv *corev1api.PersistentVolume) string {
@@ -579,4 +580,30 @@ func GetPVAttachedNodes(ctx context.Context, pv string, storageClient storagev1.
 	}
 
 	return nodes, nil
+}
+
+func GetVolumeTopology(ctx context.Context, volumeClient corev1client.CoreV1Interface, storageClient storagev1.StorageV1Interface, pvName string, scName string) (*corev1api.NodeSelector, error) {
+	if pvName == "" || scName == "" {
+		return nil, errors.Errorf("invalid parameter, pv %s, sc %s", pvName, scName)
+	}
+
+	sc, err := storageClient.StorageClasses().Get(ctx, scName, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting storage class %s", scName)
+	}
+
+	if sc.VolumeBindingMode == nil || *sc.VolumeBindingMode != storagev1api.VolumeBindingWaitForFirstConsumer {
+		return nil, nil
+	}
+
+	pv, err := volumeClient.PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting PV %s", pvName)
+	}
+
+	if pv.Spec.NodeAffinity == nil {
+		return nil, nil
+	}
+
+	return pv.Spec.NodeAffinity.Required, nil
 }
