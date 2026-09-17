@@ -8,7 +8,7 @@ For more information on Velero check https://velero.io/.
 
 ## Plugin actions Included
 
-The plugin registers backup and restore actions that operate on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance.
+The plugin registers backup and restore actions that operate on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance, VirtualMachineTemplate, VirtualMachineTemplateRequest.
 
 ### **DVBackupItemAction** 
 An action that backs up the `PersistentVolumeClaim` and `DataVolume`
@@ -43,6 +43,32 @@ Skips the VMI if owned by a VM. The plugin also clears restricted labels, so the
 ### **PodRestoreItemAction**
 An action that handles the virt-launcher `Pod`. It makes sure virt-launcher pod is always skipped.
 
+### **VMTBackupItemAction**
+An action that backs up a [`VirtualMachineTemplate`](https://github.com/kubevirt/virt-template).
+
+A `VirtualMachineTemplate` holds an unprocessed `VirtualMachine` with `${PARAMETER}` placeholders, plus, when created
+from an existing VM, one or more golden-image `DataVolumes` that back its `dataVolumeTemplates`. The action backs up
+those golden-image `DataVolumes`/`PersistentVolumeClaims`/`VolumeSnapshots`/`DataSources`, along with any
+non-parameterized secrets, config maps, service accounts and `NetworkAttachmentDefinitions` referenced by the
+embedded `VirtualMachine`. References that are still parameter placeholders cannot be resolved to a concrete object
+and are skipped.
+
+### **VMTItemBlockAction**
+An item block action for `VirtualMachineTemplate`, using the same object graph as `VMTBackupItemAction` to group
+a template with its golden images for backup.
+
+### **VMTRestoreItemAction**
+An action that restores a `VirtualMachineTemplate`. It rewrites hardcoded (non-parameterized) namespace references
+embedded in the template's `VirtualMachine` (`dataVolumeTemplates` sources and Multus network names) according to
+the restore's namespace mapping, since Velero's own namespace remapping only touches the `VirtualMachineTemplate`'s
+metadata, not references embedded inside its opaque spec. The embedded `VirtualMachine`'s own `metadata.namespace`
+is left alone, because virt-template strips a hardcoded one when it processes the template.
+
+### **VMTRRestoreItemAction**
+An action that always skips restoring `VirtualMachineTemplateRequest`. A request is a one-shot job that snapshots
+a source VM and produces a `VirtualMachineTemplate`; restoring it would cause it to re-run against the (possibly
+different) restored source VM. The `VirtualMachineTemplate` it already produced is restored on its own.
+
 ## Compatibility
 
 Plugin versions and respective Velero, KubeVirt, and CDI versions that are tested to be compatible.
@@ -63,6 +89,18 @@ This plugin has been tested with the following Velero backup methods:
 
 Other backup methods, such as file system backup (Kopia/Restic) or native cloud provider snapshots,
 have **not been tested** with this plugin and may not work correctly with KubeVirt volumes.
+
+### Known limitations
+
+- **Restored `VirtualMachineTemplate` golden-image `DataVolumes` lose their owner reference.** virt-template makes a
+  template's golden-image `DataVolumes` children of the `VirtualMachineTemplate`, but Velero clears `ownerReferences`
+  on every restored object. The restored `DataVolumes` remain fully usable, but are no longer garbage-collected
+  together with the template that owns them.
+- **`VirtualMachineTemplates` using the non-string `${{PARAMETER}}` syntax are not fully processed.** That syntax
+  deliberately stores a string where the `VirtualMachine` schema expects another type (for example
+  `cpu.cores: ${{COUNT}}`), so the embedded `VirtualMachine` cannot be decoded. Such templates are still backed up
+  and restored intact, but their golden images are not discovered as extra items and their embedded namespace
+  references are not rewritten on a namespace-mapped restore. The plugin logs a warning when this happens.
 
 ## Install
 

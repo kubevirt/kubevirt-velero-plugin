@@ -33,7 +33,9 @@ function wait_plugin_available {
                     plugin get | grep kubevirt-velero | wc -l)
 
     wait_time=0
-    expected_actions="23"
+    # 'velero plugin get' lists two entries per BackupItemAction/RestoreItemAction (v1 and
+    # v2) and one per ItemBlockAction. main.go registers 9 RIAs, 7 BIAs and 2 IBAs.
+    expected_actions="34"
     while [[ $available != $expected_actions ]] && [[ $wait_time -lt 60 ]]; do
       wait_time=$((wait_time + 5))
       sleep 5

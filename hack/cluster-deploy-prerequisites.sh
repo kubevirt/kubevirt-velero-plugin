@@ -49,9 +49,15 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     sleep 1m
 done
 
-# Patch kubevirt with hotplug and persistent VM state feature gate enabled
+# Patch kubevirt with hotplug and persistent VM state feature gates enabled. As of KubeVirt
+# v1.9.0, Beta feature gates (including Snapshot and Template, virt-template's prerequisite
+# and own feature gate) are enabled by default, so they no longer need to be listed here;
+# KubeVirt now also deploys virt-template's own components automatically.
 _kubectl patch -n kubevirt kubevirt kubevirt --type merge -p '{"spec": {"configuration": { "developerConfiguration": { "featureGates": ["HotplugVolumes", "VMPersistentState"] }}}}'
 
 if [[ "$KUBEVIRT_DEPLOY_CDI" != "false" ]] && [[ $CDI_DV_GC != "0" ]]; then
     _kubectl patch cdi cdi --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
 fi
+
+_kubectl wait -n kubevirt deployment/virt-template-apiserver --for=condition=Available --timeout=300s
+_kubectl wait -n kubevirt deployment/virt-template-controller --for=condition=Available --timeout=300s
