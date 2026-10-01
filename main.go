@@ -37,12 +37,18 @@ func main() {
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-pod-action", newPodRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-volumesnapshot-action", newVolumeSnapshotRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-networkattachmentdefinition-action", newNADRestoreItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-virtualmachinetemplate-action", newVMTRestoreItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-virtualmachinetemplaterequest-action", newVMTRRestoreItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-datasource-action", newDSRestoreItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datavolume-action", newDVBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-pvc-action", newPVCBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-volumesnapshot-action", newVolumeSnapshotBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-virtualmachine-action", newVMBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-virtualmachineinstance-action", newVMIBackupItemAction).
+		RegisterBackupItemAction("kubevirt-velero-plugin/backup-virtualmachinetemplate-action", newVMTBackupItemAction).
+		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datasource-action", newDSBackupItemAction).
 		RegisterItemBlockAction("kubevirt-velero-plugin/block-vm-action", newVMItemBlockAction).
+		RegisterItemBlockAction("kubevirt-velero-plugin/block-virtualmachinetemplate-action", newVMTItemBlockAction).
 		Serve()
 }
 
@@ -79,6 +85,36 @@ func newVMIBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
 func newVMItemBlockAction(logger logrus.FieldLogger) (interface{}, error) {
 	logger.Debug("Creating VMItemBlockAction")
 	return plugin.NewVMItemBlockAction(logger), nil
+}
+
+func newVMTBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMTBackupItemAction")
+	return plugin.NewVMTBackupItemAction(logger), nil
+}
+
+func newVMTItemBlockAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMTItemBlockAction")
+	return plugin.NewVMTItemBlockAction(logger), nil
+}
+
+func newVMTRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMTRestoreItemAction")
+	return plugin.NewVMTRestoreItemAction(logger), nil
+}
+
+func newVMTRRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMTRRestoreItemAction")
+	return plugin.NewVMTRRestoreItemAction(logger), nil
+}
+
+func newDSBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating DSBackupItemAction")
+	return plugin.NewDSBackupItemAction(logger), nil
+}
+
+func newDSRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating DSRestoreItemAction")
+	return plugin.NewDSRestoreItemAction(logger), nil
 }
 
 func newVMRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
