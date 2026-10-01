@@ -1,0 +1,12 @@
+apiVersion: template.kubevirt.io/v1beta1
+kind: VirtualMachineTemplateRequest
+metadata:
+  name: test-vmtr
+  labels:
+    a.test.label: included
+spec:
+  virtualMachineRef:
+    namespace: "{{KVP_NAMESPACE}}"
+    name: test-vm-for-template
+  templateLabels:
+    a.test.label: included
