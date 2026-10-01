@@ -23,12 +23,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"kubevirt.io/api/instancetype"
 
 	v1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
@@ -40,6 +44,7 @@ const (
 var KVObjectGraph = map[string]schema.GroupResource{
 	"virtualmachineinstances":       {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
 	"datavolumes":                   {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+	"datasources":                   {Group: "cdi.kubevirt.io", Resource: "datasources"},
 	"controllerrevisions":           {Group: "apps", Resource: "controllerrevisions"},
 	"configmaps":                    {Group: "", Resource: "configmaps"},
 	"networkattachmentdefinitions":  {Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
@@ -223,4 +228,105 @@ func HasPersistentEFI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 		vmiSpec.Domain.Firmware.Bootloader.EFI != nil &&
 		vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent != nil &&
 		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
+}
+
+// dataVolumeChecker reports whether a PVC-cloned golden image named namespace/name has a
+// backing DataVolume, so it can be requested as an additional item alongside the PVC.
+type dataVolumeChecker func(namespace, name string) (bool, error)
+
+func liveDataVolumeExists(namespace, name string) (bool, error) {
+	_, err := util.GetDV(namespace, name)
+	switch {
+	case err == nil:
+		return true, nil
+	case apierrors.IsNotFound(err):
+		// A PVC not backed by a DataVolume - the PVC identifier alone is enough.
+		return false, nil
+	default:
+		// Anything else (RBAC, API unavailable) is not evidence of absence -
+		// fail rather than silently leave the DataVolume out of the backup.
+		return false, errors.Wrapf(err, "failed to check whether DataVolume %s/%s exists", namespace, name)
+	}
+}
+
+func knownDataVolumeExists(known map[string]bool) dataVolumeChecker {
+	return func(namespace, name string) (bool, error) {
+		return known[namespace+"/"+name], nil
+	}
+}
+
+type goldenImageRecorder struct {
+	keys []string
+}
+
+func (g *goldenImageRecorder) wrap(check dataVolumeChecker) dataVolumeChecker {
+	return func(namespace, name string) (bool, error) {
+		exists, err := check(namespace, name)
+		if exists {
+			g.keys = append(g.keys, namespace+"/"+name)
+		}
+		return exists, err
+	}
+}
+
+func addPVCAndSnapshotSourceGraph(pvc *cdiv1.DataVolumeSourcePVC, snap *cdiv1.DataVolumeSourceSnapshot, namespace string, dataVolumeExists dataVolumeChecker, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	if pvc != nil {
+		ns := defaultNamespace(pvc.Namespace, namespace)
+		resources = addVeleroResource(pvc.Name, ns, "persistentvolumeclaims", resources)
+
+		exists, err := dataVolumeExists(ns, pvc.Name)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			resources = addVeleroResource(pvc.Name, ns, "datavolumes", resources)
+		}
+	}
+	if snap != nil {
+		resources = addVeleroResource(snap.Name, defaultNamespace(snap.Namespace, namespace), "volumesnapshots", resources)
+	}
+	return resources, nil
+}
+
+func addDataSourceObjectGraph(ds *cdiv1.DataSource, dataVolumeExists dataVolumeChecker, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	if ds == nil {
+		return resources, nil
+	}
+
+	namespace := ds.GetNamespace()
+	src := ds.Spec.Source
+	resources, err := addPVCAndSnapshotSourceGraph(src.PVC, src.Snapshot, namespace, dataVolumeExists, resources)
+	if err != nil {
+		return nil, err
+	}
+	if nested := src.DataSource; nested != nil {
+		resources = addVeleroResource(nested.Name, defaultNamespace(nested.Namespace, namespace), "datasources", resources)
+	}
+	return resources, nil
+}
+
+func RecordGoldenImageDataVolumes(item runtime.Unstructured, goldenImages []string) {
+	if len(goldenImages) == 0 {
+		util.RemoveAnnotation(item, util.GoldenImageDataVolumesAnnotation)
+		return
+	}
+	util.AddAnnotation(item, util.GoldenImageDataVolumesAnnotation, strings.Join(goldenImages, ","))
+}
+
+func ParseGoldenImageDataVolumes(annotation string) map[string]bool {
+	known := make(map[string]bool)
+	if annotation == "" {
+		return known
+	}
+	for _, key := range strings.Split(annotation, ",") {
+		known[key] = true
+	}
+	return known
+}
+
+func defaultNamespace(namespace, fallback string) string {
+	if namespace == "" {
+		return fallback
+	}
+	return namespace
 }

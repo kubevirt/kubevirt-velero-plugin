@@ -52,6 +52,13 @@ func NewObjectBackupGraph(item runtime.Unstructured) ([]velero.ResourceIdentifie
 			return []velero.ResourceIdentifier{}, errors.WithStack(err)
 		}
 		return NewDataVolumeBackupGraph(dv), nil
+	case "DataSource":
+		ds := new(cdiv1.DataSource)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), ds); err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		resources, _, err := NewDataSourceBackupGraph(ds)
+		return resources, err
 	default:
 		// No specific backup graph for the passed object
 		return []velero.ResourceIdentifier{}, nil
@@ -119,4 +126,18 @@ func NewDataVolumeBackupGraph(dv *cdiv1.DataVolume) []velero.ResourceIdentifier 
 		resources = addVeleroResource(dv.Name, dv.Namespace, "persistentvolumeclaims", resources)
 	}
 	return resources
+}
+
+// NewDataSourceBackupGraph returns the backup object graph for a specific DataSource: its
+// backing PVC/VolumeSnapshot, or another DataSource it points to. The returned "namespace/name"
+// keys are the golden images found to have a backing DataVolume - pass these to
+// RecordGoldenImageDataVolumes so the restore graph can tell which DataVolumes this backup
+// actually contains.
+func NewDataSourceBackupGraph(ds *cdiv1.DataSource) ([]velero.ResourceIdentifier, []string, error) {
+	var golden goldenImageRecorder
+	resources, err := addDataSourceObjectGraph(ds, golden.wrap(liveDataVolumeExists), []velero.ResourceIdentifier{})
+	if err != nil {
+		return nil, nil, err
+	}
+	return resources, golden.keys, nil
 }

@@ -47,8 +47,13 @@ const (
 	PVCUIDLabel = "velero.kubevirt.io/pvc-uid"
 
 	// Collision detection annotations to preserve original values
-	OriginalPVCUIDAnnotation = "velero.kubevirt.io/original-pvc-uid"
+	OriginalPVCUIDAnnotation            = "velero.kubevirt.io/original-pvc-uid"
 	OriginalVolumeSnapshotUIDAnnotation = "velero.kubevirt.io/original-volumesnapshot-uid"
+
+	// GoldenImageDataVolumesAnnotation records, on a backed-up VirtualMachineTemplate or
+	// DataSource, which of its PVC-cloned golden images had a backing DataVolume at backup
+	// time.
+	GoldenImageDataVolumesAnnotation = "velero.kubevirt.io/golden-image-data-volumes"
 )
 
 func GetK8sClient() (*kubernetes.Clientset, error) {
@@ -395,4 +400,3 @@ func GenerateNewFirmwareUUID(vmiSpec *kvv1.VirtualMachineInstanceSpec, name, nam
 	}
 	vmiSpec.Domain.Firmware.UUID = types.UID(uuid.New().String())
 }
-
