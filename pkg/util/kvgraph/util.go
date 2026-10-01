@@ -26,6 +26,8 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"kubevirt.io/api/instancetype"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
@@ -36,18 +38,29 @@ const (
 
 // KVObjectGraph represents the graph of objects that can be potentially related to a KubeVirt resource
 var KVObjectGraph = map[string]schema.GroupResource{
-	"virtualmachineinstances":        {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-	"datavolumes":                    {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-	"controllerrevisions":            {Group: "apps", Resource: "controllerrevisions"},
-	"configmaps":                     {Group: "", Resource: "configmaps"},
-	"networkattachmentdefinitions":   {Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
-	"persistentvolumeclaims":         kuberesource.PersistentVolumeClaims,
-	"serviceaccounts":                kuberesource.ServiceAccounts,
-	"secrets":                        kuberesource.Secrets,
-	"pods":                           kuberesource.Pods,
+	"virtualmachineinstances":       {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
+	"datavolumes":                   {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
+	"controllerrevisions":           {Group: "apps", Resource: "controllerrevisions"},
+	"configmaps":                    {Group: "", Resource: "configmaps"},
+	"networkattachmentdefinitions":  {Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"},
+	"persistentvolumeclaims":        kuberesource.PersistentVolumeClaims,
+	"serviceaccounts":               kuberesource.ServiceAccounts,
+	"secrets":                       kuberesource.Secrets,
+	"pods":                          kuberesource.Pods,
+	"volumesnapshots":               {Group: "snapshot.storage.k8s.io", Resource: "volumesnapshots"},
+	instancetype.PluralResourceName: {Group: instancetype.GroupName, Resource: instancetype.PluralResourceName},
+	instancetype.PluralPreferenceResourceName: {Group: instancetype.GroupName, Resource: instancetype.PluralPreferenceResourceName},
+}
+
+// IsParameterized reports whether s contains a virt-template parameter reference (e.g. "${NAME}").
+func IsParameterized(s string) bool {
+	return strings.Contains(s, "${")
 }
 
 func addVeleroResource(name, namespace, resource string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	if name == "" || IsParameterized(name) || IsParameterized(namespace) {
+		return resources
+	}
 	if groupResource, ok := KVObjectGraph[resource]; ok {
 		resources = append(resources, velero.ResourceIdentifier{
 			GroupResource: groupResource,
