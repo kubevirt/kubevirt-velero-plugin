@@ -8,6 +8,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/kuberesource"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -140,6 +141,27 @@ func TestNewObjectBackupGraph(t *testing.T) {
 			},
 			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
 				return NewDataVolumeBackupGraph(obj.(*cdiv1.DataVolume)), nil
+			},
+		},
+		{
+			name: "DataSource",
+			object: &cdiv1.DataSource{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "DataSource",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-datasource",
+					Namespace: "default",
+				},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "golden-snap"},
+					},
+				},
+			},
+			expectedResult: func(obj interface{}) ([]velero.ResourceIdentifier, error) {
+				resources, _, err := NewDataSourceBackupGraph(obj.(*cdiv1.DataSource))
+				return resources, err
 			},
 		},
 		{
@@ -858,6 +880,77 @@ func TestNewDataVolumeBackupGraph(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := NewDataVolumeBackupGraph(tt.dataVolume)
 			assert.Equal(t, tt.expectedResult, result)
+		})
+	}
+}
+
+func TestNewDataSourceBackupGraph(t *testing.T) {
+	origGetDV := util.GetDV
+	defer func() { util.GetDV = origGetDV }()
+
+	testCases := []struct {
+		name     string
+		ds       *cdiv1.DataSource
+		dvExists bool
+		expected []velero.ResourceIdentifier
+	}{
+		{"nil DataSource", nil, false, []velero.ResourceIdentifier{}},
+		{"PVC source, backing DataVolume exists",
+			&cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ds-ns"},
+				Spec:       cdiv1.DataSourceSpec{Source: cdiv1.DataSourceSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "golden-image"}}},
+			},
+			true,
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"}, Namespace: "ds-ns", Name: "golden-image"},
+				{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"}, Namespace: "ds-ns", Name: "golden-image"},
+			},
+		},
+		{"PVC source, no backing DataVolume",
+			&cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ds-ns"},
+				Spec:       cdiv1.DataSourceSpec{Source: cdiv1.DataSourceSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "hand-authored-pvc"}}},
+			},
+			false,
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"}, Namespace: "ds-ns", Name: "hand-authored-pvc"},
+			},
+		},
+		{"Snapshot source",
+			&cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ds-ns"},
+				Spec:       cdiv1.DataSourceSpec{Source: cdiv1.DataSourceSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "golden-snap"}}},
+			},
+			false,
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "snapshot.storage.k8s.io", Resource: "volumesnapshots"}, Namespace: "ds-ns", Name: "golden-snap"},
+			},
+		},
+		{"nested DataSource",
+			&cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ds-ns"},
+				Spec: cdiv1.DataSourceSpec{Source: cdiv1.DataSourceSource{
+					DataSource: &cdiv1.DataSourceRefSourceDataSource{Name: "parent-ds", Namespace: "other-ns"},
+				}},
+			},
+			false,
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datasources"}, Namespace: "other-ns", Name: "parent-ds"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			util.GetDV = func(ns, name string) (*cdiv1.DataVolume, error) {
+				if tc.dvExists {
+					return &cdiv1.DataVolume{}, nil
+				}
+				return nil, apierrors.NewNotFound(schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"}, name)
+			}
+			resources, _, err := NewDataSourceBackupGraph(tc.ds)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, resources)
 		})
 	}
 }
