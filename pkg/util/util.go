@@ -162,6 +162,22 @@ func AddAnnotation(item runtime.Unstructured, annotation, value string) {
 	metadata.SetAnnotations(annotations)
 }
 
+func RemoveAnnotation(item runtime.Unstructured, annotation string) {
+	metadata, err := meta.Accessor(item)
+	if err != nil {
+		return
+	}
+
+	annotations := metadata.GetAnnotations()
+	if annotations == nil {
+		return
+	}
+
+	delete(annotations, annotation)
+
+	metadata.SetAnnotations(annotations)
+}
+
 func IsVMIPaused(vmi *kvv1.VirtualMachineInstance) bool {
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == kvv1.VirtualMachineInstancePaused && c.Status == k8score.ConditionTrue {
