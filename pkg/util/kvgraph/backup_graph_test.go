@@ -833,6 +833,116 @@ func TestNewVirtualMachineInstanceBackupGraphWithNetworks(t *testing.T) {
 	}
 }
 
+func TestNewObjectBackupGraphVirtualMachineTemplate(t *testing.T) {
+	item := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "template.kubevirt.io/v1beta1",
+			"kind":       "VirtualMachineTemplate",
+			"metadata": map[string]interface{}{
+				"name":      "test-template",
+				"namespace": "tpl-ns",
+			},
+			"spec": map[string]interface{}{
+				"virtualMachine": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"dataVolumeTemplates": []interface{}{
+							map[string]interface{}{
+								"metadata": map[string]interface{}{"name": "rootdisk-${NAME}"},
+								"spec": map[string]interface{}{
+									"source": map[string]interface{}{
+										"pvc": map[string]interface{}{
+											"name": "golden-image",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	origGetDV := util.GetDV
+	defer func() { util.GetDV = origGetDV }()
+	util.GetDV = func(ns, name string) (*cdiv1.DataVolume, error) { return &cdiv1.DataVolume{}, nil }
+
+	resources, err := NewObjectBackupGraph(item)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"}, Namespace: "tpl-ns", Name: "golden-image"},
+		{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"}, Namespace: "tpl-ns", Name: "golden-image"},
+	}, resources)
+}
+
+func TestNewVirtualMachineTemplateBackupGraph(t *testing.T) {
+	testCases := []struct {
+		name      string
+		vm        *kvcore.VirtualMachine
+		namespace string
+		expected  []velero.ResourceIdentifier
+	}{
+		{"nil VM", nil, "tpl-ns", []velero.ResourceIdentifier{}},
+		{"VM without template spec",
+			&kvcore.VirtualMachine{
+				Spec: kvcore.VirtualMachineSpec{
+					DataVolumeTemplates: []kvcore.DataVolumeTemplateSpec{
+						{Spec: cdiv1.DataVolumeSpec{Source: &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "golden-image"}}}},
+					},
+				},
+			},
+			"tpl-ns",
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"}, Namespace: "tpl-ns", Name: "golden-image"},
+				{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"}, Namespace: "tpl-ns", Name: "golden-image"},
+			},
+		},
+		{"Full template: golden images, instancetype/preference, volumes and networks",
+			&kvcore.VirtualMachine{
+				Spec: kvcore.VirtualMachineSpec{
+					Instancetype: &kvcore.InstancetypeMatcher{Name: "my-instancetype", Kind: "virtualmachineinstancetype"},
+					Preference:   &kvcore.PreferenceMatcher{Name: "my-preference", Kind: "virtualmachinepreference"},
+					DataVolumeTemplates: []kvcore.DataVolumeTemplateSpec{
+						{Spec: cdiv1.DataVolumeSpec{Source: &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "golden-image"}}}},
+					},
+					Template: &kvcore.VirtualMachineInstanceTemplateSpec{
+						Spec: kvcore.VirtualMachineInstanceSpec{
+							Volumes: []kvcore.Volume{
+								{Name: "rootdisk", VolumeSource: kvcore.VolumeSource{DataVolume: &kvcore.DataVolumeSource{Name: "rootdisk-${NAME}"}}},
+								{Name: "cm", VolumeSource: kvcore.VolumeSource{ConfigMap: &kvcore.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: "test-cm"}}}},
+							},
+							Networks: []kvcore.Network{
+								{Name: "secondary", NetworkSource: kvcore.NetworkSource{Multus: &kvcore.MultusNetwork{NetworkName: "test-nad"}}},
+							},
+						},
+					},
+				},
+			},
+			"tpl-ns",
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"}, Namespace: "tpl-ns", Name: "my-instancetype"},
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"}, Namespace: "tpl-ns", Name: "my-preference"},
+				{GroupResource: schema.GroupResource{Group: "", Resource: "persistentvolumeclaims"}, Namespace: "tpl-ns", Name: "golden-image"},
+				{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datavolumes"}, Namespace: "tpl-ns", Name: "golden-image"},
+				{GroupResource: schema.GroupResource{Group: "", Resource: "configmaps"}, Namespace: "tpl-ns", Name: "test-cm"},
+				{GroupResource: schema.GroupResource{Group: "k8s.cni.cncf.io", Resource: "network-attachment-definitions"}, Namespace: "tpl-ns", Name: "test-nad"},
+			},
+		},
+	}
+
+	origGetDV := util.GetDV
+	defer func() { util.GetDV = origGetDV }()
+	util.GetDV = func(ns, name string) (*cdiv1.DataVolume, error) { return &cdiv1.DataVolume{}, nil }
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resources, _, err := NewVirtualMachineTemplateBackupGraph(tc.vm, tc.namespace)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, resources)
+		})
+	}
+}
+
 func TestNewDataVolumeBackupGraph(t *testing.T) {
 	tests := []struct {
 		name           string
