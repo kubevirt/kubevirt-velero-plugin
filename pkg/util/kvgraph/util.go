@@ -81,7 +81,19 @@ func addNetworkGraph(vmiSpec v1.VirtualMachineInstanceSpec, namespace string, re
 }
 
 func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
-	for _, volume := range vmiSpec.Volumes {
+	resources = addVolumeSourceGraph(vmiSpec.Volumes, namespace, resources)
+
+	// Returning full backup even if there was an error retrieving the backend PVC.
+	// The caller can decide wether to use the backup or handle the error.
+	var err error
+	if IsBackendStorageNeededForVMI(&vmiSpec) {
+		resources, err = addBackendPVC(vmName, namespace, resources)
+	}
+	return resources, err
+}
+
+func addVolumeSourceGraph(volumes []v1.Volume, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	for _, volume := range volumes {
 		switch {
 		case volume.DataVolume != nil:
 			resources = addVeleroResource(volume.DataVolume.Name, namespace, "datavolumes", resources)
@@ -112,13 +124,7 @@ func addVolumeGraph(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace str
 			}
 		}
 	}
-	// Returning full backup even if there was an error retrieving the backend PVC.
-	// The caller can decide wether to use the backup or handle the error.
-	var err error
-	if IsBackendStorageNeededForVMI(&vmiSpec) {
-		resources, err = addBackendPVC(vmName, namespace, resources)
-	}
-	return resources, err
+	return resources
 }
 
 func addAccessCredentials(acs []v1.AccessCredential, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
