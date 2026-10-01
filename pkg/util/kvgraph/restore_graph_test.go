@@ -460,6 +460,65 @@ func TestNewVirtualMachineInstanceRestoreGraph(t *testing.T) {
 	}
 }
 
+func TestNewObjectRestoreGraphVirtualMachineTemplate(t *testing.T) {
+	item := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "template.kubevirt.io/v1beta1",
+			"kind":       "VirtualMachineTemplate",
+			"metadata": map[string]interface{}{
+				"name":      "test-template",
+				"namespace": "tpl-ns",
+			},
+			"spec": map[string]interface{}{
+				"virtualMachine": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"dataVolumeTemplates": []interface{}{
+							map[string]interface{}{
+								"metadata": map[string]interface{}{"name": "rootdisk-${NAME}"},
+								"spec": map[string]interface{}{
+									"source": map[string]interface{}{
+										"snapshot": map[string]interface{}{
+											"name": "golden-snap",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	resources, err := NewObjectRestoreGraph(item)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "snapshot.storage.k8s.io", Resource: "volumesnapshots"}, Namespace: "tpl-ns", Name: "golden-snap"},
+	}, resources)
+}
+
+func TestNewVirtualMachineTemplateRestoreGraph(t *testing.T) {
+	vm := &kvcore.VirtualMachine{
+		Spec: kvcore.VirtualMachineSpec{
+			Instancetype: &kvcore.InstancetypeMatcher{Name: "my-instancetype", Kind: "virtualmachineinstancetype"},
+			DataVolumeTemplates: []kvcore.DataVolumeTemplateSpec{
+				{Spec: cdiv1.DataVolumeSpec{SourceRef: &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "golden-ds"}}},
+			},
+		},
+	}
+
+	resources, err := NewVirtualMachineTemplateRestoreGraph(vm, "tpl-ns", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"}, Namespace: "tpl-ns", Name: "my-instancetype"},
+		{GroupResource: schema.GroupResource{Group: "cdi.kubevirt.io", Resource: "datasources"}, Namespace: "tpl-ns", Name: "golden-ds"},
+	}, resources)
+
+	resources, err = NewVirtualMachineTemplateRestoreGraph(nil, "tpl-ns", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{}, resources)
+}
+
 func TestNewVirtualMachineInstanceRestoreGraphWithNetworks(t *testing.T) {
 	testCases := []struct {
 		name     string

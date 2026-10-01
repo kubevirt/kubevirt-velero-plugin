@@ -41,6 +41,17 @@ func NewObjectRestoreGraph(item runtime.Unstructured) ([]velero.ResourceIdentifi
 			return []velero.ResourceIdentifier{}, errors.WithStack(err)
 		}
 		return NewVirtualMachineRestoreGraph(vm)
+	case "VirtualMachineTemplate":
+		vm, err := util.GetTemplateVM(item)
+		if err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		accessor, err := meta.Accessor(item)
+		if err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		known := ParseGoldenImageDataVolumes(accessor.GetAnnotations()[util.GoldenImageDataVolumesAnnotation])
+		return NewVirtualMachineTemplateRestoreGraph(vm, accessor.GetNamespace(), known)
 	case "VirtualMachineInstance":
 		vmi := new(v1.VirtualMachineInstance)
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vmi); err != nil {
@@ -76,6 +87,14 @@ func NewVirtualMachineRestoreGraph(vm *v1.VirtualMachine) ([]velero.ResourceIden
 // NewVirtualMachineInstanceRestoreGraph returns the restore object graph for a specific VMI
 func NewVirtualMachineInstanceRestoreGraph(vmi *v1.VirtualMachineInstance) ([]velero.ResourceIdentifier, error) {
 	return addCommonVMIObjectGraph(vmi.Spec, vmi.GetName(), vmi.GetNamespace(), []velero.ResourceIdentifier{})
+}
+
+// NewVirtualMachineTemplateRestoreGraph returns the restore object graph for a specific
+// VirtualMachineTemplate. See NewVirtualMachineTemplateBackupGraph for the rationale.
+// knownDataVolumes is the set of "namespace/name" golden images known, from the backup, to
+// have had a backing DataVolume - see util.GoldenImageDataVolumesAnnotation.
+func NewVirtualMachineTemplateRestoreGraph(vm *v1.VirtualMachine, namespace string, knownDataVolumes map[string]bool) ([]velero.ResourceIdentifier, error) {
+	return addCommonTemplateObjectGraph(vm, namespace, knownDataVolumeExists(knownDataVolumes), []velero.ResourceIdentifier{})
 }
 
 // NewDataSourceRestoreGraph returns the restore object graph for a specific DataSource.

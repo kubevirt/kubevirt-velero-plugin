@@ -83,6 +83,29 @@ func addCommonVMIObjectGraph(spec v1.VirtualMachineInstanceSpec, vmName, namespa
 	return resources, err
 }
 
+func addCommonTemplateObjectGraph(vm *v1.VirtualMachine, namespace string, dataVolumeExists dataVolumeChecker, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	if vm == nil {
+		return resources, nil
+	}
+
+	resources = addTemplateInstancetypeGraph(vm, namespace, resources)
+	resources, err := addDataVolumeTemplateGraph(vm.Spec.DataVolumeTemplates, namespace, dataVolumeExists, resources)
+	if err != nil {
+		return nil, err
+	}
+
+	if vm.Spec.Template == nil {
+		return resources, nil
+	}
+
+	spec := vm.Spec.Template.Spec
+	resources = addVolumeSourceGraph(spec.Volumes, namespace, resources)
+	resources = addAccessCredentials(spec.AccessCredentials, namespace, resources)
+	resources = addNetworkGraph(spec, namespace, resources)
+
+	return resources, nil
+}
+
 func addNetworkGraph(vmiSpec v1.VirtualMachineInstanceSpec, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
 	for _, net := range vmiSpec.Networks {
 		if net.Multus != nil && net.Multus.NetworkName != "" {
@@ -329,4 +352,43 @@ func defaultNamespace(namespace, fallback string) string {
 		return fallback
 	}
 	return namespace
+}
+
+func addNamespacedInstancetype(m v1.Matcher, singular, plural, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	// Kind defaults to the cluster-scoped resource when unset, so only an explicit,
+	// namespace-scoped Kind is followed here.
+	if m == nil || m.GetName() == "" || !strings.EqualFold(m.GetKind(), singular) {
+		return resources
+	}
+	return addVeleroResource(m.GetName(), namespace, plural, resources)
+}
+
+func addTemplateInstancetypeGraph(vm *v1.VirtualMachine, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	if vm.Spec.Instancetype != nil {
+		resources = addNamespacedInstancetype(vm.Spec.Instancetype, instancetype.SingularResourceName, instancetype.PluralResourceName, namespace, resources)
+	}
+	if vm.Spec.Preference != nil {
+		resources = addNamespacedInstancetype(vm.Spec.Preference, instancetype.SingularPreferenceResourceName, instancetype.PluralPreferenceResourceName, namespace, resources)
+	}
+	return resources
+}
+
+func addDataVolumeTemplateGraph(dvts []v1.DataVolumeTemplateSpec, namespace string, dataVolumeExists dataVolumeChecker, resources []velero.ResourceIdentifier) ([]velero.ResourceIdentifier, error) {
+	var err error
+	for _, dvt := range dvts {
+		if src := dvt.Spec.Source; src != nil {
+			resources, err = addPVCAndSnapshotSourceGraph(src.PVC, src.Snapshot, namespace, dataVolumeExists, resources)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if ref := dvt.Spec.SourceRef; ref != nil && ref.Kind == "DataSource" {
+			ns := namespace
+			if ref.Namespace != nil {
+				ns = *ref.Namespace
+			}
+			resources = addVeleroResource(ref.Name, ns, "datasources", resources)
+		}
+	}
+	return resources, nil
 }
