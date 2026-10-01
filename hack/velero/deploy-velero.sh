@@ -30,7 +30,7 @@ velero_resources_dir=${script_dir}/../velero
 source ${KUBEVIRTCI_PATH}cluster/$KUBEVIRT_PROVIDER/provider.sh
 
 if [[ ! $(_kubectl get deployments -n velero | grep minio) ]]; then
-  _kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/main/examples/minio/00-minio-deployment.yaml
+  _kubectl apply -f ${velero_resources_dir}/minio-deployment.yaml
   _kubectl wait -n velero deployment/minio --for=condition=Available --timeout=${DEPLOYMENT_TIMEOUT}s
 fi
 
