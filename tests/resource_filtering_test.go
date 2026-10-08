@@ -2427,6 +2427,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", dvName)
+				framework.ApplyGuestlessKernelBoot(&vmiSpec.Spec)
 				_, err = framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
@@ -2450,6 +2451,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", dvName)
+				framework.ApplyGuestlessKernelBoot(&vmiSpec.Spec)
 				_, err = framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
@@ -2566,6 +2568,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", dvName)
+				framework.ApplyGuestlessKernelBoot(&vmiSpec.Spec)
 				_, err = framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
@@ -2592,6 +2595,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newVMISpecWithDV("test-vmi", dvName)
+				framework.ApplyGuestlessKernelBoot(&vmiSpec.Spec)
 				_, err = framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
@@ -3374,6 +3378,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", dvName)
+				framework.ApplyGuestlessKernelBoot(&vmiSpec.Spec)
 				_, err = framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
@@ -3402,6 +3407,7 @@ var _ = Describe("Resource excludes", func() {
 
 				By("Creating VirtualMachineInstance")
 				vmiSpec := newBigVMISpecWithDV("test-vmi", dvName)
+				framework.ApplyGuestlessKernelBoot(&vmiSpec.Spec)
 				_, err = framework.CreateVirtualMachineInstanceFromDefinition(f.KvClient, f.Namespace.Name, vmiSpec)
 				Expect(err).ToNot(HaveOccurred())
 				err = framework.WaitForVirtualMachineInstancePhase(f.KvClient, f.Namespace.Name, vmiSpec.Name, kvv1.Running)
