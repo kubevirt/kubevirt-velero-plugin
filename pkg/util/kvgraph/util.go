@@ -354,21 +354,20 @@ func defaultNamespace(namespace, fallback string) string {
 	return namespace
 }
 
-func addNamespacedInstancetype(m v1.Matcher, singular, plural, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
-	// Kind defaults to the cluster-scoped resource when unset, so only an explicit,
-	// namespace-scoped Kind is followed here.
-	if m == nil || m.GetName() == "" || !strings.EqualFold(m.GetKind(), singular) {
-		return resources
+func addNamespacedInstancetypeOrPreference(m v1.Matcher, singular, plural, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
+	switch strings.ToLower(m.GetKind()) {
+	case singular, plural:
+		return addVeleroResource(m.GetName(), namespace, plural, resources)
 	}
-	return addVeleroResource(m.GetName(), namespace, plural, resources)
+	return resources
 }
 
 func addTemplateInstancetypeGraph(vm *v1.VirtualMachine, namespace string, resources []velero.ResourceIdentifier) []velero.ResourceIdentifier {
 	if vm.Spec.Instancetype != nil {
-		resources = addNamespacedInstancetype(vm.Spec.Instancetype, instancetype.SingularResourceName, instancetype.PluralResourceName, namespace, resources)
+		resources = addNamespacedInstancetypeOrPreference(vm.Spec.Instancetype, instancetype.SingularResourceName, instancetype.PluralResourceName, namespace, resources)
 	}
 	if vm.Spec.Preference != nil {
-		resources = addNamespacedInstancetype(vm.Spec.Preference, instancetype.SingularPreferenceResourceName, instancetype.PluralPreferenceResourceName, namespace, resources)
+		resources = addNamespacedInstancetypeOrPreference(vm.Spec.Preference, instancetype.SingularPreferenceResourceName, instancetype.PluralPreferenceResourceName, namespace, resources)
 	}
 	return resources
 }

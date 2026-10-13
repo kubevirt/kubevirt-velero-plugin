@@ -231,6 +231,50 @@ func TestAddTemplateInstancetypeGraph(t *testing.T) {
 				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"}, Namespace: "tpl-ns", Name: "my-preference"},
 			},
 		},
+		{"Namespaced instancetype and preference with plural Kind are included",
+			v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Instancetype: &v1.InstancetypeMatcher{Name: "my-instancetype", Kind: "virtualmachineinstancetypes"},
+					Preference:   &v1.PreferenceMatcher{Name: "my-preference", Kind: "virtualmachinepreferences"},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"}, Namespace: "tpl-ns", Name: "my-instancetype"},
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"}, Namespace: "tpl-ns", Name: "my-preference"},
+			},
+		},
+		{"Namespaced instancetype and preference with CRD-cased Kind are included",
+			v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Instancetype: &v1.InstancetypeMatcher{Name: "my-instancetype", Kind: "VirtualMachineInstancetype"},
+					Preference:   &v1.PreferenceMatcher{Name: "my-preference", Kind: "VirtualMachinePreference"},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"}, Namespace: "tpl-ns", Name: "my-instancetype"},
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"}, Namespace: "tpl-ns", Name: "my-preference"},
+			},
+		},
+		{"Namespaced instancetype and preference with CRD-cased plural Kind are included",
+			v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Instancetype: &v1.InstancetypeMatcher{Name: "my-instancetype", Kind: "VirtualMachineInstancetypes"},
+					Preference:   &v1.PreferenceMatcher{Name: "my-preference", Kind: "VirtualMachinePreferences"},
+				},
+			},
+			[]velero.ResourceIdentifier{
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"}, Namespace: "tpl-ns", Name: "my-instancetype"},
+				{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"}, Namespace: "tpl-ns", Name: "my-preference"},
+			},
+		},
+		{"Matchers with an unknown Kind are not included",
+			v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Instancetype: &v1.InstancetypeMatcher{Name: "my-instancetype", Kind: "virtualmachineinstancetypez"},
+				},
+			},
+			nil,
+		},
 		{"Cluster-scoped (default) matchers are not included",
 			v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{

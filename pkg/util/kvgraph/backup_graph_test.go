@@ -875,6 +875,40 @@ func TestNewObjectBackupGraphVirtualMachineTemplate(t *testing.T) {
 	}, resources)
 }
 
+func TestNewObjectBackupGraphVirtualMachineTemplatePluralInstancetypeKind(t *testing.T) {
+	item := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "template.kubevirt.io/v1beta1",
+			"kind":       "VirtualMachineTemplate",
+			"metadata": map[string]interface{}{
+				"name":      "test-template",
+				"namespace": "tpl-ns",
+			},
+			"spec": map[string]interface{}{
+				"virtualMachine": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"instancetype": map[string]interface{}{
+							"kind": "virtualmachineinstancetypes",
+							"name": "small",
+						},
+						"preference": map[string]interface{}{
+							"kind": "virtualmachinepreferences",
+							"name": "fedora",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	resources, err := NewObjectBackupGraph(item)
+	assert.NoError(t, err)
+	assert.Equal(t, []velero.ResourceIdentifier{
+		{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"}, Namespace: "tpl-ns", Name: "small"},
+		{GroupResource: schema.GroupResource{Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"}, Namespace: "tpl-ns", Name: "fedora"},
+	}, resources)
+}
+
 func TestNewVirtualMachineTemplateBackupGraph(t *testing.T) {
 	testCases := []struct {
 		name      string
