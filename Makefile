@@ -19,6 +19,9 @@
 	build-image \
 	build-dirs \
 	push \
+	manifest \
+	manifest-push \
+	manifest-clean \
 	cluster-push-image \
 	test \
 	modules \
@@ -143,12 +146,23 @@ container-name:
 
 build-image: build-all
 	@echo -e "${GREEN}Building plugin image${WHITE}"
-	cp Dockerfile _output/bin/$(GOOS)/$(GOARCH)/Dockerfile
-	${OCI_BIN} build --platform=$(GOOS)/$(GOARCH) -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} -f _output/bin/$(GOOS)/$(GOARCH)/Dockerfile _output/bin/$(GOOS)/$(GOARCH)
+	${OCI_BIN} build --platform=$(GOOS)/$(GOARCH) --build-arg TARGETOS=$(GOOS) --build-arg TARGETARCH=$(GOARCH) -t ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG} -f Dockerfile _output/bin
 
 push: build-image
 	@echo -e "${GREEN}Pushing plugin image to local registry${WHITE}"
 	@${OCI_BIN} push ${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
+
+# Multi-arch publishing: run 'make manifest ARCH=<os>-<arch>' once per architecture, then 'make manifest-push'
+manifest: build-all
+	buildah build --platform=$(GOOS)/$(GOARCH) --build-arg TARGETOS=$(GOOS) --build-arg TARGETARCH=$(GOARCH) -t ${DOCKER_PREFIX}/${IMAGE_NAME}:$(GOARCH) -f Dockerfile _output/bin
+	buildah manifest exists ${DOCKER_PREFIX}/${IMAGE_NAME}:local || buildah manifest create ${DOCKER_PREFIX}/${IMAGE_NAME}:local
+	buildah manifest add --arch $(GOARCH) ${DOCKER_PREFIX}/${IMAGE_NAME}:local containers-storage:${DOCKER_PREFIX}/${IMAGE_NAME}:$(GOARCH)
+
+manifest-push:
+	buildah manifest push --all ${DOCKER_PREFIX}/${IMAGE_NAME}:local docker://${DOCKER_PREFIX}/${IMAGE_NAME}:${DOCKER_TAG}
+
+manifest-clean:
+	-buildah manifest rm ${DOCKER_PREFIX}/${IMAGE_NAME}:local
 
 gomod-update: modules vendor
 
