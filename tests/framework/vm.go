@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,9 @@ const (
 	alpineUrl               = "docker://quay.io/kubevirt/alpine-container-disk-demo:v1.6.0"
 	alpineWithGuestAgentUrl = "docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:v0.57.1"
 	fedoraWithGuestAgentUrl = "docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk:v1.6.0"
+
+	// Published for s390x since KubeVirt v1.8.0
+	s390xGuestlessKernelImage = "quay.io/kubevirt/s390x-guestless-kernel:v1.9.0"
 )
 
 // DISKS for VMS
@@ -228,6 +232,24 @@ version: 2`
 		vmSpec.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = &storageClassName
 	}
 	return vmSpec
+}
+
+// ApplyGuestlessKernelBoot boots a VMI whose disks are all blank from a minimal guestless kernel when it uses an
+// s390x machine type, since an s390x guest with nothing to boot panics instead of waiting like on x86 or arm64.
+// It mirrors KubeVirt's libvmifact.NewGuestless. spec.Architecture is left to KubeVirt's defaulting webhook.
+func ApplyGuestlessKernelBoot(spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Machine == nil || !strings.HasPrefix(spec.Domain.Machine.Type, s390xMachineType) {
+		return
+	}
+	if spec.Domain.Firmware == nil {
+		spec.Domain.Firmware = &v1.Firmware{}
+	}
+	spec.Domain.Firmware.KernelBoot = &v1.KernelBoot{
+		Container: &v1.KernelBootContainer{
+			Image:      s390xGuestlessKernelImage,
+			KernelPath: "/boot/kernel",
+		},
+	}
 }
 
 func CreateVirtualMachineFromDefinition(client kubecli.KubevirtClient, namespace string, def *v1.VirtualMachine) (*v1.VirtualMachine, error) {
