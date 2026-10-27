@@ -20,7 +20,7 @@ The standard workflow is performed inside a helper container to normalize the bu
 
 #### Make Targets
 
-- `all`: cleans up previous build artifacts, restarts the builder container, compiles the plugin, builds image and pushes it to the local cluster
+- `all`: compiles the plugin if necessary and builds the image (same as `build-image`)
 - `build-all`: compiles the plugin if source files changed
 - `build-image`: compiles the plugin if necessary and builds the image
 - `build-dirs`: creates output directories
@@ -31,14 +31,11 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `add-plugin`: adds the plugin to Velero deployment on the local cluster
 - `remove-plugin`: removes the plugin from Velero deployment on the local cluster
 - `gomod-update`: updates module dependecies
-- `build-builder`: builds builder image
-- `push-builder`: pushes builder image to local registry
-- `clean`: stops the builder container and removes output directories
+- `clean`: removes output directories and the builder image
 - `test`: execute tests
 - `test-functional`: build and run functional tests
 - `rebuild-functest`: clean and build functional tests
 - `clean-test`: clean functional tests
-- `stop-builder`: stops builder container
 - `cluster-up`: start local k8s cluster and deploy KubeVirt and CDI on it
 - `cluster-down`: stop local k8s cluster
 - `cluster-sync`: undeploy the plugin, rebuild it and redeploy it
@@ -49,8 +46,10 @@ Several variables are provided to alter the targets of the above `Makefile` reci
 
 These may be passed to a target as `$ make VARIABLE=value target`
 
-- `IMAGE`: (default: registry:5000/kubevirt-velero-plugin) Plugin image name
-- `VERSION`: (default: 0.1) Plugin image version
+- `DOCKER_PREFIX`: (default: kubevirt) Registry and repository prefix of the plugin image
+- `IMAGE_NAME`: (default: kubevirt-velero-plugin) Plugin image name
+- `DOCKER_TAG`: (default: latest) Plugin image tag
+- `ARCH`: (default: linux-amd64) Target OS and architecture, as `<os>-<arch>`
 - `WHAT`:  The path from the repository root to a target directory (e.g. `make test WHAT=pkg/importer`)
 
 #### Execute Standard Environment Functional Tests
