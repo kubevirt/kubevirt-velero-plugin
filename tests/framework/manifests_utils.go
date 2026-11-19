@@ -103,3 +103,11 @@ func (f *Framework) CreateVMWithNAD() error {
 func (f *Framework) CreateVMWithNADOvn() error {
 	return f.RunKubectlCreateYamlCommand("manifests/vm_with_nad_ovn.yaml")
 }
+
+func (f *Framework) CreateVMForTemplate() error {
+	return f.RunKubectlCreateYamlCommand("manifests/vm_for_template.yaml")
+}
+
+func (f *Framework) CreateVirtualMachineTemplateRequest() error {
+	return f.RunKubectlCreateYamlCommandWithNamespace("manifests/vmtr_from_vm.yaml")
+}

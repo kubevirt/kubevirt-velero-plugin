@@ -23,10 +23,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vmware-tanzu/velero/pkg/plugin/velero"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8serrors "k8s.io/apimachinery/pkg/util/errors"
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt-velero-plugin/pkg/util"
 )
 
 // NewObjectBackupGraph returns the backup object graph for the passed item
@@ -40,6 +42,17 @@ func NewObjectBackupGraph(item runtime.Unstructured) ([]velero.ResourceIdentifie
 			return []velero.ResourceIdentifier{}, errors.WithStack(err)
 		}
 		return NewVirtualMachineBackupGraph(vm)
+	case "VirtualMachineTemplate":
+		vm, err := util.GetTemplateVM(item)
+		if err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		accessor, err := meta.Accessor(item)
+		if err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		resources, _, err := NewVirtualMachineTemplateBackupGraph(vm, accessor.GetNamespace())
+		return resources, err
 	case "VirtualMachineInstance":
 		vmi := new(v1.VirtualMachineInstance)
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), vmi); err != nil {
@@ -52,6 +65,13 @@ func NewObjectBackupGraph(item runtime.Unstructured) ([]velero.ResourceIdentifie
 			return []velero.ResourceIdentifier{}, errors.WithStack(err)
 		}
 		return NewDataVolumeBackupGraph(dv), nil
+	case "DataSource":
+		ds := new(cdiv1.DataSource)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), ds); err != nil {
+			return []velero.ResourceIdentifier{}, errors.WithStack(err)
+		}
+		resources, _, err := NewDataSourceBackupGraph(ds)
+		return resources, err
 	default:
 		// No specific backup graph for the passed object
 		return []velero.ResourceIdentifier{}, nil
@@ -90,6 +110,19 @@ func NewVirtualMachineBackupGraph(vm *v1.VirtualMachine) ([]velero.ResourceIdent
 	return resources, nil
 }
 
+// NewVirtualMachineTemplateBackupGraph returns the backup object graph for a specific
+// VirtualMachineTemplate, along with the "namespace/name" keys of the golden images found to
+// have a backing DataVolume - pass these to RecordGoldenImageDataVolumes so the restore graph
+// can tell which DataVolumes this backup actually contains.
+func NewVirtualMachineTemplateBackupGraph(vm *v1.VirtualMachine, namespace string) ([]velero.ResourceIdentifier, []string, error) {
+	var golden goldenImageRecorder
+	resources, err := addCommonTemplateObjectGraph(vm, namespace, golden.wrap(liveDataVolumeExists), []velero.ResourceIdentifier{})
+	if err != nil {
+		return nil, nil, err
+	}
+	return resources, golden.keys, nil
+}
+
 // NewVirtualMachineInstanceBackupGraph returns the backup object graph for a specific VMI
 func NewVirtualMachineInstanceBackupGraph(vmi *v1.VirtualMachineInstance) ([]velero.ResourceIdentifier, error) {
 	var resources []velero.ResourceIdentifier
@@ -119,4 +152,18 @@ func NewDataVolumeBackupGraph(dv *cdiv1.DataVolume) []velero.ResourceIdentifier 
 		resources = addVeleroResource(dv.Name, dv.Namespace, "persistentvolumeclaims", resources)
 	}
 	return resources
+}
+
+// NewDataSourceBackupGraph returns the backup object graph for a specific DataSource: its
+// backing PVC/VolumeSnapshot, or another DataSource it points to. The returned "namespace/name"
+// keys are the golden images found to have a backing DataVolume - pass these to
+// RecordGoldenImageDataVolumes so the restore graph can tell which DataVolumes this backup
+// actually contains.
+func NewDataSourceBackupGraph(ds *cdiv1.DataSource) ([]velero.ResourceIdentifier, []string, error) {
+	var golden goldenImageRecorder
+	resources, err := addDataSourceObjectGraph(ds, golden.wrap(liveDataVolumeExists), []velero.ResourceIdentifier{})
+	if err != nil {
+		return nil, nil, err
+	}
+	return resources, golden.keys, nil
 }
