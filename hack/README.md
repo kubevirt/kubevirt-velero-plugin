@@ -25,6 +25,9 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `build-image`: compiles the plugin if necessary and builds the image
 - `build-dirs`: creates output directories
 - `push`: pushes image to local registry
+- `manifest`: builds the image for `ARCH` and adds it to a local multi-arch manifest list; run once per architecture
+- `manifest-push`: pushes the manifest list with all its images
+- `manifest-clean`: removes the local manifest list
 - `cluster-push-image`: pushes image to registry of the local cluster
 - `local-deploy-velero`: deploys Minio and Velero to the local cluster
 - `local-undeploy-velero`: removes Minio and Velero fro the local cluster
