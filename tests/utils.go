@@ -43,7 +43,7 @@ func PrintEvents(client kubecli.KubevirtClient, namespace, name string) {
 
 var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
 	var zero int64 = 0
-	return &kvv1.VirtualMachine{
+	vm := &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vmName,
 		},
@@ -111,11 +111,14 @@ var newVMSpecBlankDVTemplate = func(vmName, size string) *kvv1.VirtualMachine {
 			},
 		},
 	}
+	framework.ApplyGuestlessKernelBoot(&vm.Spec.Template.Spec)
+	return vm
 }
 
+// newVMSpec boots the guestless kernel on s390x, so volumeSource must not be a bootable disk.
 var newVMSpec = func(vmName, size string, volumeSource kvv1.VolumeSource) *kvv1.VirtualMachine {
 	var zero int64 = 0
-	return &kvv1.VirtualMachine{
+	vm := &kvv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vmName,
 		},
@@ -159,6 +162,8 @@ var newVMSpec = func(vmName, size string, volumeSource kvv1.VolumeSource) *kvv1.
 			},
 		},
 	}
+	framework.ApplyGuestlessKernelBoot(&vm.Spec.Template.Spec)
+	return vm
 }
 
 func addVolumeToVMI(vmi *kvv1.VirtualMachineInstance, source kvv1.VolumeSource, volumeName string) *kvv1.VirtualMachineInstance {

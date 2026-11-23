@@ -42,6 +42,10 @@ const (
 	storageClassEnv                        = "KVP_STORAGE_CLASS"
 	defaultMachineTypeEnv                  = "KVP_DEFAULT_MACHINE_TYPE"
 
+	archS390x        = "s390x"
+	archArm64        = "arm64"
+	s390xMachineType = "s390-ccw-virtio"
+
 	defaultRegionName      = "minio"
 	defaultBackupNamespace = "velero"
 	TestNamespacePrefix    = "kvp-e2e-tests-"
@@ -767,9 +771,9 @@ func InitDefaultMachineType(client kubernetes.Interface) {
 		return
 	}
 	switch arch {
-	case "s390x":
-		DefaultMachineType = "s390-ccw-virtio"
-	case "arm64":
+	case archS390x:
+		DefaultMachineType = s390xMachineType
+	case archArm64:
 		DefaultMachineType = "virt"
 	default:
 		DefaultMachineType = "q35"
