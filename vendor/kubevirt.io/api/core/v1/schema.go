@@ -57,6 +57,18 @@ const (
 	Pvpanic PanicDeviceModel = "pvpanic"
 )
 
+// RebootPolicy specifies how the domain should behave when a guest reboot is triggered.
+// +kubebuilder:validation:Enum=Reboot;Terminate
+type RebootPolicy string
+
+const (
+	// RebootPolicyReboot allows the guest to silently reboot without notifying KubeVirt (default behavior).
+	RebootPolicyReboot RebootPolicy = "Reboot"
+	// RebootPolicyTerminate terminates the VMI on guest reboot, allowing the VMI to be recreated
+	// by the controllers (e.g., to pick up new configuration from VM).
+	RebootPolicyTerminate RebootPolicy = "Terminate"
+)
+
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
@@ -121,6 +133,24 @@ type ServiceAccountVolumeSource struct {
 	// Name of the service account in the pod's namespace to use.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+}
+
+// ContainerPathVolumeSource represents a path from the virt-launcher container
+// to be exposed to the VM via virtiofs. The path must correspond to an existing
+// volumeMount in the virt-launcher pod's compute container.
+type ContainerPathVolumeSource struct {
+	// Path is the absolute path within the virt-launcher container to expose to the VM.
+	// The path must correspond to an existing volumeMount in the compute container.
+	// +kubebuilder:validation:MaxLength=4096
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('/')",message="path must be absolute (start with '/')"
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="path must not contain '..'"
+	Path string `json:"path"`
+	// ReadOnly controls whether the volume is exposed as read-only to the VM.
+	// Defaults to true. Write access is not currently supported.
+	// +optional
+	// +kubebuilder:default:=true
+	// +kubebuilder:validation:XValidation:rule="self == true",message="readOnly must be true, write access is not supported"
+	ReadOnly *bool `json:"readOnly,omitempty"`
 }
 
 // DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest
@@ -221,6 +251,13 @@ type DomainSpec struct {
 	// Launch Security setting of the vmi.
 	// +optional
 	LaunchSecurity *LaunchSecurity `json:"launchSecurity,omitempty"`
+	// RebootPolicy specifies how the guest should behave on reboot.
+	// Reboot (default): The guest is allowed to reboot silently.
+	// Terminate: The VMI will be terminated on guest reboot, allowing
+	// higher level controllers (such as the VM controller) to recreate
+	// the VMI with any updated configuration such as boot order changes.
+	// +optional
+	RebootPolicy *RebootPolicy `json:"rebootPolicy,omitempty"`
 }
 
 // Chassis specifies the chassis info passed to the domain.
@@ -369,6 +406,8 @@ type NUMAGuestMappingPassthrough struct {
 type NUMA struct {
 	// GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.
 	// The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.
+	// It is not supported on a VMI with dedicatedCPUPlacement while the CPUsWithDRA feature gate is enabled, because the
+	// host CPUs are then assigned by the DRA driver instead of by kubelet's CPU manager.
 	// +optional
 	GuestMappingPassthrough *NUMAGuestMappingPassthrough `json:"guestMappingPassthrough,omitempty"`
 }
@@ -401,6 +440,10 @@ type Memory struct {
 	// MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.
 	// The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
 	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
+	// ReservedOverhead configures the memory overhead applied to a VM
+	// and its characteristics.
+	// +optional
+	ReservedOverhead *ReservedOverhead `json:"reservedOverhead,omitempty"`
 }
 
 type MemoryStatus struct {
@@ -413,6 +456,10 @@ type MemoryStatus struct {
 	// GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.
 	// +optional
 	GuestRequested *resource.Quantity `json:"guestRequested,omitempty"`
+	// MemoryOverhead specifies the memory overhead added by the virtualization infrastructure
+	// for the virt-launcher pod.
+	// +optional
+	MemoryOverhead *resource.Quantity `json:"memoryOverhead,omitempty"`
 }
 
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
@@ -420,6 +467,36 @@ type Hugepages struct {
 	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.
 	PageSize string `json:"pageSize,omitempty"`
 }
+
+type ReservedOverhead struct {
+	// AddedOverhead determines the memory overhead that will be reserved
+	// for the VM. It increases the virt-launcher pod memory limit.
+	// +optional
+	AddedOverhead *resource.Quantity `json:"addedOverhead,omitempty"`
+	// RequiresLock determines whether the VM's and its overhead memory
+	// need to be locked or not. It is a common practice to enable this
+	// if vDPA, VFIO or any other specialized hardware that depends on
+	// DMA is being used by the VM.
+	// False - (Default) memory lock RLimits are not modified.
+	// True - Memory lock RLimits will be updated to consider VM memory
+	//        size and memory overhead
+	// +optional
+	// +kubebuilder:validation:Enum=NotRequired;Required
+	MemLock *MemLockRequirement `json:"memLock,omitempty"`
+}
+
+// MemLockRequirement describes whether the VM memory and its overhead
+// needs to be locked or not.
+type MemLockRequirement string
+
+const (
+	// MemLockRequired means that the VM memory and its overhead
+	// could be locked by a device or any other condition.
+	MemLockRequired = "Required"
+	// MemLockNotRequired means that the VM memory and its overhead
+	// is not going to be locked.
+	MemLockNotRequired = "NotRequired"
+)
 
 type Machine struct {
 	// QEMU machine type is the actual chipset of the VirtualMachineInstance.
@@ -633,14 +710,15 @@ type GPU struct {
 }
 
 type ClaimRequest struct {
-	// ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-	// device is allocated
-	// +optional
-	ClaimName *string `json:"claimName,omitempty"`
-	// RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-	// device is requested
-	// +optional
-	RequestName *string `json:"requestName,omitempty"`
+	// ClaimName references the name of an entry in the
+	// VMI's spec.resourceClaims[] array. The referenced
+	// entry may use either resourceClaimName or
+	// resourceClaimTemplateName.
+	ClaimName string `json:"claimName,omitempty"`
+	// RequestName specifies which request from the
+	// ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+	// claim request corresponds to.
+	RequestName string `json:"requestName,omitempty"`
 }
 
 type VGPUOptions struct {
@@ -706,6 +784,7 @@ type Disk struct {
 	// none: Guest I/O not cached on the host, but may be kept in a disk cache.
 	// writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
 	// writeback: Guest I/O cached on the host.
+	// directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
 	// Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
@@ -887,14 +966,14 @@ type VolumeSource struct {
 	// +optional
 	Sysprep *SysprepSource `json:"sysprep,omitempty"`
 	// ContainerDisk references a docker image, embedding a qcow or raw disk.
-	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+	// More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk
 	// +optional
 	ContainerDisk *ContainerDiskSource `json:"containerDisk,omitempty"`
 	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
 	// +optional
 	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
 	// EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-	// More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+	// More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk
 	// +optional
 	EmptyDisk *EmptyDiskSource `json:"emptyDisk,omitempty"`
 	// DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -921,7 +1000,12 @@ type VolumeSource struct {
 	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+	// Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
+	// ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
+	// The path must correspond to an existing volumeMount in the compute container.
+	// +optional
+	ContainerPath *ContainerPathVolumeSource `json:"containerPath,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -957,6 +1041,8 @@ type PersistentVolumeClaimVolumeSource struct {
 	Hotpluggable bool `json:"hotpluggable,omitempty"`
 }
 
+// MemoryDumpVolumeSource represents a memory dump PVC in the volumes of a VMI.
+// Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
 type MemoryDumpVolumeSource struct {
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the virt launcher
@@ -993,6 +1079,32 @@ type ContainerDiskSource struct {
 	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
 	// +optional
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+}
+
+type UtilityVolumeType string
+
+const (
+	// MemoryDump represents a utility volume which will be used to collect memory dump
+	MemoryDump UtilityVolumeType = "MemoryDump"
+
+	// Backup represents a utility volume which will be used to collect backup output
+	Backup UtilityVolumeType = "Backup"
+
+	// SnapshotOverlay represents a utility volume which holds the copy-on-write
+	// overlays of an External mode VirtualMachineSnapshot
+	SnapshotOverlay UtilityVolumeType = "SnapshotOverlay"
+)
+
+type UtilityVolume struct {
+	// UtilityVolume's name.
+	// Must be unique within the vmi, including regular Volumes.
+	Name string `json:"name"`
+	// PersistentVolumeClaimVolumeSource defines the PVC
+	// that is hotplugged to virt-launcher
+	v1.PersistentVolumeClaimVolumeSource `json:",inline"`
+	// Type represents the type of the utility volume.
+	// +optional
+	Type *UtilityVolumeType `json:"type,omitempty"`
 }
 
 // Exactly one of its members must be set.
@@ -1172,8 +1284,10 @@ type Features struct {
 }
 
 type SyNICTimer struct {
-	Enabled *bool         `json:"enabled,omitempty"`
-	Direct  *FeatureState `json:"direct,omitempty"`
+	FeatureState `json:",inline"`
+
+	// +optional
+	Direct *FeatureState `json:"direct,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.
@@ -1185,10 +1299,8 @@ type FeatureState struct {
 }
 
 type FeatureAPIC struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// EndOfInterrupt enables the end of interrupt notification in the guest.
 	// Defaults to false.
 	// +optional
@@ -1196,10 +1308,8 @@ type FeatureAPIC struct {
 }
 
 type FeatureSpinlocks struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// Retries indicates the number of retries.
 	// Must be a value greater or equal 4096.
 	// Defaults to 4096.
@@ -1208,13 +1318,23 @@ type FeatureSpinlocks struct {
 }
 
 type FeatureVendorID struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// VendorID sets the hypervisor vendor id, visible to the vmi.
 	// String up to twelve characters.
 	VendorID string `json:"vendorid,omitempty"`
+}
+
+type TLBFlush struct {
+	FeatureState `json:",inline"`
+
+	// Direct allows sending the TLB flush command directly to the hypervisor.
+	// It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+	// +optional
+	Direct *FeatureState `json:"direct,omitempty"`
+	// Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.
+	// +optional
+	Extended *FeatureState `json:"extended,omitempty"`
 }
 
 // Hyperv specific features.
@@ -1265,7 +1385,7 @@ type FeatureHyperv struct {
 	// TLBFlush improves performances in overcommited environments. Requires vpindex.
 	// Defaults to the machine type setting.
 	// +optional
-	TLBFlush *FeatureState `json:"tlbflush,omitempty"`
+	TLBFlush *TLBFlush `json:"tlbflush,omitempty"`
 	// IPI improves performances in overcommited environments. Requires vpindex.
 	// Defaults to the machine type setting.
 	// +optional
@@ -1346,7 +1466,14 @@ type Interface struct {
 	// version: 1alphav1
 	Binding *PluginBinding `json:"binding,omitempty"`
 	// List of ports to be forwarded to the virtual machine.
+	// Mutually exclusive with portRanges.
 	Ports []Port `json:"ports,omitempty"`
+	// List of port ranges to be forwarded to the virtual machine.
+	// Mutually exclusive with ports. Only supported on masquerade interfaces.
+	// This feature is in Alpha.
+	// +optional
+	// +listType=atomic
+	PortRanges []PortRange `json:"portRanges,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
 	MacAddress string `json:"macAddress,omitempty"`
 	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
@@ -1450,6 +1577,7 @@ type InterfaceBindingMethod struct {
 	// Deprecated: Removed in v1.3
 	// +optional
 	DeprecatedPasst *DeprecatedInterfacePasst `json:"passt,omitempty"`
+	PasstBinding    *InterfacePasstBinding    `json:"passtBinding,omitempty"`
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.
@@ -1475,6 +1603,9 @@ type DeprecatedInterfaceMacvtap struct{}
 // Deprecated: Removed in v1.3
 type DeprecatedInterfacePasst struct{}
 
+// InterfacePasstBinding connects to a given network using passt usermode networking.
+type InterfacePasstBinding struct{}
+
 // PluginBinding represents a binding implemented in a plugin.
 type PluginBinding struct {
 	// Name references to the binding name as denined in the kubevirt CR.
@@ -1498,6 +1629,20 @@ type Port struct {
 	// Number of port to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
 	Port int32 `json:"port"`
+}
+
+// PortRange represents a range of ports to be forwarded to the virtual machine.
+// All fields are mandatory.
+type PortRange struct {
+	// Required. Must be UDP or TCP.
+	Protocol string `json:"protocol"`
+	// First port of the range to expose for the virtual machine.
+	// This must be a valid port number, 0 < x < 65536.
+	Start int32 `json:"start"`
+	// Last port of the range to expose for the virtual machine.
+	// This must be a valid port number, 0 < x < 65536.
+	// Must be greater than or equal to start.
+	End int32 `json:"end"`
 }
 
 type AccessCredentialSecretSource struct {
@@ -1627,6 +1772,12 @@ type Network struct {
 type NetworkSource struct {
 	Pod    *PodNetwork    `json:"pod,omitempty"`
 	Multus *MultusNetwork `json:"multus,omitempty"`
+	// ResourceClaim represents a network resource requested
+	// via a VMI spec.resourceClaims[] entry, backed by either a
+	// Kubernetes ResourceClaim or ResourceClaimTemplate.
+	// This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.
+	// This feature is in alpha.
+	ResourceClaim *ClaimRequest `json:"resourceClaim,omitempty"`
 }
 
 // Represents the stock pod network interface.
