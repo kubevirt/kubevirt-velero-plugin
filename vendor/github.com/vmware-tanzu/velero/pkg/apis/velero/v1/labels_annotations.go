@@ -80,6 +80,11 @@ const (
 	// timeout value for backup to plugins.
 	ResourceTimeoutAnnotation = "velero.io/resource-timeout"
 
+	// GlobalBackupVolumePolicyConfigMapAnnotation is the annotation key used to record the
+	// name of the cluster-wide global backup volume policies ConfigMap that contributed to a
+	// backup, so that `velero backup describe` can surface it.
+	GlobalBackupVolumePolicyConfigMapAnnotation = "velero.io/global-backup-volume-policy-configmap"
+
 	// AsyncOperationIDLabel is the label key used to identify the async operation ID
 	AsyncOperationIDLabel = "velero.io/async-operation-id"
 
@@ -101,6 +106,15 @@ const (
 	// ExcludeFromBackupLabel is the label to exclude k8s resource from backup,
 	// even if the resource contains a matching selector label.
 	ExcludeFromBackupLabel = "velero.io/exclude-from-backup"
+
+	// SkipFromBackupAnnotation is the annotation used by internal BackupItemActions
+	// to indicate that a resource should be skipped from backup,
+	// even if it doesn't have the ExcludeFromBackupLabel.
+	// This is used in cases where we want to skip backup of a resource based on some logic in a plugin.
+	//
+	// Notice: SkipFromBackupAnnotation's priority is higher than MustIncludeAdditionalItemAnnotation.
+	// If SkipFromBackupAnnotation is set, the resource will be skipped even if MustIncludeAdditionalItemAnnotation is set.
+	SkipFromBackupAnnotation = "velero.io/skip-from-backup"
 
 	// defaultVGSLabelKey is the default label key used to group PVCs under a VolumeGroupSnapshot
 	DefaultVGSLabelKey = "velero.io/volume-group"
@@ -132,6 +146,7 @@ const (
 	VolumeSnapshotRestoreSize                       = "velero.io/csi-volumesnapshot-restore-size"
 	DriverNameAnnotation                            = "velero.io/csi-driver-name"
 	VSCDeletionPolicyAnnotation                     = "velero.io/csi-vsc-deletion-policy"
+	VolumeGroupSnapshotHandleAnnotation             = "velero.io/csi-volumegroupsnapshot-handle"
 	VolumeSnapshotClassSelectorLabel                = "velero.io/csi-volumesnapshot-class"
 	VolumeSnapshotClassDriverBackupAnnotationPrefix = "velero.io/csi-volumesnapshot-class"
 	VolumeSnapshotClassDriverPVCAnnotation          = "velero.io/csi-volumesnapshot-class"
@@ -151,6 +166,14 @@ const (
 
 	// Velero checks this annotation to determine whether to skip resource excluding check.
 	MustIncludeAdditionalItemAnnotation = "backup.velero.io/must-include-additional-items"
+	// MustIncludeAdditionalItemRestoreAnnotation is set by RestoreItemActions on the UpdatedItem
+	// to tell Velero to bypass global resource/namespace exclusion checks (and IncludeClusterResources=false)
+	// for that action's AdditionalItems. Value must be "true" to enable the bypass. The annotation is
+	// always stripped before the item is applied to the cluster when present, including non-"true" values.
+	//
+	// Notice: SkipRestore on the Execute output takes precedence. If SkipRestore is true, the
+	// annotation is never inspected and AdditionalItems are not processed.
+	MustIncludeAdditionalItemRestoreAnnotation = "restore.velero.io/must-include-additional-items"
 	// SkippedNoCSIPVAnnotation - Velero checks this annotation on processed PVC to
 	// find out if the snapshot was skipped b/c the PV is not provisioned via CSI
 	SkippedNoCSIPVAnnotation = "backup.velero.io/skipped-no-csi-pv"

@@ -28,6 +28,11 @@ const (
 	defaultPodVolumeOperationTimeout  = 240 * time.Minute
 	defaultResourceTerminatingTimeout = 10 * time.Minute
 
+	// DefaultResourceTimeout is the default for --resource-timeout. It matches
+	// defaultResourceTerminatingTimeout so controller fallbacks stay aligned with
+	// server defaults (see pkg/cmd/server/config/config.go).
+	DefaultResourceTimeout = defaultResourceTerminatingTimeout
+
 	// server's client default qps and burst
 	defaultClientQPS      float32 = 100.0
 	defaultClientBurst    int     = 100
@@ -41,7 +46,7 @@ const (
 	defaultCSISnapshotTimeout   = 10 * time.Minute
 	defaultItemOperationTimeout = 4 * time.Hour
 
-	resourceTimeout = 10 * time.Minute
+	resourceTimeout = defaultResourceTerminatingTimeout
 
 	defaultMaxConcurrentK8SConnections = 30
 	defaultDisableInformerCache        = false
@@ -145,42 +150,43 @@ var (
 )
 
 type Config struct {
-	PluginDir                      string
-	MetricsAddress                 string
-	DefaultBackupLocation          string // TODO(2.0) Deprecate defaultBackupLocation
-	BackupSyncPeriod               time.Duration
-	PodVolumeOperationTimeout      time.Duration
-	ResourceTerminatingTimeout     time.Duration
-	DefaultBackupTTL               time.Duration
-	DefaultVGSLabelKey             string
-	StoreValidationFrequency       time.Duration
-	DefaultCSISnapshotTimeout      time.Duration
-	DefaultItemOperationTimeout    time.Duration
-	ResourceTimeout                time.Duration
-	RestoreResourcePriorities      types.Priorities
-	DefaultVolumeSnapshotLocations flag.Map
-	RestoreOnly                    bool
-	DisabledControllers            []string
-	ClientQPS                      float32
-	ClientBurst                    int
-	ClientPageSize                 int
-	ProfilerAddress                string
-	LogLevel                       *logging.LevelFlag
-	LogFormat                      *logging.FormatFlag
-	RepoMaintenanceFrequency       time.Duration
-	GarbageCollectionFrequency     time.Duration
-	ItemOperationSyncFrequency     time.Duration
-	DefaultVolumesToFsBackup       bool
-	UploaderType                   string
-	MaxConcurrentK8SConnections    int
-	DefaultSnapshotMoveData        bool
-	DisableInformerCache           bool
-	ScheduleSkipImmediately        bool
-	CredentialsDirectory           string
-	BackupRepoConfig               string
-	RepoMaintenanceJobConfig       string
-	ItemBlockWorkerCount           int
-	ConcurrentBackups              int
+	PluginDir                           string
+	MetricsAddress                      string
+	DefaultBackupLocation               string // TODO(2.0) Deprecate defaultBackupLocation
+	BackupSyncPeriod                    time.Duration
+	PodVolumeOperationTimeout           time.Duration
+	ResourceTerminatingTimeout          time.Duration
+	DefaultBackupTTL                    time.Duration
+	DefaultVGSLabelKey                  string
+	StoreValidationFrequency            time.Duration
+	DefaultCSISnapshotTimeout           time.Duration
+	DefaultItemOperationTimeout         time.Duration
+	ResourceTimeout                     time.Duration
+	RestoreResourcePriorities           types.Priorities
+	DefaultVolumeSnapshotLocations      flag.Map
+	RestoreOnly                         bool
+	DisabledControllers                 []string
+	ClientQPS                           float32
+	ClientBurst                         int
+	ClientPageSize                      int
+	ProfilerAddress                     string
+	LogLevel                            *logging.LevelFlag
+	LogFormat                           *logging.FormatFlag
+	RepoMaintenanceFrequency            time.Duration
+	GarbageCollectionFrequency          time.Duration
+	ItemOperationSyncFrequency          time.Duration
+	DefaultVolumesToFsBackup            bool
+	UploaderType                        string
+	MaxConcurrentK8SConnections         int
+	DefaultSnapshotMoveData             bool
+	DisableInformerCache                bool
+	ScheduleSkipImmediately             bool
+	CredentialsDirectory                string
+	BackupRepoConfig                    string
+	RepoMaintenanceJobConfig            string
+	ItemBlockWorkerCount                int
+	ConcurrentBackups                   int
+	GlobalBackupVolumePoliciesConfigMap string
 }
 
 func GetDefaultConfig() *Config {
@@ -274,5 +280,11 @@ func (c *Config) BindFlags(flags *pflag.FlagSet) {
 		"concurrent-backups",
 		c.ConcurrentBackups,
 		"Number of backups to process concurrently. Default is one. Optional.",
+	)
+	flags.StringVar(
+		&c.GlobalBackupVolumePoliciesConfigMap,
+		"global-backup-volume-policies-configmap",
+		c.GlobalBackupVolumePoliciesConfigMap,
+		"The name of a ConfigMap in the Velero install namespace holding global backup volume policies that are merged into every backup. Optional.",
 	)
 }
