@@ -1,7 +1,9 @@
 package util
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -10,6 +12,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	kvcore "kubevirt.io/api/core/v1"
 )
 
@@ -457,3 +460,215 @@ func TestIsMacAddressCleared(t *testing.T) {
 	}
 }
 
+func TestGetLauncherPod(t *testing.T) {
+	older := metav1.NewTime(time.Date(2026, 1, 1, 15, 0, 0, 0, time.UTC))
+	newer := metav1.NewTime(time.Date(2026, 1, 1, 15, 30, 0, 0, time.UTC))
+	deleting := metav1.NewTime(time.Date(2026, 1, 1, 15, 31, 0, 0, time.UTC))
+
+	launcherPod := func(name, domain, node string, phase v1.PodPhase, created metav1.Time) v1.Pod {
+		return v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:         "test-namespace",
+				Name:              name,
+				UID:               types.UID(name + "-uid"),
+				CreationTimestamp: created,
+				Labels: map[string]string{
+					"kubevirt.io":         "virt-launcher",
+					kvcore.CreatedByLabel: "test-vmi-uid",
+				},
+				Annotations: map[string]string{
+					kvcore.DomainAnnotation: domain,
+				},
+			},
+			Spec:   v1.PodSpec{NodeName: node},
+			Status: v1.PodStatus{Phase: phase},
+		}
+	}
+	withDeletion := func(pod v1.Pod) v1.Pod {
+		pod.DeletionTimestamp = &deleting
+		return pod
+	}
+	withCreatedBy := func(pod v1.Pod, uid string) v1.Pod {
+		pod.Labels[kvcore.CreatedByLabel] = uid
+		return pod
+	}
+	vmiOn := func(node string, activePods ...string) *kvcore.VirtualMachineInstance {
+		vmi := &kvcore.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+				Name:      "test-vmi",
+				UID:       "test-vmi-uid",
+			},
+			Status: kvcore.VirtualMachineInstanceStatus{
+				NodeName:   node,
+				ActivePods: map[types.UID]string{},
+			},
+		}
+		for _, pod := range activePods {
+			vmi.Status.ActivePods[types.UID(pod+"-uid")] = node
+		}
+		return vmi
+	}
+
+	testCases := []struct {
+		name     string
+		pods     []v1.Pod
+		vmi      *kvcore.VirtualMachineInstance
+		expected string
+	}{
+		{"Should return the only launcher pod",
+			[]v1.Pod{launcherPod("launcher-a", "test-vmi", "node-a", v1.PodRunning, older)},
+			vmiOn("node-a", "launcher-a"),
+			"launcher-a",
+		},
+		{"Should ignore launcher pods of other VMIs",
+			[]v1.Pod{
+				launcherPod("other-launcher", "other-vmi", "node-a", v1.PodRunning, older),
+				launcherPod("launcher-a", "test-vmi", "node-a", v1.PodRunning, newer),
+			},
+			vmiOn("node-a", "launcher-a"),
+			"launcher-a",
+		},
+		{"Should return nil when no launcher pod matches",
+			[]v1.Pod{launcherPod("other-launcher", "other-vmi", "node-a", v1.PodRunning, older)},
+			vmiOn("node-a"),
+			"",
+		},
+		{"Should prefer running pod over succeeded migration source pod",
+			[]v1.Pod{
+				launcherPod("launcher-source", "test-vmi", "node-a", v1.PodSucceeded, older),
+				launcherPod("launcher-target", "test-vmi", "node-b", v1.PodRunning, newer),
+			},
+			vmiOn("node-b", "launcher-target"),
+			"launcher-target",
+		},
+		{"Should prefer running pod over succeeded pod without VMI",
+			[]v1.Pod{
+				launcherPod("launcher-source", "test-vmi", "node-a", v1.PodSucceeded, older),
+				launcherPod("launcher-target", "test-vmi", "node-b", v1.PodRunning, newer),
+			},
+			nil,
+			"launcher-target",
+		},
+		{"Should prefer running pod over failed pod",
+			[]v1.Pod{
+				launcherPod("launcher-failed", "test-vmi", "node-a", v1.PodFailed, older),
+				launcherPod("launcher-running", "test-vmi", "node-b", v1.PodRunning, newer),
+			},
+			vmiOn("node-b", "launcher-running"),
+			"launcher-running",
+		},
+		{"Should prefer pod not being deleted",
+			[]v1.Pod{
+				withDeletion(launcherPod("launcher-deleting", "test-vmi", "node-a", v1.PodRunning, older)),
+				launcherPod("launcher-running", "test-vmi", "node-b", v1.PodRunning, newer),
+			},
+			nil,
+			"launcher-running",
+		},
+		{"Should prefer migration source pod while migration is in progress",
+			[]v1.Pod{
+				launcherPod("launcher-target", "test-vmi", "node-b", v1.PodRunning, newer),
+				launcherPod("launcher-source", "test-vmi", "node-a", v1.PodRunning, older),
+			},
+			vmiOn("node-a", "launcher-source", "launcher-target"),
+			"launcher-source",
+		},
+		{"Should prefer migration target pod once VMI runs on the target node",
+			[]v1.Pod{
+				launcherPod("launcher-source", "test-vmi", "node-a", v1.PodRunning, older),
+				launcherPod("launcher-target", "test-vmi", "node-b", v1.PodRunning, newer),
+			},
+			vmiOn("node-b", "launcher-target"),
+			"launcher-target",
+		},
+		{"Should prefer active pod when VMI node is unknown",
+			[]v1.Pod{
+				launcherPod("launcher-a", "test-vmi", "node-a", v1.PodRunning, older),
+				launcherPod("launcher-b", "test-vmi", "node-b", v1.PodRunning, newer),
+			},
+			vmiOn("", "launcher-b"),
+			"launcher-b",
+		},
+		{"Should pick oldest live pod when nothing else differs",
+			[]v1.Pod{
+				launcherPod("launcher-b", "test-vmi", "node-b", v1.PodRunning, newer),
+				launcherPod("launcher-a", "test-vmi", "node-a", v1.PodRunning, older),
+			},
+			nil,
+			"launcher-a",
+		},
+		{"Should pick by name when creation timestamps are equal",
+			[]v1.Pod{
+				launcherPod("launcher-b", "test-vmi", "node-b", v1.PodRunning, older),
+				launcherPod("launcher-a", "test-vmi", "node-a", v1.PodRunning, older),
+			},
+			nil,
+			"launcher-a",
+		},
+		{"Should skip pods created for a previous VMI",
+			[]v1.Pod{
+				withCreatedBy(launcherPod("launcher-old-vmi", "test-vmi", "node-a", v1.PodRunning, older), "old-vmi-uid"),
+				launcherPod("launcher-a", "test-vmi", "node-a", v1.PodPending, newer),
+			},
+			vmiOn("node-a", "launcher-a"),
+			"launcher-a",
+		},
+		{"Should fall back to finished pod when no live pod exists",
+			[]v1.Pod{launcherPod("launcher-source", "test-vmi", "node-a", v1.PodSucceeded, older)},
+			vmiOn("node-a"),
+			"launcher-source",
+		},
+	}
+
+	origListPods, origGetVMI := ListPods, GetVMI
+	defer func() { ListPods, GetVMI = origListPods, origGetVMI }()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ListPods = func(name, ns string) (*v1.PodList, error) {
+				return &v1.PodList{Items: tc.pods}, nil
+			}
+			GetVMI = func(ns, name string) (*kvcore.VirtualMachineInstance, error) {
+				if tc.vmi == nil {
+					return nil, k8serrors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"}, name)
+				}
+				return tc.vmi, nil
+			}
+
+			pod, err := GetLauncherPod("test-vmi", "test-namespace")
+			assert.NoError(t, err)
+			if tc.expected == "" {
+				assert.Nil(t, pod)
+			} else if assert.NotNil(t, pod) {
+				assert.Equal(t, tc.expected, pod.Name)
+			}
+
+			if tc.vmi != nil {
+				pod, err = GetLauncherPodForVMI(tc.vmi)
+				assert.NoError(t, err)
+				if tc.expected == "" {
+					assert.Nil(t, pod)
+				} else if assert.NotNil(t, pod) {
+					assert.Equal(t, tc.expected, pod.Name)
+				}
+			}
+		})
+	}
+}
+
+func TestGetLauncherPodListError(t *testing.T) {
+	origListPods, origGetVMI := ListPods, GetVMI
+	defer func() { ListPods, GetVMI = origListPods, origGetVMI }()
+
+	ListPods = func(name, ns string) (*v1.PodList, error) {
+		return nil, fmt.Errorf("list failed")
+	}
+	GetVMI = func(ns, name string) (*kvcore.VirtualMachineInstance, error) {
+		return nil, fmt.Errorf("get failed")
+	}
+
+	pod, err := GetLauncherPod("test-vmi", "test-namespace")
+	assert.Error(t, err)
+	assert.Nil(t, pod)
+}

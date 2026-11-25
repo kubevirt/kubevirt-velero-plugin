@@ -1,6 +1,7 @@
 package kvgraph
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -184,6 +185,9 @@ func TestNewObjectBackupGraph(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			util.GetVMI = func(ns, name string) (*kvcore.VirtualMachineInstance, error) {
+				return nil, fmt.Errorf("VMI %s/%s not found", ns, name)
+			}
 			util.ListPods = func(name, ns string) (*v1.PodList, error) {
 				return &v1.PodList{Items: []v1.Pod{}}, nil
 			}
@@ -393,6 +397,9 @@ func TestNewVirtualMachineBackupGraph(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			util.GetVMI = func(ns, name string) (*kvcore.VirtualMachineInstance, error) {
+				return nil, fmt.Errorf("VMI %s/%s not found", ns, name)
+			}
 			util.ListPods = func(name, ns string) (*v1.PodList, error) {
 				return &v1.PodList{Items: []v1.Pod{
 					{
@@ -667,6 +674,40 @@ func TestAddLauncherPod(t *testing.T) {
 			},
 			[]velero.ResourceIdentifier{},
 		},
+		{"Should include running launcher pod instead of migration source pod",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-vmi",
+				},
+				Status: kvcore.VirtualMachineInstanceStatus{
+					NodeName: "node-b",
+				},
+			},
+			[]v1.Pod{
+				newLauncherPod("test-vmi-source-pod", "test-vmi", "node-a", v1.PodSucceeded),
+				newLauncherPod("test-vmi-target-pod", "test-vmi", "node-b", v1.PodRunning),
+			},
+			[]velero.ResourceIdentifier{
+				{
+					GroupResource: kuberesource.Pods,
+					Namespace:     "test-namespace",
+					Name:          "test-vmi-target-pod",
+				},
+			},
+		},
+		{"Should not include finished launcher pod",
+			kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-vmi",
+				},
+			},
+			[]v1.Pod{
+				newLauncherPod("test-vmi-source-pod", "test-vmi", "node-a", v1.PodSucceeded),
+			},
+			[]velero.ResourceIdentifier{},
+		},
 	}
 
 	logrus.SetLevel(logrus.ErrorLevel)
@@ -677,7 +718,9 @@ func TestAddLauncherPod(t *testing.T) {
 				return &v1.PodList{Items: tc.pods}, nil
 			}
 			vmi := &tc.vmi
-			output, err := addLauncherPod(vmi.GetName(), vmi.GetNamespace(), []velero.ResourceIdentifier{})
+			pod, err := util.GetLauncherPodForVMI(vmi)
+			assert.NoError(t, err)
+			output, err := addLauncherPod(pod, err, vmi.GetNamespace(), []velero.ResourceIdentifier{})
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, output)
 		})
@@ -1096,5 +1139,72 @@ func TestNewDataSourceBackupGraph(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, resources)
 		})
+	}
+}
+
+func newLauncherPod(name, domain, node string, phase v1.PodPhase) v1.Pod {
+	return v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-namespace",
+			Name:      name,
+			Labels: map[string]string{
+				"kubevirt.io": "virt-launcher",
+			},
+			Annotations: map[string]string{
+				"kubevirt.io/domain": domain,
+			},
+		},
+		Spec:   v1.PodSpec{NodeName: node},
+		Status: v1.PodStatus{Phase: phase},
+	}
+}
+
+func TestNewVirtualMachineBackupGraphAfterMigration(t *testing.T) {
+	vm := &kvcore.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-namespace",
+			Name:      "test-vm",
+		},
+		Status: kvcore.VirtualMachineStatus{
+			Created: true,
+		},
+	}
+
+	origListPods, origGetVMI := util.ListPods, util.GetVMI
+	defer func() { util.ListPods, util.GetVMI = origListPods, origGetVMI }()
+	// The migration source pod is listed first and has already completed
+	util.ListPods = func(name, ns string) (*v1.PodList, error) {
+		return &v1.PodList{Items: []v1.Pod{
+			newLauncherPod("test-vm-source-pod", "test-vm", "node-a", v1.PodSucceeded),
+			newLauncherPod("test-vm-target-pod", "test-vm", "node-b", v1.PodRunning),
+		}}, nil
+	}
+
+	expected := []velero.ResourceIdentifier{
+		{
+			GroupResource: schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"},
+			Namespace:     "test-namespace",
+			Name:          "test-vm",
+		},
+		{
+			GroupResource: kuberesource.Pods,
+			Namespace:     "test-namespace",
+			Name:          "test-vm-target-pod",
+		},
+	}
+
+	for _, getVMIErr := range []error{nil, fmt.Errorf("VMI lookup failed")} {
+		util.GetVMI = func(ns, name string) (*kvcore.VirtualMachineInstance, error) {
+			if getVMIErr != nil {
+				return nil, getVMIErr
+			}
+			return &kvcore.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
+				Status:     kvcore.VirtualMachineInstanceStatus{NodeName: "node-b"},
+			}, nil
+		}
+		output, err := NewVirtualMachineBackupGraph(vm)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, output)
 	}
 }
