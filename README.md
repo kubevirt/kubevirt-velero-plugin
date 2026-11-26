@@ -155,7 +155,7 @@ To build the image, run
 $ make build-image
 ```
 
-This builds an image tagged as `registry:5000/kubevirt-velero-plugin:0.1`. If you want to specify a different name or version/tag, run:
+This builds an image tagged as `kubevirt/kubevirt-velero-plugin:latest`. If you want to specify a different name or version/tag, run:
 
 ```bash
 $ DOCKER_PREFIX=your-repo/your-name DOCKER_TAG=your-version-tag make build-image
