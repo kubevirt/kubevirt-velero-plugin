@@ -20,20 +20,23 @@ import (
 )
 
 const (
-	consoleTemplateURI        = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
-	usbredirTemplateURI       = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/usbredir"
-	vncTemplateURI            = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
-	vsockTemplateURI          = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vsock"
-	pauseTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
-	unpauseTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
-	freezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
-	unfreezeTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
-	resetTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
-	softRebootTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
-	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
-	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
-	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
-	screenshotTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc/screenshot"
+	consoleTemplateURI          = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	usbredirTemplateURI         = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/usbredir"
+	vncTemplateURI              = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	vsockTemplateURI            = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vsock"
+	pauseTemplateURI            = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	unpauseTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	backupTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/backup"
+	freezeTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
+	unfreezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
+	externalSnapshotTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/externalsnapshot"
+	commitSnapshotTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/commitsnapshot"
+	resetTemplateURI            = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
+	softRebootTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
+	guestInfoTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
+	userListTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
+	filesystemListTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
+	screenshotTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc/screenshot"
 
 	sevFetchCertChainTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
 	sevQueryLaunchMeasurementTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/querylaunchmeasurement"
@@ -66,6 +69,8 @@ type VirtHandlerConn interface {
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	ExternalSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	CommitSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SEVFetchCertChainURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -77,6 +82,7 @@ type VirtHandlerConn interface {
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -214,12 +220,24 @@ func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port stri
 	return fmt.Sprintf("%s?port=%s&tls=%s", baseURI, port, tls), nil
 }
 
+func (v *virtHandlerConn) BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(backupTemplateURI, vmi)
+}
+
 func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(freezeTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(unfreezeTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) ExternalSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(externalSnapshotTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) CommitSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(commitSnapshotTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error) {

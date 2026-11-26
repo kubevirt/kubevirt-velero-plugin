@@ -43,8 +43,9 @@ import (
 	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
 	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
 	generatedclient "kubevirt.io/client-go/kubevirt"
+	backupv1 "kubevirt.io/client-go/kubevirt/typed/backup/v1beta1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
-	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
+	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1"
 	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
@@ -62,6 +63,8 @@ type KubevirtClient interface {
 	VirtualMachine(namespace string) VirtualMachineInterface
 	KubeVirt(namespace string) KubeVirtInterface
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
+	VirtualMachineBackup(namespace string) backupv1.VirtualMachineBackupInterface
+	VirtualMachineBackupTracker(namespace string) backupv1.VirtualMachineBackupTrackerInterface
 	VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface
 	VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface
@@ -171,6 +174,14 @@ func (k kubevirtClient) VirtualMachinePool(namespace string) poolv1.VirtualMachi
 	return k.generatedKubeVirtClient.PoolV1beta1().VirtualMachinePools(namespace)
 }
 
+func (k kubevirtClient) VirtualMachineBackup(namespace string) backupv1.VirtualMachineBackupInterface {
+	return k.generatedKubeVirtClient.BackupV1beta1().VirtualMachineBackups(namespace)
+}
+
+func (k kubevirtClient) VirtualMachineBackupTracker(namespace string) backupv1.VirtualMachineBackupTrackerInterface {
+	return k.generatedKubeVirtClient.BackupV1beta1().VirtualMachineBackupTrackers(namespace)
+}
+
 func (k kubevirtClient) VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface {
 	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineSnapshots(namespace)
 }
@@ -184,7 +195,7 @@ func (k kubevirtClient) VirtualMachineRestore(namespace string) snapshotv1.Virtu
 }
 
 func (k kubevirtClient) VirtualMachineExport(namespace string) exportv1.VirtualMachineExportInterface {
-	return k.generatedKubeVirtClient.ExportV1beta1().VirtualMachineExports(namespace)
+	return k.generatedKubeVirtClient.ExportV1().VirtualMachineExports(namespace)
 }
 
 func (k kubevirtClient) VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface {

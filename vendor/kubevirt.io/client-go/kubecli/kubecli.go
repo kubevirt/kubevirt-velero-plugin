@@ -27,8 +27,6 @@ import (
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
-	clone "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
-
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	"github.com/spf13/pflag"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -48,6 +46,7 @@ import (
 	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
 	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
 	generatedclient "kubevirt.io/client-go/kubevirt"
+	clone "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
 	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	networkclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
 	promclient "kubevirt.io/client-go/prometheusoperator"
@@ -93,7 +92,9 @@ var restConfigHooks []RestConfigHookFunc
 var restConfigHooksLock sync.Mutex
 
 var virtclient KubevirtClient
-var once sync.Once
+var k8sclient kubernetes.Interface
+var virtOnce sync.Once
+var k8sOnce sync.Once
 
 // Init adds the default `kubeconfig` and `master` flags. It is not added by default to allow integration into
 // the different controller generators which normally add these flags too.
@@ -127,108 +128,6 @@ func FlagSet() *flag.FlagSet {
 	set.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
 	set.StringVar(&master, "master", "", "master url")
 	return set
-}
-
-func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	config.GroupVersion = &v1.SubresourceStorageGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-
-	restClient, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	coreClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	generatedKubeVirtClient, err := generatedclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	cdiClient, err := cdiclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	networkClient, err := networkclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	extensionsClient, err := extclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	secClient, err := secv1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	routeClient, err := routev1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	prometheusClient, err := promclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	snapshotClient, err := k8ssnapshotclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	migrationsClient, err := migrationsv1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	cloneClient, err := clone.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return &kubevirtClient{
-		master,
-		kubeconfig,
-		restClient,
-		config,
-		generatedKubeVirtClient,
-		cdiClient,
-		networkClient,
-		extensionsClient,
-		secClient,
-		routeClient,
-		discoveryClient,
-		prometheusClient,
-		snapshotClient,
-		dynamicClient,
-		migrationsClient,
-		cloneClient,
-		coreClient,
-	}, nil
 }
 
 // DefaultClientConfig creates a clientcmd.ClientConfig with the following hierarchy:
@@ -437,14 +336,10 @@ func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClien
 
 func GetKubevirtClient() (KubevirtClient, error) {
 	var err error
-	once.Do(func() {
+	virtOnce.Do(func() {
 		virtclient, err = GetKubevirtClientFromFlags(master, kubeconfig)
 	})
 	return virtclient, err
-}
-
-func GetKubevirtSubresourceClient() (KubevirtClient, error) {
-	return GetKubevirtSubresourceClientFromFlags(master, kubeconfig)
 }
 
 // Deprecated: Use GetKubevirtClientConfig instead
@@ -454,4 +349,43 @@ func GetConfig() (*restclient.Config, error) {
 
 func GetKubevirtClientConfig() (*rest.Config, error) {
 	return GetConfig()
+}
+
+var GetK8sClientFromClientConfig = func(cmdConfig clientcmd.ClientConfig) (kubernetes.Interface, error) {
+	config, err := cmdConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return GetK8sClientFromRESTConfig(config)
+}
+
+func GetK8sClientFromRESTConfig(config *rest.Config) (kubernetes.Interface, error) {
+	shallowCopy := *config
+	shallowCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
+	shallowCopy.ContentType = runtime.ContentTypeJSON
+
+	executeRestConfigHooks(&shallowCopy)
+
+	k8sClient, err := kubernetes.NewForConfig(&shallowCopy)
+	if err != nil {
+		return nil, err
+	}
+
+	return k8sClient, nil
+}
+
+func GetK8sClientFromFlags(master string, kubeconfig string) (kubernetes.Interface, error) {
+	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	return GetK8sClientFromRESTConfig(config)
+}
+
+func GetK8sClient() (kubernetes.Interface, error) {
+	var err error
+	k8sOnce.Do(func() {
+		k8sclient, err = GetK8sClientFromFlags(master, kubeconfig)
+	})
+	return k8sclient, err
 }
