@@ -15,6 +15,7 @@ import (
 type failFunc func(message string, callerSkip ...int)
 type skipFunc func(message string, callerSkip ...int)
 type cleanupFunc func(args ...any)
+type onFailureFunc func(args ...any)
 type reportFunc func() types.SpecReport
 type addReportEntryFunc func(names string, args ...any)
 type ginkgoWriterInterface interface {
@@ -27,13 +28,19 @@ type ginkgoWriterInterface interface {
 type ginkgoRecoverFunc func()
 type attachProgressReporterFunc func(func() string) func()
 
-func New(writer ginkgoWriterInterface, fail failFunc, skip skipFunc, cleanup cleanupFunc, report reportFunc, addReportEntry addReportEntryFunc, ginkgoRecover ginkgoRecoverFunc, attachProgressReporter attachProgressReporterFunc, randomSeed int64, parallelProcess int, parallelTotal int, noColor bool, offset int) *ginkgoTestingTProxy {
+var formatters = map[bool]formatter.Formatter{
+	true:  formatter.NewWithNoColorBool(true),
+	false: formatter.NewWithNoColorBool(false),
+}
+
+func New(writer ginkgoWriterInterface, fail failFunc, skip skipFunc, cleanup cleanupFunc, onFailure onFailureFunc, report reportFunc, addReportEntry addReportEntryFunc, ginkgoRecover ginkgoRecoverFunc, attachProgressReporter attachProgressReporterFunc, randomSeed int64, parallelProcess int, parallelTotal int, noColor bool, offset int) *ginkgoTestingTProxy {
 	return &ginkgoTestingTProxy{
 		fail:                   fail,
 		offset:                 offset,
 		writer:                 writer,
 		skip:                   skip,
 		cleanup:                cleanup,
+		onFailure:              onFailure,
 		report:                 report,
 		addReportEntry:         addReportEntry,
 		ginkgoRecover:          ginkgoRecover,
@@ -41,7 +48,7 @@ func New(writer ginkgoWriterInterface, fail failFunc, skip skipFunc, cleanup cle
 		randomSeed:             randomSeed,
 		parallelProcess:        parallelProcess,
 		parallelTotal:          parallelTotal,
-		f:                      formatter.NewWithNoColorBool(noColor),
+		f:                      formatters[noColor], //minimize allocations by reusing formatters
 	}
 }
 
@@ -49,6 +56,7 @@ type ginkgoTestingTProxy struct {
 	fail                   failFunc
 	skip                   skipFunc
 	cleanup                cleanupFunc
+	onFailure              onFailureFunc
 	report                 reportFunc
 	offset                 int
 	writer                 ginkgoWriterInterface
@@ -176,6 +184,15 @@ func (t *ginkgoTestingTProxy) TempDir() string {
 	return tmpDir
 }
 
+func (t *ginkgoTestingTProxy) ArtifactDir() string {
+	artifactDir, err := os.MkdirTemp("", "ginkgo")
+	if err != nil {
+		t.fail(fmt.Sprintf("Failed to create artifact directory: %v", err), 1)
+		return ""
+	}
+	return artifactDir
+}
+
 // FullGinkgoTInterface
 func (t *ginkgoTestingTProxy) AddReportEntryVisibilityAlways(name string, args ...any) {
 	finalArgs := []any{internal.Offset(1), types.ReportEntryVisibilityAlways}
@@ -217,6 +234,10 @@ func (t *ginkgoTestingTProxy) DeferCleanup(args ...any) {
 	finalArgs := []any{internal.Offset(1)}
 	t.cleanup(append(finalArgs, args...)...)
 }
+func (t *ginkgoTestingTProxy) DeferOnFailure(args ...any) {
+	finalArgs := []any{internal.Offset(1)}
+	t.onFailure(append(finalArgs, args...)...)
+}
 func (t *ginkgoTestingTProxy) RandomSeed() int64 {
 	return t.randomSeed
 }
@@ -228,4 +249,10 @@ func (t *ginkgoTestingTProxy) ParallelTotal() int {
 }
 func (t *ginkgoTestingTProxy) AttachProgressReporter(f func() string) func() {
 	return t.attachProgressReporter(f)
+}
+func (t *ginkgoTestingTProxy) Output() io.Writer {
+	return t.writer
+}
+func (t *ginkgoTestingTProxy) Attr(key, value string) {
+	t.addReportEntry(key, value, internal.Offset(1), types.ReportEntryVisibilityFailureOrVerbose)
 }
