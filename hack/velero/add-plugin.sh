@@ -34,8 +34,8 @@ function wait_plugin_available {
 
     wait_time=0
     # 'velero plugin get' lists two entries per BackupItemAction/RestoreItemAction (v1 and
-    # v2) and one per ItemBlockAction. main.go registers 9 RIAs, 7 BIAs and 2 IBAs.
-    expected_actions="34"
+    # v2) and one per ItemBlockAction. main.go registers 10 RIAs, 7 BIAs and 2 IBAs.
+    expected_actions="36"
     while [[ $available != $expected_actions ]] && [[ $wait_time -lt 60 ]]; do
       wait_time=$((wait_time + 5))
       sleep 5
