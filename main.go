@@ -39,6 +39,7 @@ func main() {
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-networkattachmentdefinition-action", newNADRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-virtualmachinetemplate-action", newVMTRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-virtualmachinetemplaterequest-action", newVMTRRestoreItemAction).
+		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-virtualmachinebackup-action", newVMBackupRestoreItemAction).
 		RegisterRestoreItemAction("kubevirt-velero-plugin/restore-datasource-action", newDSRestoreItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-datavolume-action", newDVBackupItemAction).
 		RegisterBackupItemAction("kubevirt-velero-plugin/backup-pvc-action", newPVCBackupItemAction).
@@ -105,6 +106,11 @@ func newVMTRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
 func newVMTRRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
 	logger.Debug("Creating VMTRRestoreItemAction")
 	return plugin.NewVMTRRestoreItemAction(logger), nil
+}
+
+func newVMBackupRestoreItemAction(logger logrus.FieldLogger) (interface{}, error) {
+	logger.Debug("Creating VMBackupRestoreItemAction")
+	return plugin.NewVMBackupRestoreItemAction(logger), nil
 }
 
 func newDSBackupItemAction(logger logrus.FieldLogger) (interface{}, error) {

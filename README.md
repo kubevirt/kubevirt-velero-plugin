@@ -8,7 +8,7 @@ For more information on Velero check https://velero.io/.
 
 ## Plugin actions Included
 
-The plugin registers backup and restore actions that operate on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance, VirtualMachineTemplate, VirtualMachineTemplateRequest.
+The plugin registers backup and restore actions that operate on following resources: DataVolume, PersistentVolumeClaim, Pod, VirtualMachine, VirtualMachineInstance, VirtualMachineTemplate, VirtualMachineTemplateRequest, VirtualMachineBackup, VirtualMachineBackupTracker.
 
 ### **DVBackupItemAction** 
 An action that backs up the `PersistentVolumeClaim` and `DataVolume`
@@ -68,6 +68,14 @@ is left alone, because virt-template strips a hardcoded one when it processes th
 An action that always skips restoring `VirtualMachineTemplateRequest`. A request is a one-shot job that snapshots
 a source VM and produces a `VirtualMachineTemplate`; restoring it would cause it to re-run against the (possibly
 different) restored source VM. The `VirtualMachineTemplate` it already produced is restored on its own.
+
+### **VMBackupRestoreItemAction**
+An action that always skips restoring `VirtualMachineBackup` and `VirtualMachineBackupTracker` (`backup.kubevirt.io`).
+They belong to the changed block tracking backup application that created them and describe its backups at the
+time of the Velero backup, so restoring them would start a new backup or leave a tracker that no longer matches the
+restored disks. To also leave them out of the Velero backup, add
+`--exclude-resources virtualmachinebackups.backup.kubevirt.io,virtualmachinebackuptrackers.backup.kubevirt.io`
+to `velero backup create`.
 
 ## Compatibility
 
